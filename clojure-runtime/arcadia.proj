@@ -16,7 +16,7 @@
   
   <Target Name="Build">
     <MSBuild Projects="Clojure/ClojureCLR.sln"
-             Properties="Runtime=$(Runtime);PlatformSym=$(PlatformSym);DirectLinking=$(DirectLinking)"/>
+             Properties="Configuration=$(Configuration);Runtime=$(Runtime);PlatformSym=$(PlatformSym);DirectLinking=$(DirectLinking)"/>
   </Target>
   
   <Target Name="Dist" DependsOnTargets="Build">
