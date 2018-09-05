@@ -636,8 +636,6 @@ namespace clojure.lang
             //Stopwatch sw = new Stopwatch();
             //sw.Start();
             load("clojure/core");
-            Assembly.LoadFrom("clojure.spec.alpha.dll");
-            Assembly.LoadFrom("clojure.core.specs.alpha.dll");
             //sw.Stop();
             //Console.WriteLine("Initial clojure/core load: {0} milliseconds.", sw.ElapsedMilliseconds);
 
