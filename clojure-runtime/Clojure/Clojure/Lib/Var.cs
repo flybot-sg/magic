@@ -14,6 +14,8 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Remoting.Messaging;
 using System.Runtime.Serialization;
 using System.Threading;
 
@@ -31,7 +33,7 @@ namespace clojure.lang
     /// which is a binding that is shared by all threads that do not have a per-thread binding."</blockquote>
     /// </remarks>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2229:ImplementSerializationConstructors"), Serializable]
-    public sealed class Var : ARef, IFn, IRef, Settable, ISerializable
+    public sealed class Var : ARef, IFn, IRef, Settable, ISerializable, IMeta
     {
         #region class TBox
 
@@ -71,7 +73,7 @@ namespace clojure.lang
 
         #region class Unbound
 
-        sealed class Unbound : AFn
+        internal sealed class Unbound : AFn
         {
             readonly Var _v;
 
@@ -85,10 +87,10 @@ namespace clojure.lang
                 return "Unbound: " + _v.ToString();
             }
 
-            //public Object throwArity(int n)
-            //{
-            //    throw new InvalidOperationException("Attempting to call unbound fn: " + _v.ToString());
-            //}
+            public Object throwArity(int n)
+            {
+                throw new InvalidOperationException("Attempting to call unbound fn: " + _v.ToString());
+            }
         }
 
         #endregion
@@ -208,7 +210,19 @@ namespace clojure.lang
         /// </summary>
         volatile bool _dynamic = false;
 
-        static Keyword _privateKey = Keyword.intern(null, "private");
+        // track macro and private statically to avoid accessing the metadata map during boot
+        internal bool _macro = false;
+        internal bool _private = false;
+        
+        // is this var loading its metadata lazily?
+        internal bool _lazyMetaData = false;
+        
+        // the container type containing the metadata to load lazily
+        private Type _metaDataType;
+        // have we lazily initialized the metadata from the container type?
+        private bool _initializedMetaDataType;
+
+        internal static Keyword _privateKey = Keyword.intern(null, "private");
         //static IPersistentMap _privateMeta = new PersistentArrayMap(new object[] { _privateKey, RT.T });
         static IPersistentMap _privateMeta = new PersistentArrayMap(new object[] { _privateKey, true });
         static Keyword _macroKey = Keyword.intern(null, "macro");
@@ -444,6 +458,36 @@ namespace clojure.lang
         #region Metadata management
 
         /// <summary>
+        /// Enables lazy metadata loading and sets the container type to load the metadata from
+        /// </summary>
+        /// <param name="t">The container type containing the metadata</param>
+        public void setLazyMetaContainerType(Type t)
+        {
+            _metaDataType = t;
+            _initializedMetaDataType = false;
+            _lazyMetaData = true;
+        }
+        
+        /// <summary>
+        /// Gets the metadata attached to the object.
+        /// </summary>
+        /// <remarks>
+        /// If loading metadata lazily, we will initialize metadata from the container type if we have not
+        /// already done so.
+        /// </remarks>
+        /// <returns>An immutable map representing the object's metadata.</returns>
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public IPersistentMap meta()
+        {
+            if (!_initializedMetaDataType && _lazyMetaData)
+            {
+                RuntimeHelpers.RunClassConstructor(_metaDataType.TypeHandle);
+                _initializedMetaDataType = true;
+            }
+            return base.meta();
+        }
+        
+        /// <summary>
         /// Set the metadata attached to this var.
         /// </summary>
         /// <param name="m">The metadata to attach.</param>
@@ -464,24 +508,27 @@ namespace clojure.lang
         public void setMacro()
         {
             //alterMeta(_assoc, RT.list(_macroKey, RT.T));
+            _macro = true;
             alterMeta(_assoc, RT.list(_macroKey, true));
         }
 
         /// <summary>
         /// Is the var a macro?
         /// </summary>
+        /// <remarks>Avoids accessing the metadata map if loading lazily</remarks>
         public bool IsMacro
         {
-            get { return RT.booleanCast(meta().valAt(_macroKey)); }
+            get { return _lazyMetaData ? _macro : RT.booleanCast(meta().valAt(_macroKey)); }
         }
 
         /// <summary>
         /// Is the var public?
         /// </summary>
+        /// <remarks>Avoids accessing the metadata map if loading lazily</remarks>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
         public bool isPublic
         {
-            get { return !RT.booleanCast(meta().valAt(_privateKey)); }
+            get { return _lazyMetaData ? !_private : !RT.booleanCast(meta().valAt(_privateKey)); }
         }
 
         /// <summary>

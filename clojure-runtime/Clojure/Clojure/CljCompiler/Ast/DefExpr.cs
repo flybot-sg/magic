@@ -217,8 +217,8 @@ namespace clojure.lang.CljCompiler.Ast
 
         #region Code generation
 
-        static readonly FieldInfo VarNsFI = typeof(Var).GetField("_ns", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
-        static readonly FieldInfo VarSymFI = typeof(Var).GetField("_sym", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+        static readonly PropertyInfo VarNsPI = typeof(Var).GetProperty("Namespace", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+        static readonly PropertyInfo VarSymPI = typeof(Var).GetProperty("Symbol", BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
         static readonly MethodInfo NamespaceReferMI = typeof(Namespace).GetMethod("refer");
 
         public void Emit(RHC rhc, ObjExpr objx, CljILGen ilg)
@@ -227,22 +227,27 @@ namespace clojure.lang.CljCompiler.Ast
 
             if ( _shadowsCoreMapping )
             {
+                LocalBuilder locVar = ilg.DeclareLocal(typeof(Var));
+                GenContext.SetLocalName(locVar, "var");
+                
                 LocalBuilder locNs = ilg.DeclareLocal(typeof(Namespace));
                 GenContext.SetLocalName(locNs, "ns");
 
-                ilg.Emit(OpCodes.Dup);
-                ilg.EmitFieldGet(VarNsFI);
+                ilg.Emit(OpCodes.Stloc, locVar);
+                ilg.Emit(OpCodes.Ldloc, locVar);
+                ilg.EmitPropertyGet(VarNsPI);
                 ilg.Emit(OpCodes.Stloc,locNs);
 
                 LocalBuilder locSym = ilg.DeclareLocal(typeof(Symbol));
                 GenContext.SetLocalName(locSym, "sym");
 
-                ilg.Emit(OpCodes.Dup);
-                ilg.EmitFieldGet(VarSymFI);
+                ilg.Emit(OpCodes.Ldloc, locVar);
+                ilg.EmitPropertyGet(VarSymPI);
                 ilg.Emit(OpCodes.Stloc, locSym);
 
                 ilg.Emit(OpCodes.Ldloc, locNs);
                 ilg.Emit(OpCodes.Ldloc, locSym);
+                ilg.Emit(OpCodes.Ldloc, locVar);
                 ilg.Emit(OpCodes.Call, NamespaceReferMI);
             }
 
@@ -252,12 +257,34 @@ namespace clojure.lang.CljCompiler.Ast
             }
             if (_meta != null)
             {
-                if (_initProvided || true) //IncludesExplicitMetadata((MapExpr)_meta))
+                if (Compiler.IsExprConstant(_meta))
                 {
+                    // compile constant metadata into a container type to be loaded lazily
+                    var context = (GenContext)Compiler.CompilerContextVar.deref();
+                    var metaTypeName = string.Format("__meta_{0}{1}", Compiler.munge(_var.Symbol.ToString()), RT.nextID());
+                    var metaType = context.TB.DefineNestedType(metaTypeName);
+                    var metaTypeCctor = metaType.DefineTypeInitializer();
+                    var metaIlg = new CljILGen(metaTypeCctor.GetILGenerator());
+                    objx.EmitVar(metaIlg, _var);
+                    _meta.Emit(RHC.Expression, objx, metaIlg);
+                    metaIlg.Emit(OpCodes.Castclass, typeof(IPersistentMap));
+                    metaIlg.Emit(OpCodes.Call, Compiler.Method_Var_setMeta);
+                    metaIlg.Emit(OpCodes.Ret);
+                    metaType.CreateType();
                     ilg.Emit(OpCodes.Dup);
-                    _meta.Emit(RHC.Expression, objx, ilg);
-                    ilg.Emit(OpCodes.Castclass, typeof(IPersistentMap));
-                    ilg.Emit(OpCodes.Call, Compiler.Method_Var_setMeta);
+                    ilg.EmitType(metaType);
+                    ilg.Emit(OpCodes.Call, Compiler.Method_Var_setLazyMetaContainerType);
+                }
+                else
+                {
+                    // metadata is not constant, is must be compiled inline and evaluated when the var is initialized
+                    if (_initProvided || true) //IncludesExplicitMetadata((MapExpr)_meta))
+                    {
+                        ilg.Emit(OpCodes.Dup);
+                        _meta.Emit(RHC.Expression, objx, ilg);
+                        ilg.Emit(OpCodes.Castclass, typeof(IPersistentMap));
+                        ilg.Emit(OpCodes.Call, Compiler.Method_Var_setMeta);
+                    }
                 }
             }
             if (_initProvided)

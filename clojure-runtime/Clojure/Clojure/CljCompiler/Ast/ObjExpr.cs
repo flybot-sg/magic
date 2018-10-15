@@ -307,6 +307,7 @@ namespace clojure.lang.CljCompiler.Ast
                 return CompiledType;
 
             string publicTypeName = IsDefType /* || (CanBeDirect && Compiler.IsCompiling) */ ? InternalName : InternalName + "__" + RT.nextID();
+            publicTypeName = publicTypeName.Replace("/", "$");
 
             TypeBuilder = context.AssemblyGen.DefinePublicType(publicTypeName, superType, true);
             context = context.WithNewDynInitHelper().WithTypeBuilder(TypeBuilder);
@@ -1066,20 +1067,20 @@ namespace clojure.lang.CljCompiler.Ast
 
         internal void EmitVar(CljILGen ilg, Var var)
         {
-            int i = (int)Vars.valAt(var);
+            int i = (int) (Vars.containsKey(var) ? Vars.valAt(var) : -1);
             EmitConstant(ilg, i, var);
         }
 
 
         internal void EmitKeyword(CljILGen ilg, Keyword kw)
         {
-            int i = (int)Keywords.valAt(kw);
+            int i = (int) (Keywords.containsKey(kw) ? Keywords.valAt(kw) : -1);
             EmitConstant(ilg, i, kw);
         }
 
         internal void EmitVarValue(CljILGen ilg, Var v)
         {
-            int i = (int)Vars.valAt(v);
+            int i = (int) (Vars.containsKey(v) ? Vars.valAt(v) : -1);
             if ( !v.isDynamic() )
             {
                 EmitConstant(ilg, i, v);

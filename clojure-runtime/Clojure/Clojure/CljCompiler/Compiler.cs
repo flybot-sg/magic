@@ -24,6 +24,7 @@ using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using System.Runtime.Serialization;
 using System.Collections;
+using System.Runtime.CompilerServices;
 
 namespace clojure.lang
 {
@@ -31,6 +32,28 @@ namespace clojure.lang
      System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling")]
     public static class Compiler
     {
+
+        [Flags]
+        public enum StaticMetadataFlags
+        {
+            None      = 0,
+            Private   = 1 << 0,
+            Dynamic   = 1 << 1,
+            Macro     = 1 << 2
+        }
+
+        /// <summary>
+        /// Stores a namespace's body in CLR metadata for optimized startups
+        /// </summary>
+        /// <see href="https://github.com/arcadia-unity/clojure-clr/wiki/Namespace-Load-Optimization"/>
+        public class NamespaceBodyAttribute : Attribute
+        {
+            public string[] names;
+            public Type[] types;
+            public StaticMetadataFlags[] metadataFlags;
+            public Type[] metadataTypes;
+        }
+        
         #region other constants
 
         internal const int MaxPositionalArity = 20;
@@ -66,6 +89,7 @@ namespace clojure.lang
         public static readonly Symbol LetSym = Symbol.intern("let*");
         public static readonly Symbol LetfnSym = Symbol.intern("letfn*");
         public static readonly Symbol DoSym = Symbol.intern("do");
+        public static readonly Symbol DefmacroSym = Symbol.intern("defmacro");
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "Fn")]
         public static readonly Symbol FnSym = Symbol.intern("fn*");
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "Fn")]
@@ -188,6 +212,14 @@ namespace clojure.lang
         internal static readonly Var ConstantsVar = Var.create().setDynamic();      //vector<object>
         internal static readonly Var ConstantIdsVar = Var.create().setDynamic();   // IdentityHashMap
         internal static readonly Var KeywordsVar = Var.create().setDynamic();       //keyword->constid
+        internal static readonly Var RegisterConstants = Var.create().setDynamic(); // bool, bind to true to disable registration for constants
+        
+        // NamespaceBodyAttribute optimization book keeping
+        internal static readonly Var TopLevelDefinitionNames = Var.create().setDynamic(); //List<string>
+        internal static readonly Var TopLevelExpressionTypes = Var.create().setDynamic(); // List<Type>
+        internal static readonly Var TopLevelExpressionMetadataFlags = Var.create().setDynamic(); // List<StaticMetadataFlags>
+        internal static readonly Var TopLevelExpressionMetadataTypes = Var.create().setDynamic(); // List<Type>
+        internal static readonly Var CurrentlyCompilingDefmacro = Var.create().setDynamic(); // bool
 
         internal static readonly Var KeywordCallsitesVar = Var.create().setDynamic();  // vector<keyword>
         internal static readonly Var ProtocolCallsitesVar = Var.create().setDynamic(); // vector<var>
@@ -305,6 +337,7 @@ namespace clojure.lang
 
         internal static readonly PropertyInfo Method_Compiler_CurrentNamespace = typeof(Compiler).GetProperty("CurrentNamespace");
         internal static readonly MethodInfo Method_Compiler_PushNS = typeof(Compiler).GetMethod("PushNS");
+        internal static readonly MethodInfo Method_Compiler_InitializeNamespace = typeof(Compiler).GetMethod("InitializeNamespace");
 
         internal static readonly MethodInfo Method_ILookupSite_fault = typeof(ILookupSite).GetMethod("fault");
         internal static readonly MethodInfo Method_ILookupThunk_get = typeof(ILookupThunk).GetMethod("get");
@@ -355,6 +388,7 @@ namespace clojure.lang
         internal static readonly MethodInfo Method_Var_get = typeof(Var).GetMethod("deref");
         internal static readonly MethodInfo Method_Var_set = typeof(Var).GetMethod("set");
         internal static readonly MethodInfo Method_Var_setMeta = typeof(Var).GetMethod("setMeta");
+        internal static readonly MethodInfo Method_Var_setLazyMetaContainerType = typeof(Var).GetMethod("setLazyMetaContainerType");
         internal static readonly MethodInfo Method_Var_popThreadBindings = typeof(Var).GetMethod("popThreadBindings");
         internal static readonly MethodInfo Method_Var_getRawRoot = typeof(Var).GetMethod("getRawRoot");
         internal static readonly MethodInfo Method_Var_setDynamic0 = typeof(Var).GetMethod("setDynamic", Type.EmptyTypes);
@@ -551,7 +585,7 @@ namespace clojure.lang
         
         public static void RegisterVar(Var v)
         {
-            if (!VarsVar.isBound)
+            if (!VarsVar.isBound || !RT.booleanCast(RegisterConstants.deref()))
                 return;
             IPersistentMap varsMap = (IPersistentMap)VarsVar.deref();
             Object id = RT.get(varsMap, v);
@@ -611,7 +645,7 @@ namespace clojure.lang
 
         internal static int RegisterConstant(Object o)
         {
-            if (!ConstantsVar.isBound)
+            if (!ConstantsVar.isBound || !RT.booleanCast(RegisterConstants.deref()))
                 return -1;
             PersistentVector v = (PersistentVector)ConstantsVar.deref();
             IdentityHashMap ids = (IdentityHashMap)ConstantIdsVar.deref();
@@ -625,7 +659,7 @@ namespace clojure.lang
 
         internal static KeywordExpr RegisterKeyword(Keyword keyword)
         {
-            if (!KeywordsVar.isBound)
+            if (!KeywordsVar.isBound || !RT.booleanCast(RegisterConstants.deref()))
                 return new KeywordExpr(keyword);
 
             IPersistentMap keywordsMap = (IPersistentMap)KeywordsVar.deref();
@@ -1497,6 +1531,102 @@ namespace clojure.lang
             return null;
         }
 
+        /// <summary>
+        /// Initializes an AOT'd namespace given data extracted from the NamespaceBodyAttribute associated with the
+        /// namespace's initialization type.
+        /// </summary>
+        /// <see href="https://github.com/arcadia-unity/clojure-clr/wiki/Namespace-Load-Optimization"/>
+        /// <param name="nsName">The name of the namespace to initialize</param>
+        /// <param name="names">Entries are names of the vars if the expression is a defn with constant metadata,
+        /// null otherwise</param>
+        /// <param name="types">Entries are subclasses of IFn to instantiate and bind to the var if expression is a defn
+        /// with constant metadata, a type that implements the expression in its static initializer otherwise.</param>
+        /// <param name="metadataFlags">Entries are a bitmask of the metadata used by the compiler if expression is a
+        /// defn with constant metadata, null otherwise</param>
+        /// <param name="metadataTypes">Entries are types that implement binding metadata to vars in their static
+        /// initializer if expression is a defn with constant metadata, null otherwise</param>
+        public static void InitializeNamespace(string nsName, string[] names, Type[] types, StaticMetadataFlags[] metadataFlags, Type[] metadataTypes)
+        {
+            int i = 0;
+            do
+            {
+                string name = names[i];
+                Type type = types[i];
+                if (name != null)
+                {
+                    var v = RT.var(nsName, name);
+                    v.bindRoot(Activator.CreateInstance(type));
+                    v.setLazyMetaContainerType(metadataTypes[i]);
+                    if (metadataFlags[i].HasFlag(StaticMetadataFlags.Private))
+                        v._private = true;
+                    if (metadataFlags[i].HasFlag(StaticMetadataFlags.Macro))
+                        v._macro = true;
+                    if (metadataFlags[i].HasFlag(StaticMetadataFlags.Dynamic))
+                        v.setDynamic();
+                }
+                else
+                {
+                    // static initializers are used to avoid needing to look up a method by name
+                    RuntimeHelpers.RunClassConstructor(type.TypeHandle);
+                }
+                i++;
+            }
+            while (i < names.Length);
+        }
+
+        /// <summary>
+        /// Is an expression entirely a compile time constant?
+        /// </summary>
+        /// <param name="e">The expression to test</param>
+        /// <returns>True if e is a constant expression or a map, set, or vector expression made of constant
+        /// expressions. Returns false otherwise.</returns>
+        public static bool IsExprConstant(Expr e)
+        {
+            if (e is LiteralExpr)
+                return true;
+
+            var mapExpr = e as MapExpr;
+            if (mapExpr != null)
+            {
+                for (int i = 0; i < mapExpr.KeyVals.count(); i++)
+                {
+                    var kvExpr = mapExpr.KeyVals.nth(i) as Expr;
+                    if (!IsExprConstant(kvExpr))
+                        return false;
+                }
+
+                return true;
+            }
+            
+            var vectorExpr = e as VectorExpr;
+            if (vectorExpr != null)
+            {
+                for (int i = 0; i < vectorExpr.Args.count(); i++)
+                {
+                    var vExpr = vectorExpr.Args.nth(i) as Expr;
+                    if (!IsExprConstant(vExpr))
+                        return false;
+                }
+
+                return true;
+            }
+            
+            var setExpr = e as SetExpr;
+            if (setExpr != null)
+            {
+                for (int i = 0; i < setExpr.Keys.count(); i++)
+                {
+                    var sExpr = setExpr.Keys.nth(i) as Expr;
+                    if (!IsExprConstant(sExpr))
+                        return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+        
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA1801:ReviewUnusedParameters", MessageId = "sourceDirectory")]
         public static object Compile(GenContext context,TextReader rdr, string sourceDirectory, string sourceName, string relativePath)
         {
@@ -1540,6 +1670,14 @@ namespace clojure.lang
                 ConstantIdsVar, new IdentityHashMap(),
                 KeywordsVar, PersistentHashMap.EMPTY,
                 VarsVar, PersistentHashMap.EMPTY,
+                // skipping constants at the top level turns out to be faster due to jit costs
+                RegisterConstants, false,
+                // NamespaceBodyAttribute optimization book keeping 
+                TopLevelDefinitionNames, new List<string>(),
+                TopLevelExpressionTypes, new List<Type>(),
+                TopLevelExpressionMetadataFlags, new List<StaticMetadataFlags>(),
+                TopLevelExpressionMetadataTypes, new List<Type>(),
+                CurrentlyCompilingDefmacro, false,
                 RT.UncheckedMathVar, RT.UncheckedMathVar.deref(),
                 RT.WarnOnReflectionVar, RT.WarnOnReflectionVar.deref(),
                 RT.DataReadersVar, RT.DataReadersVar.deref(),
@@ -1556,6 +1694,59 @@ namespace clojure.lang
                     Compile1(initTB, ilg, objx, form);
                 }
 
+                // collect accumulated names and types and build the namespace's metadata 
+                var accumulatedNames = (List<string>) TopLevelDefinitionNames.deref();
+                var accumulatedTypes = (List<Type>) TopLevelExpressionTypes.deref();
+                var accumulatedStaticMetadataFlags =
+                    (List<StaticMetadataFlags>) TopLevelExpressionMetadataFlags.deref();
+                var accumulatedStaticMetadataTypes = (List<Type>) TopLevelExpressionMetadataTypes.deref();
+
+                if (accumulatedNames.Count > 0)
+                {
+                    var namespaceBodyAttributeBuilder =
+                        new CustomAttributeBuilder(
+                            typeof(NamespaceBodyAttribute).GetConstructor(Type.EmptyTypes),
+                            new object[] { },
+                            new[]
+                            {
+                                typeof(NamespaceBodyAttribute).GetField("names"),
+                                typeof(NamespaceBodyAttribute).GetField("types"),
+                                typeof(NamespaceBodyAttribute).GetField("metadataFlags"),
+                                typeof(NamespaceBodyAttribute).GetField("metadataTypes")
+                            },
+                            new object[]
+                            {
+                                accumulatedNames.ToArray(),
+                                accumulatedTypes.ToArray(),
+                                accumulatedStaticMetadataFlags.ToArray(),
+                                accumulatedStaticMetadataTypes.ToArray()
+                            });
+
+                    initTB.SetCustomAttribute(namespaceBodyAttributeBuilder);
+
+                    // initialize the namespace at runtime using the metadata and InitializeNamespace 
+                    var namespaceName = CurrentNamespace.Name.ToString();
+                    var attributeLocal = ilg.DeclareLocal(typeof(NamespaceBodyAttribute));
+                    ilg.EmitString(namespaceName);
+                    ilg.Emit(OpCodes.Ldtoken, initTB);
+                    ilg.EmitCall(typeof(Type).GetMethod("GetTypeFromHandle"));
+                    ilg.Emit(OpCodes.Ldc_I4_0);
+                    ilg.EmitCall(typeof(Type).GetMethod("GetCustomAttributes", new[] {typeof(bool)}));
+                    ilg.Emit(OpCodes.Ldc_I4_0);
+                    ilg.Emit(OpCodes.Ldelem_Ref);
+                    ilg.EmitExplicitCast(typeof(object), typeof(NamespaceBodyAttribute));
+                    ilg.Emit(OpCodes.Stloc, attributeLocal);
+                    ilg.Emit(OpCodes.Ldloc, attributeLocal);
+                    ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("names"));
+                    ilg.Emit(OpCodes.Ldloc, attributeLocal);
+                    ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("types"));
+                    ilg.Emit(OpCodes.Ldloc, attributeLocal);
+                    ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("metadataFlags"));
+                    ilg.Emit(OpCodes.Ldloc, attributeLocal);
+                    ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("metadataTypes"));
+                    ilg.EmitCall(Method_Compiler_InitializeNamespace);
+                }
+                
                 initMB.GetILGenerator().Emit(OpCodes.Ret);
 
                 // static fields for constants
@@ -1612,8 +1803,30 @@ namespace clojure.lang
  
             Var.pushThreadBindings(RT.map(LineVar, line, ColumnVar, column, SourceSpanVar, sourceSpan));
 
+            var accumulatedNames = (List<string>)TopLevelDefinitionNames.deref();
+            var accumulatedTypes = (List<Type>)TopLevelExpressionTypes.deref();
+            var accumulatedStaticMetadataFlags = (List<StaticMetadataFlags>)TopLevelExpressionMetadataFlags.deref();
+            var accumulatedStaticMetadataTypes = (List<Type>)TopLevelExpressionMetadataTypes.deref();
+
             try
             {
+                // whether or not an var is a macro is not present in the metadata, so we track it in a dynamic var
+                if (form is ISeq && Util.Equals(RT.first(form), DefmacroSym))
+                {
+                    Var.pushThreadBindings(RT.map(CurrentlyCompilingDefmacro, true));
+                    try
+                    {
+                        form = Macroexpand(form);
+                        for (ISeq s = RT.next(form); s != null; s = RT.next(s))
+                            Compile1(tb, ilg, objx, RT.first(s));
+                    }
+                    finally
+                    {
+                        Var.popThreadBindings();
+                    }
+                    
+                }
+                
                 form = Macroexpand(form);
                 if (form is ISeq && Util.Equals(RT.first(form), DoSym))
                 {
@@ -1623,12 +1836,69 @@ namespace clojure.lang
                 else
                 {
                     Expr expr = Analyze(evPC, form);
-                    objx.Keywords = (IPersistentMap)KeywordsVar.deref();
-                    objx.Vars = (IPersistentMap)VarsVar.deref();
-                    objx.Constants = (PersistentVector)ConstantsVar.deref();
-                    objx.EmitConstantFieldDefs(tb);
-                    expr.Emit(RHC.Expression,objx,ilg);
-                    ilg.Emit(OpCodes.Pop);
+                    var defExpr = expr as DefExpr;
+                    if (defExpr != null && defExpr.Init != null && defExpr.Init is FnExpr &&
+                        IsExprConstant(defExpr.Meta))
+                    {
+                        // the optimized path: a defn with constant metadata
+                        
+                        // the name of the defn gets recorded for insertion into the NamespaceBodyAttribute
+                        accumulatedNames.Add(defExpr.Var.Symbol.ToString());
+                        
+                        // the type of the IFn gets recorded for insertion into the NamespaceBodyAttribute
+                        accumulatedTypes.Add(((FnExpr) defExpr.Init).TypeBuilder);
+                        
+                        // the metadata gets compiled into its own type to be loaded lazily
+                        var varMetaExpr = defExpr.Meta;
+                        var metaTypeName = string.Format("__meta_{0}{1}", munge(defExpr.Var.Symbol.ToString()),
+                            RT.nextID());
+                        var metaType = tb.DefineNestedType(metaTypeName);
+                        var metaTypeCctor = metaType.DefineTypeInitializer();
+                        var metaIlg = new CljILGen(metaTypeCctor.GetILGenerator());
+                        objx.EmitVar(metaIlg, defExpr.Var);
+                        varMetaExpr.Emit(RHC.Expression, objx, metaIlg);
+                        metaIlg.Emit(OpCodes.Castclass, typeof(IPersistentMap));
+                        metaIlg.Emit(OpCodes.Call, Method_Var_setMeta);
+                        metaIlg.Emit(OpCodes.Ret);
+                        metaType.CreateType();
+                        // the type containing the metadata expression gets recorded for insertion into the NamespaceBodyAttribute
+                        accumulatedStaticMetadataTypes.Add(metaType);
+                        
+                        // the static metadata gets computed
+                        var varMeta = (IPersistentMap) varMetaExpr.Eval(); // TODO is this safe?
+                        StaticMetadataFlags staticMetadataFlags = default(StaticMetadataFlags);
+                        if (varMeta.valAt(Var._privateKey) != null)
+                            staticMetadataFlags |= StaticMetadataFlags.Private;
+                        if (RT.booleanCast(CurrentlyCompilingDefmacro.deref()))
+                            staticMetadataFlags |= StaticMetadataFlags.Macro;
+                        if (defExpr.IsDynamic)
+                            staticMetadataFlags |= StaticMetadataFlags.Dynamic;
+                        // the static metadata gets recorded for insertion into the NamespaceBodyAttribute
+                        accumulatedStaticMetadataFlags.Add(staticMetadataFlags);
+                    }
+                    else
+                    {
+                        // the normal path: everything else
+                        
+                        // compilation proceeds as before, except that the bytecode is placed into new type's type
+                        // initializer to be invoked by InitializeNamespace at runtime
+                        var expressionTypeName = string.Format("__expr{0}", RT.nextID());
+                        var expressionType = tb.DefineNestedType(expressionTypeName);
+                        var expressionTypeInitMB = expressionType.DefineTypeInitializer();
+                        CljILGen expressionILG = new CljILGen(expressionTypeInitMB.GetILGenerator());
+                        objx.Keywords = (IPersistentMap) KeywordsVar.deref();
+                        objx.Vars = (IPersistentMap) VarsVar.deref();
+                        objx.Constants = (PersistentVector) ConstantsVar.deref();
+                        objx.EmitConstantFieldDefs(expressionType);
+                        expr.Emit(RHC.Expression, objx, expressionILG);
+                        expressionILG.Emit(OpCodes.Pop);
+                        expressionILG.Emit(OpCodes.Ret);
+                        accumulatedNames.Add(null);
+                        accumulatedTypes.Add(expressionType);
+                        accumulatedStaticMetadataTypes.Add(null);
+                        accumulatedStaticMetadataFlags.Add(StaticMetadataFlags.None);
+                        expressionType.CreateType();
+                    }
                     expr.Eval();
                 }
             }
