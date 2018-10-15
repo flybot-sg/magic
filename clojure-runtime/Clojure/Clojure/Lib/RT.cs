@@ -649,6 +649,7 @@ namespace clojure.lang
             //sw.Stop();
             //Console.WriteLine("Initial clojure/core load: {0} milliseconds.", sw.ElapsedMilliseconds);
 
+            if ( RuntimeBootstrapFlag._doRTPostBootstrap )
             PostBootstrapInit();
 
             CHECK_SPECS = RT.instrumentMacros;
@@ -671,12 +672,15 @@ namespace clojure.lang
                 refer.invoke(CLOJURE);
                 MaybeLoadCljScript("user.clj");
 
-                // start socket servers
-                Var require = var("clojure.core", "require");
-                Symbol SERVER = Symbol.intern("clojure.core.server");
-                require.invoke(SERVER);
-                Var start_servers = var("clojure.core.server", "start-servers");
-                start_servers.invoke(Environment.GetEnvironmentVariables());
+                if (RuntimeBootstrapFlag._startDefaultServer)
+                {
+                    // start socket servers
+                    Var require = var("clojure.core", "require");
+                    Symbol SERVER = Symbol.intern("clojure.core.server");
+                    require.invoke(SERVER);
+                    Var start_servers = var("clojure.core.server", "start-servers");
+                    start_servers.invoke(Environment.GetEnvironmentVariables());
+                }
             }
             finally
             {
@@ -3818,6 +3822,12 @@ namespace clojure.lang
     {
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]
         public static bool _doRTBootstrap = true;
+        
+        /// <summary>
+        /// Starts default clojure.core.server REPL servers at startup.
+        /// </summary>
+        /// <remarks>Set to false to disable the default REPL server from starting to avoid the cost in startup time</remarks>
+        public static bool _startDefaultServer = true;
 
         /// <summary>
         /// Disable file loading
@@ -3826,6 +3836,11 @@ namespace clojure.lang
         /// Used in production systems when all namespaces are to be found in loaded assemblies.</remarks>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]
         public static bool DisableFileLoad = false;
+
+        /// <summary>
+        /// Preform post bootstrap
+        /// </summary>
+        public static bool _doRTPostBootstrap = true;
     }
 
 }
