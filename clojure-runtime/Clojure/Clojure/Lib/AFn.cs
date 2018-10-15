@@ -464,7 +464,7 @@ namespace clojure.lang
 
         public Exception WrongArityException(int reqArity)
         {
-            string name = Util.NameForType(GetType()); 
+            string name = this is Var.Unbound ? (this as Var.Unbound).ToString() : Util.NameForType(GetType()); 
             return new ArityException(
                 reqArity,
                 Compiler.demunge(name));
