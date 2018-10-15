@@ -2,8 +2,6 @@
 
 all: Clojure/Clojure.Source/clojure/spec Clojure/Clojure.Source/clojure/core/specs
 	@CLOJURE_SPEC_SKIP_MACROS=true xbuild
-	@rm -fr Clojure/Clojure.Source/clojure/spec
-	@rm -fr Clojure/Clojure.Source/clojure/core/specs
 
 get_spec: Clojure/Clojure.Source/clojure/spec Clojure/Clojure.Source/clojure/core/specs
 	
@@ -11,7 +9,7 @@ clean_spec:
 	@rm -fr Clojure/Clojure.Source/clojure/spec
 	@rm -fr Clojure/Clojure.Source/clojure/core/specs
 
-clean: clean_spec
+clean: 
 	@rm -fr bin
 
 Clojure/Clojure.Source/clojure/spec:
