@@ -164,6 +164,7 @@ namespace clojure.lang.CljCompiler.Ast
                         Compiler.ConstantIdsVar, new IdentityHashMap(),
                         Compiler.KeywordsVar, PersistentHashMap.EMPTY,
                         Compiler.VarsVar, PersistentHashMap.EMPTY,
+                        Compiler.RegisterConstants, true,
                         Compiler.KeywordCallsitesVar, PersistentVector.EMPTY,
                         Compiler.ProtocolCallsitesVar, PersistentVector.EMPTY,
                         Compiler.VarCallsitesVar, Compiler.EmptyVarCallSites(),

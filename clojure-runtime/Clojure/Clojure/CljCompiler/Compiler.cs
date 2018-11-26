@@ -212,7 +212,7 @@ namespace clojure.lang
         internal static readonly Var ConstantsVar = Var.create().setDynamic();      //vector<object>
         internal static readonly Var ConstantIdsVar = Var.create().setDynamic();   // IdentityHashMap
         internal static readonly Var KeywordsVar = Var.create().setDynamic();       //keyword->constid
-        internal static readonly Var RegisterConstants = Var.create().setDynamic(); // bool, bind to true to disable registration for constants
+        internal static readonly Var RegisterConstants = Var.create(true).setDynamic(); // bool, bind to false to disable registration for constants
         
         // NamespaceBodyAttribute optimization book keeping
         internal static readonly Var TopLevelDefinitionNames = Var.create().setDynamic(); //List<string>
