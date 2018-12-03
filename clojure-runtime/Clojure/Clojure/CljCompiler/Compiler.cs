@@ -376,6 +376,7 @@ namespace clojure.lang
         internal static readonly MethodInfo Method_Symbol_intern2 = typeof(Symbol).GetMethod("intern", new Type[] { typeof(string), typeof(string) });
 
         internal static readonly MethodInfo Method_Type_GetTypeFromHandle = typeof(Type).GetMethod("GetTypeFromHandle");
+        private static readonly MethodInfo Method_Type_GetCustomAttributes_bool = typeof(Type).GetMethod("GetCustomAttributes", new[] {typeof(bool)});
 
         internal static readonly MethodInfo Method_Util_classOf = typeof(Util).GetMethod("classOf");
         internal static readonly MethodInfo Method_Util_ConvertToInt = typeof(Util).GetMethod("ConvertToInt");
@@ -408,6 +409,12 @@ namespace clojure.lang
             typeof(Tuple).GetMethod("create",CreateObjectTypeArray(5)),
             typeof(Tuple).GetMethod("create",CreateObjectTypeArray(6)),
         };
+
+        private static readonly Type Type_NamespaceBodyAttribute = typeof(NamespaceBodyAttribute);
+        private static readonly FieldInfo Field_NamespaceBodyAttribute_names = Type_NamespaceBodyAttribute.GetField("names");
+        private static readonly FieldInfo Field_NamespaceBodyAttribute_types = Type_NamespaceBodyAttribute.GetField("types");
+        private static readonly FieldInfo Field_NamespaceBodyAttribute_metadataFlags = Type_NamespaceBodyAttribute.GetField("metadataFlags");
+        private static readonly FieldInfo Field_NamespaceBodyAttribute_metadataTypes = Type_NamespaceBodyAttribute.GetField("metadataTypes");
 
         internal static Type[] CreateObjectTypeArray(int size)
         {
@@ -1705,14 +1712,14 @@ namespace clojure.lang
                 {
                     var namespaceBodyAttributeBuilder =
                         new CustomAttributeBuilder(
-                            typeof(NamespaceBodyAttribute).GetConstructor(Type.EmptyTypes),
+                            Type_NamespaceBodyAttribute.GetConstructor(Type.EmptyTypes),
                             new object[] { },
                             new[]
                             {
-                                typeof(NamespaceBodyAttribute).GetField("names"),
-                                typeof(NamespaceBodyAttribute).GetField("types"),
-                                typeof(NamespaceBodyAttribute).GetField("metadataFlags"),
-                                typeof(NamespaceBodyAttribute).GetField("metadataTypes")
+                                Field_NamespaceBodyAttribute_names,
+                                Field_NamespaceBodyAttribute_types,
+                                Field_NamespaceBodyAttribute_metadataFlags,
+                                Field_NamespaceBodyAttribute_metadataTypes
                             },
                             new object[]
                             {
@@ -1728,15 +1735,15 @@ namespace clojure.lang
                     var namespaceName = CurrentNamespace.Name.ToString();
                     var attributesLocal = ilg.DeclareLocal(typeof(object[]));
                     var attributeIndexLocal = ilg.DeclareLocal(typeof(int));
-                    var attributeLocal = ilg.DeclareLocal(typeof(NamespaceBodyAttribute));
+                    var attributeLocal = ilg.DeclareLocal(Type_NamespaceBodyAttribute);
                     var attributeLoopLabel = ilg.DefineLabel();
                     var endLabel = ilg.DefineLabel();
                     
                     // attributesLocal = typeof(__Init__...).GetCustomAttributes(false) 
                     ilg.Emit(OpCodes.Ldtoken, initTB);
-                    ilg.EmitCall(typeof(Type).GetMethod("GetTypeFromHandle"));
+                    ilg.EmitCall(Method_Type_GetTypeFromHandle);
                     ilg.Emit(OpCodes.Ldc_I4_0); // false
-                    ilg.EmitCall(typeof(Type).GetMethod("GetCustomAttributes", new[] {typeof(bool)}));
+                    ilg.EmitCall(Method_Type_GetCustomAttributes_bool);
                     ilg.Emit(OpCodes.Stloc, attributesLocal);
                     
                     // attributeIndexLocal = attributesLocal.Length
@@ -1762,7 +1769,7 @@ namespace clojure.lang
                     ilg.Emit(OpCodes.Ldloc, attributesLocal);
                     ilg.Emit(OpCodes.Ldloc, attributeIndexLocal);
                     ilg.Emit(OpCodes.Ldelem_Ref);
-                    ilg.Emit(OpCodes.Isinst, typeof(NamespaceBodyAttribute));
+                    ilg.Emit(OpCodes.Isinst, Type_NamespaceBodyAttribute);
                     ilg.Emit(OpCodes.Stloc, attributeLocal);
 
                     // if(attributeLocal == null) goto attributeLoopLabel 
@@ -1774,13 +1781,13 @@ namespace clojure.lang
                     // Compiler.InitializeNamespace(namespaceName, attributeLocal.names, attributeLocal.types, attributeLocal.metadataFlags, attributeLocal.metadataTypes)
                     ilg.EmitString(namespaceName);
                     ilg.Emit(OpCodes.Ldloc, attributeLocal);
-                    ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("names"));
+                    ilg.Emit(OpCodes.Ldfld, Field_NamespaceBodyAttribute_names);
                     ilg.Emit(OpCodes.Ldloc, attributeLocal);
-                    ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("types"));
+                    ilg.Emit(OpCodes.Ldfld, Field_NamespaceBodyAttribute_types);
                     ilg.Emit(OpCodes.Ldloc, attributeLocal);
-                    ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("metadataFlags"));
+                    ilg.Emit(OpCodes.Ldfld, Field_NamespaceBodyAttribute_metadataFlags);
                     ilg.Emit(OpCodes.Ldloc, attributeLocal);
-                    ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("metadataTypes"));
+                    ilg.Emit(OpCodes.Ldfld, Field_NamespaceBodyAttribute_metadataTypes);
                     ilg.EmitCall(Method_Compiler_InitializeNamespace);
                     // endLabel:
                     ilg.MarkLabel(endLabel);
