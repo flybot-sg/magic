@@ -1726,16 +1726,53 @@ namespace clojure.lang
 
                     // initialize the namespace at runtime using the metadata and InitializeNamespace 
                     var namespaceName = CurrentNamespace.Name.ToString();
+                    var attributesLocal = ilg.DeclareLocal(typeof(object[]));
+                    var attributeIndexLocal = ilg.DeclareLocal(typeof(int));
                     var attributeLocal = ilg.DeclareLocal(typeof(NamespaceBodyAttribute));
-                    ilg.EmitString(namespaceName);
+                    var attributeLoopLabel = ilg.DefineLabel();
+                    var endLabel = ilg.DefineLabel();
+                    
+                    // attributesLocal = typeof(__Init__...).GetCustomAttributes(false) 
                     ilg.Emit(OpCodes.Ldtoken, initTB);
                     ilg.EmitCall(typeof(Type).GetMethod("GetTypeFromHandle"));
-                    ilg.Emit(OpCodes.Ldc_I4_0);
+                    ilg.Emit(OpCodes.Ldc_I4_0); // false
                     ilg.EmitCall(typeof(Type).GetMethod("GetCustomAttributes", new[] {typeof(bool)}));
+                    ilg.Emit(OpCodes.Stloc, attributesLocal);
+                    
+                    // attributeIndexLocal = attributesLocal.Length
+                    ilg.Emit(OpCodes.Ldloc, attributesLocal);
+                    ilg.Emit(OpCodes.Ldlen);
+                    ilg.Emit(OpCodes.Stloc, attributeIndexLocal);
+                                        
+                    // attributeLoopLabel:
+                    ilg.MarkLabel(attributeLoopLabel);
+                    // if(attributeIndexLocal == 0) goto endLabel
+                    ilg.Emit(OpCodes.Ldloc, attributeIndexLocal);
                     ilg.Emit(OpCodes.Ldc_I4_0);
+                    ilg.Emit(OpCodes.Ceq);
+                    ilg.Emit(OpCodes.Brtrue, endLabel);
+
+                    // attributeIndexLocal = attributeIndexLocal - 1
+                    ilg.Emit(OpCodes.Ldloc, attributeIndexLocal);
+                    ilg.Emit(OpCodes.Ldc_I4_1);
+                    ilg.Emit(OpCodes.Sub);
+                    ilg.Emit(OpCodes.Stloc, attributeIndexLocal);
+                                        
+                    // attributeLocal = attributesLocal[attributeIndexLocal] as NamespaceBodyAttribute 
+                    ilg.Emit(OpCodes.Ldloc, attributesLocal);
+                    ilg.Emit(OpCodes.Ldloc, attributeIndexLocal);
                     ilg.Emit(OpCodes.Ldelem_Ref);
-                    ilg.EmitExplicitCast(typeof(object), typeof(NamespaceBodyAttribute));
+                    ilg.Emit(OpCodes.Isinst, typeof(NamespaceBodyAttribute));
                     ilg.Emit(OpCodes.Stloc, attributeLocal);
+
+                    // if(attributeLocal == null) goto attributeLoopLabel 
+                    ilg.Emit(OpCodes.Ldloc, attributeLocal);
+                    ilg.Emit(OpCodes.Ldnull);
+                    ilg.Emit(OpCodes.Ceq);
+                    ilg.Emit(OpCodes.Brtrue, attributeLoopLabel);
+                    
+                    // Compiler.InitializeNamespace(namespaceName, attributeLocal.names, attributeLocal.types, attributeLocal.metadataFlags, attributeLocal.metadataTypes)
+                    ilg.EmitString(namespaceName);
                     ilg.Emit(OpCodes.Ldloc, attributeLocal);
                     ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("names"));
                     ilg.Emit(OpCodes.Ldloc, attributeLocal);
@@ -1745,10 +1782,11 @@ namespace clojure.lang
                     ilg.Emit(OpCodes.Ldloc, attributeLocal);
                     ilg.Emit(OpCodes.Ldfld, typeof(NamespaceBodyAttribute).GetField("metadataTypes"));
                     ilg.EmitCall(Method_Compiler_InitializeNamespace);
+                    // endLabel:
+                    ilg.MarkLabel(endLabel);
+                    ilg.Emit(OpCodes.Ret);
                 }
                 
-                initMB.GetILGenerator().Emit(OpCodes.Ret);
-
                 // static fields for constants
                 objx.EmitConstantFieldDefs(initTB);
                 MethodBuilder constInitsMB = objx.EmitConstants(initTB);
