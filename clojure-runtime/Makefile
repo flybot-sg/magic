@@ -4,13 +4,16 @@ all: Clojure/Clojure.Source/clojure/spec Clojure/Clojure.Source/clojure/core/spe
 	@CLOJURE_SPEC_SKIP_MACROS=true xbuild
 
 get_spec: Clojure/Clojure.Source/clojure/spec Clojure/Clojure.Source/clojure/core/specs
-	
+
 clean_spec:
 	@rm -fr Clojure/Clojure.Source/clojure/spec
 	@rm -fr Clojure/Clojure.Source/clojure/core/specs
 
-clean: 
-	@rm -fr bin
+clean:
+	@rm -fr bin tools
+
+package: all
+	@nuget pack package.nuspec
 
 Clojure/Clojure.Source/clojure/spec:
 	@mkdir -p .temp
