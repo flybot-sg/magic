@@ -1,7 +1,7 @@
 .PHONY: all get_spec clean_spec
 
 all: Clojure/Clojure.Source/clojure/spec Clojure/Clojure.Source/clojure/core/specs
-	@CLOJURE_SPEC_SKIP_MACROS=true xbuild
+	@CLOJURE_SPEC_SKIP_MACROS=true msbuild
 
 get_spec: Clojure/Clojure.Source/clojure/spec Clojure/Clojure.Source/clojure/core/specs
 
