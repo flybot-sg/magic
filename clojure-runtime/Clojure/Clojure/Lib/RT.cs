@@ -3666,8 +3666,10 @@ namespace clojure.lang
 
         static IEnumerable<string> GetFindFilePathsRaw()
         {
-//            yield return System.AppDomain.CurrentDomain.BaseDirectory;
-//            yield return Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "bin");
+            // these cause problems in android export
+            // see https://github.com/arcadia-unity/Arcadia/issues/248#issuecomment-445419022
+            // yield return System.AppDomain.CurrentDomain.BaseDirectory;
+            // yield return Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "bin");
             yield return Directory.GetCurrentDirectory();
             yield return Path.GetDirectoryName(typeof(RT).Assembly.Location);
 
