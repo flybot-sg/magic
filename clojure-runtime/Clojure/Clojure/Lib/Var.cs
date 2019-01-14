@@ -482,6 +482,10 @@ namespace clojure.lang
             if (!_initializedMetaDataType && _lazyMetaData)
             {
                 RuntimeHelpers.RunClassConstructor(_metaDataType.TypeHandle);
+                if(IsMacro)
+                    alterMeta(_assoc, RT.list(_macroKey, true));
+                if(!isPublic)
+                    alterMeta(_assoc, RT.list(_privateKey, true));
                 _initializedMetaDataType = true;
             }
             return base.meta();

@@ -1,0 +1,598 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ContentModelStore">
+    <e p="$APPLICATION_CONFIG_DIR$/extensions" t="IncludeRecursive" />
+    <e p="$USER_HOME$/.Rider2018.3/system/extResources" t="IncludeRecursive" />
+    <e p="$USER_HOME$/.Rider2018.3/system/resharper-host/local/Transient/ReSharperHost/v183/SolutionCaches/_ClojureCLR.382868704.00" t="ExcludeRecursive" />
+    <e p="$PROJECT_DIR$" t="IncludeFlat">
+      <e p=".nuget" t="Include">
+        <e p="NuGet.Config" t="Include" />
+        <e p="NuGet.exe" t="Include" />
+        <e p="NuGet.targets" t="Include" />
+      </e>
+      <e p="BuildTasks" t="IncludeRecursive">
+        <e p="BuildTasks.csproj" t="IncludeRecursive" />
+        <e p="Properties" t="Include">
+          <e p="AssemblyInfo.cs" t="Include" />
+        </e>
+        <e p="SetEnvVar.cs" t="Include" />
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="obj" t="ExcludeRecursive" />
+      </e>
+      <e p="Clojure" t="IncludeRecursive">
+        <e p="Bootstrap" t="Include">
+          <e p="version.properties" t="Include" />
+        </e>
+        <e p="CljCompiler" t="Include">
+          <e p="ArrayIter.cs" t="Include" />
+          <e p="Ast" t="Include">
+            <e p="AssignExpr.cs" t="Include" />
+            <e p="AssignableExpr.cs" t="Include" />
+            <e p="BindingInit.cs" t="Include" />
+            <e p="BodyExpr.cs" t="Include" />
+            <e p="BooleanExpr.cs" t="Include" />
+            <e p="CaseExpr.cs" t="Include" />
+            <e p="ConstantExpr.cs" t="Include" />
+            <e p="DefExpr.cs" t="Include" />
+            <e p="DynInitHelper.cs" t="Include" />
+            <e p="EmptyExpr.cs" t="Include" />
+            <e p="Expr.cs" t="Include" />
+            <e p="FieldExpr.cs" t="Include" />
+            <e p="FnExpr.cs" t="Include" />
+            <e p="FnMethod.cs" t="Include" />
+            <e p="GenContext.cs" t="Include" />
+            <e p="HostArg.cs" t="Include" />
+            <e p="HostExpr.cs" t="Include" />
+            <e p="IParser.cs" t="Include" />
+            <e p="IdentityHashMap.cs" t="Include" />
+            <e p="IfExpr.cs" t="Include" />
+            <e p="IlGen.cs" t="Include" />
+            <e p="ImportExpr.cs" t="Include" />
+            <e p="InstanceFieldExpr.cs" t="Include" />
+            <e p="InstanceMethodExpr.cs" t="Include" />
+            <e p="InstanceOfExpr.cs" t="Include" />
+            <e p="InstanceZeroArityCallExpr.cs" t="Include" />
+            <e p="Intrinsics.cs" t="Include" />
+            <e p="InvokeExpr.cs" t="Include" />
+            <e p="KeywordExpr.cs" t="Include" />
+            <e p="KeywordInvokeExpr.cs" t="Include" />
+            <e p="LetExpr.cs" t="Include" />
+            <e p="LetFnExpr.cs" t="Include" />
+            <e p="LiteralExpr.cs" t="Include" />
+            <e p="LocalBinding.cs" t="Include" />
+            <e p="LocalBindingExpr.cs" t="Include" />
+            <e p="MapExpr.cs" t="Include" />
+            <e p="MaybePrimitiveExpr.cs" t="Include" />
+            <e p="MetaExpr.cs" t="Include" />
+            <e p="MethodExpr.cs" t="Include" />
+            <e p="MethodParamExpr.cs" t="Include" />
+            <e p="MonitorEnterExpr.cs" t="Include" />
+            <e p="MonitorExitExpr.cs" t="Include" />
+            <e p="NewExpr.cs" t="Include" />
+            <e p="NewInstanceExpr.cs" t="Include" />
+            <e p="NewInstanceMethod.cs" t="Include" />
+            <e p="NilExpr.cs" t="Include" />
+            <e p="NumberExpr.cs" t="Include" />
+            <e p="ObjExpr.cs" t="Include" />
+            <e p="ObjMethod.cs" t="Include" />
+            <e p="ParseException.cs" t="Include" />
+            <e p="ParserContext.cs" t="Include" />
+            <e p="RecurExpr.cs" t="Include" />
+            <e p="SetExpr.cs" t="Include" />
+            <e p="StaticFieldExpr.cs" t="Include" />
+            <e p="StaticInvokeExpr.cs" t="Include" />
+            <e p="StaticMethodExpr.cs" t="Include" />
+            <e p="StringExpr.cs" t="Include" />
+            <e p="TheVarExpr.cs" t="Include" />
+            <e p="ThrowExpr.cs" t="Include" />
+            <e p="TryExpr.cs" t="Include" />
+            <e p="UnresolvedVarExpr.cs" t="Include" />
+            <e p="UntypedExpr.cs" t="Include" />
+            <e p="VarExpr.cs" t="Include" />
+            <e p="VectorExpr.cs" t="Include" />
+          </e>
+          <e p="Compiler.cs" t="Include" />
+          <e p="GenClass.cs" t="Include" />
+          <e p="GenDelegate.cs" t="Include" />
+          <e p="GenInterface.cs" t="Include" />
+          <e p="GenProxy.cs" t="Include" />
+          <e p="MethodSignature.cs" t="Include" />
+        </e>
+        <e p="Clojure.csproj" t="IncludeRecursive" />
+        <e p="GlobalSuppressions.cs" t="Include" />
+        <e p="Lib" t="Include">
+          <e p="AFn.cs" t="Include" />
+          <e p="AFnImpl.cs" t="Include" />
+          <e p="AFunction.cs" t="Include" />
+          <e p="AMapEntry.cs" t="Include" />
+          <e p="APersistentMap.cs" t="Include" />
+          <e p="APersistentSet.cs" t="Include" />
+          <e p="APersistentVector.cs" t="Include" />
+          <e p="ARef.cs" t="Include" />
+          <e p="AReference.cs" t="Include" />
+          <e p="ASeq.cs" t="Include" />
+          <e p="ATransientMap.cs" t="Include" />
+          <e p="ATransientSet.cs" t="Include" />
+          <e p="Agent.cs" t="Include" />
+          <e p="ArityException.cs" t="Include" />
+          <e p="ArrayChunk.cs" t="Include" />
+          <e p="ArrayHelper.cs" t="Include" />
+          <e p="ArraySeq.cs" t="Include" />
+          <e p="Associative.cs" t="Include" />
+          <e p="Atom.cs" t="Include" />
+          <e p="AtomicBoolean.cs" t="Include" />
+          <e p="AtomicInteger.cs" t="Include" />
+          <e p="AtomicLong.cs" t="Include" />
+          <e p="AtomicReference.cs" t="Include" />
+          <e p="BigDecimal.cs" t="Include" />
+          <e p="BigInt.cs" t="Include" />
+          <e p="BigInteger.cs" t="Include" />
+          <e p="Box.cs" t="Include" />
+          <e p="ChunkBuffer.cs" t="Include" />
+          <e p="ChunkedCons.cs" t="Include" />
+          <e p="ClojureException.cs" t="Include" />
+          <e p="ClrTypeSpec.cs" t="Include" />
+          <e p="Cons.cs" t="Include" />
+          <e p="CountDownLatch.cs" t="Include" />
+          <e p="Counted.cs" t="Include" />
+          <e p="Cycle.cs" t="Include" />
+          <e p="Delay.cs" t="Include" />
+          <e p="EdnReader.cs" t="Include" />
+          <e p="EnumeratorSeq.cs" t="Include" />
+          <e p="ExceptionInfo.cs" t="Include" />
+          <e p="Fn.cs" t="Include" />
+          <e p="FuncTypes.cs" t="Include" />
+          <e p="Future.cs" t="Include" />
+          <e p="IAtom.cs" t="Include" />
+          <e p="IAtom2.cs" t="Include" />
+          <e p="IBlockingDeref.cs" t="Include" />
+          <e p="IChunk.cs" t="Include" />
+          <e p="IChunkedSeq.cs" t="Include" />
+          <e p="IDeref.cs" t="Include" />
+          <e p="IEditableCollection.cs" t="Include" />
+          <e p="IExceptionInfo.cs" t="Include" />
+          <e p="IFn.cs" t="Include" />
+          <e p="IFnArity.cs" t="Include" />
+          <e p="IFnClosure.cs" t="Include" />
+          <e p="IHashEq.cs" t="Include" />
+          <e p="IKVReduce.cs" t="Include" />
+          <e p="IKeywordLookup.cs" t="Include" />
+          <e p="ILookup.cs" t="Include" />
+          <e p="ILookupSite.cs" t="Include" />
+          <e p="ILookupThunk.cs" t="Include" />
+          <e p="IMapEntry.cs" t="Include" />
+          <e p="IMapEnumerable.cs" t="Include" />
+          <e p="IMeta.cs" t="Include" />
+          <e p="IObj.cs" t="Include" />
+          <e p="IPending.cs" t="Include" />
+          <e p="IPersistentCollection.cs" t="Include" />
+          <e p="IPersistentList.cs" t="Include" />
+          <e p="IPersistentMap.cs" t="Include" />
+          <e p="IPersistentSet.cs" t="Include" />
+          <e p="IPersistentStack.cs" t="Include" />
+          <e p="IPersistentVector.cs" t="Include" />
+          <e p="IProxy.cs" t="Include" />
+          <e p="IRecord.cs" t="Include" />
+          <e p="IReduce.cs" t="Include" />
+          <e p="IReduceInit.cs" t="Include" />
+          <e p="IRef.cs" t="Include" />
+          <e p="IReference.cs" t="Include" />
+          <e p="ISeq.cs" t="Include" />
+          <e p="ITransientAssociative.cs" t="Include" />
+          <e p="ITransientAssociative2.cs" t="Include" />
+          <e p="ITransientCollection.cs" t="Include" />
+          <e p="ITransientMap.cs" t="Include" />
+          <e p="ITransientSet.cs" t="Include" />
+          <e p="ITransientVector.cs" t="Include" />
+          <e p="IType.cs" t="Include" />
+          <e p="Indexed.cs" t="Include" />
+          <e p="IndexedSeq.cs" t="Include" />
+          <e p="Iterate.cs" t="Include" />
+          <e p="JReMatcher.cs" t="Include" />
+          <e p="JavaConcurrentDictionary.cs" t="Include" />
+          <e p="Keyword.cs" t="Include" />
+          <e p="KeywordLookupSite.cs" t="Include" />
+          <e p="LazilyPersistentVector.cs" t="Include" />
+          <e p="LazySeq.cs" t="Include" />
+          <e p="LispReader.cs" t="Include" />
+          <e p="LockingTransaction.cs" t="Include" />
+          <e p="LongRange.cs" t="Include" />
+          <e p="MapEntry.cs" t="Include" />
+          <e p="MapEnumerator.cs" t="Include" />
+          <e p="MapEquivalence.cs" t="Include" />
+          <e p="MethodImplCache.cs" t="Include" />
+          <e p="MultiFn.cs" t="Include" />
+          <e p="Murmur3.cs" t="Include" />
+          <e p="Named.cs" t="Include" />
+          <e p="Namespace.cs" t="Include" />
+          <e p="Numbers.cs" t="Include" />
+          <e p="Obj.cs" t="Include" />
+          <e p="PersistentArrayMap.cs" t="Include" />
+          <e p="PersistentHashMap.cs" t="Include" />
+          <e p="PersistentHashSet.cs" t="Include" />
+          <e p="PersistentList.cs" t="Include" />
+          <e p="PersistentQueue.cs" t="Include" />
+          <e p="PersistentStructMap.cs" t="Include" />
+          <e p="PersistentTreeMap.cs" t="Include" />
+          <e p="PersistentTreeSet.cs" t="Include" />
+          <e p="PersistentVector.cs" t="Include" />
+          <e p="RT.cs" t="Include" />
+          <e p="Range.cs" t="Include" />
+          <e p="Ratio.cs" t="Include" />
+          <e p="ReaderConditional.cs" t="Include" />
+          <e p="RecordEnumerable.cs" t="Include" />
+          <e p="Reduced.cs" t="Include" />
+          <e p="Ref.cs" t="Include" />
+          <e p="Repeat.cs" t="Include" />
+          <e p="RestFn.cs" t="Include" />
+          <e p="RestFnImpl.cs" t="Include" />
+          <e p="Reversible.cs" t="Include" />
+          <e p="SeqEnumerator.cs" t="Include" />
+          <e p="Seqable.cs" t="Include" />
+          <e p="Sequential.cs" t="Include" />
+          <e p="Settable.cs" t="Include" />
+          <e p="Sorted.cs" t="Include" />
+          <e p="StringSeq.cs" t="Include" />
+          <e p="Symbol.cs" t="Include" />
+          <e p="TaggedLiteral.cs" t="Include" />
+          <e p="Task35.cs" t="Include" />
+          <e p="TransformerEnumerator.cs" t="Include" />
+          <e p="Tuple.cs" t="Include" />
+          <e p="TypeNotFoundException.cs" t="Include" />
+          <e p="Util.cs" t="Include" />
+          <e p="Var.cs" t="Include" />
+          <e p="Volatile.cs" t="Include" />
+          <e p="WarnBoxedMathAttribute.cs" t="Include" />
+        </e>
+        <e p="Properties" t="Include">
+          <e p="AssemblyInfo.cs" t="Include" />
+          <e p="Resources.Designer.cs" t="Include" />
+          <e p="Resources.resx" t="Include" />
+        </e>
+        <e p="Readers" t="Include">
+          <e p="LineNumberingTextReader.cs" t="Include" />
+          <e p="PushbackInputStream.cs" t="Include" />
+          <e p="PushbackTextReader.cs" t="Include" />
+        </e>
+        <e p="Resources" t="Include">
+          <e p="version.txt" t="Include" />
+        </e>
+        <e p="Runtime" t="Include">
+          <e p="Binding" t="Include">
+            <e p="BindingHelpers.cs" t="Include" />
+            <e p="ClojureBinder.cs" t="Include" />
+            <e p="ClojureCreateInstanceBinder.cs" t="Include" />
+            <e p="ClojureGetZeroArityMemberBinder.cs" t="Include" />
+            <e p="ClojureInvokeMemberBinder.cs" t="Include" />
+            <e p="ClojureOverloadResolver.cs" t="Include" />
+            <e p="DynUtils.cs" t="Include" />
+            <e p="IClojureSite.cs" t="Include" />
+            <e p="MetaAFn.cs" t="Include" />
+          </e>
+          <e p="ClojureContext.cs" t="Include" />
+          <e p="ClojureOps.cs" t="Include" />
+          <e p="ClojureOptions.cs" t="Include" />
+          <e p="ConversionWrappers.cs" t="Include" />
+          <e p="Converter.cs" t="Include" />
+          <e p="ImmutableDictionaryEnumerator.cs" t="Include" />
+          <e p="Printf.cs" t="Include" />
+          <e p="Properties.cs" t="Include" />
+          <e p="Reflector.cs" t="Include" />
+        </e>
+        <e p="api" t="Include">
+          <e p="Clojure.cs" t="Include" />
+          <e p="package.html" t="Include" />
+        </e>
+        <e p="app.config" t="Include" />
+        <e p="obj" t="ExcludeRecursive" />
+        <e p="package.html" t="Include" />
+        <e p="packages.config" t="Include" />
+      </e>
+      <e p="Clojure.Compile" t="IncludeRecursive">
+        <e p="Clojure.Compile.csproj" t="IncludeRecursive" />
+        <e p="Compile.cs" t="Include" />
+        <e p="GlobalSuppressions.cs" t="Include" />
+        <e p="Properties" t="Include">
+          <e p="AssemblyInfo.cs" t="Include" />
+        </e>
+        <e p="obj" t="ExcludeRecursive" />
+      </e>
+      <e p="Clojure.Main" t="IncludeRecursive">
+        <e p="Clojure.Main.csproj" t="IncludeRecursive" />
+        <e p="GlobalSuppressions.cs" t="Include" />
+        <e p="Main.cs" t="Include" />
+        <e p="Properties" t="Include">
+          <e p="AssemblyInfo.cs" t="Include" />
+        </e>
+        <e p="clojure-icon.ico" t="Include" />
+        <e p="obj" t="ExcludeRecursive" />
+      </e>
+      <e p="Clojure.Source" t="IncludeRecursive">
+        <e p="Clojure.Source.csproj" t="IncludeRecursive" />
+        <e p="GlobalSuppressions.cs" t="Include" />
+        <e p="Properties" t="Include" />
+        <e p="clojure" t="Include">
+          <e p="clr" t="Include">
+            <e p="io.clj" t="Include" />
+            <e p="shell.clj" t="Include" />
+          </e>
+          <e p="core" t="Include">
+            <e p="protocols.clj" t="Include" />
+            <e p="reducers.clj" t="Include" />
+            <e p="server.clj" t="Include" />
+            <e p="specs" t="Include">
+              <e p="alpha.clj" t="Include" />
+            </e>
+          </e>
+          <e p="core.clj" t="Include" />
+          <e p="core_clr.clj" t="Include" />
+          <e p="core_deftype.clj" t="Include" />
+          <e p="core_print.clj" t="Include" />
+          <e p="core_proxy.clj" t="Include" />
+          <e p="data.clj" t="Include" />
+          <e p="dm-test.clj" t="Include" />
+          <e p="edn.clj" t="Include" />
+          <e p="genclass.clj" t="Include" />
+          <e p="gvec.clj" t="Include" />
+          <e p="instant.clj" t="Include" />
+          <e p="main.clj" t="Include" />
+          <e p="pprint" t="Include">
+            <e p="cl_format.clj" t="Include" />
+            <e p="column_writer.clj" t="Include" />
+            <e p="dispatch.clj" t="Include" />
+            <e p="pprint_base.clj" t="Include" />
+            <e p="pretty_writer.clj" t="Include" />
+            <e p="print_table.clj" t="Include" />
+            <e p="utilities.clj" t="Include" />
+          </e>
+          <e p="pprint.clj" t="Include" />
+          <e p="reflect" t="Include">
+            <e p="clr.clj" t="Include" />
+          </e>
+          <e p="reflect.clj" t="Include" />
+          <e p="repl.clj" t="Include" />
+          <e p="samples" t="Include">
+            <e p="ants.clj" t="Include" />
+            <e p="attributes" t="Include">
+              <e p="C.cs" t="Include" />
+              <e p="testattribute.clj" t="Include" />
+            </e>
+            <e p="await-test.clj" t="Include" />
+            <e p="celsius.clj" t="Include" />
+            <e p="counter.clj" t="Include" />
+            <e p="deftype" t="Include">
+              <e p="testdeftype.clj" t="Include" />
+              <e p="testprotocol.clj" t="Include" />
+            </e>
+            <e p="genclass" t="Include">
+              <e p="C.cs" t="Include" />
+              <e p="testgenclass.clj" t="Include" />
+              <e p="testgenclass2.clj" t="Include" />
+              <e p="testgenclass3.clj" t="Include" />
+              <e p="testmvc.clj" t="Include" />
+            </e>
+            <e p="interop" t="Include">
+              <e p="C.cs" t="Include" />
+              <e p="testinterop.clj" t="Include" />
+            </e>
+            <e p="proxy" t="Include">
+              <e p="testproxy.clj" t="Include" />
+            </e>
+            <e p="stm" t="Include">
+              <e p="teststm.clj" t="Include" />
+            </e>
+          </e>
+          <e p="set.clj" t="Include" />
+          <e p="spec" t="Include">
+            <e p="alpha.clj" t="Include" />
+            <e p="gen" t="Include">
+              <e p="alpha.clj" t="Include" />
+            </e>
+            <e p="test" t="Include">
+              <e p="alpha.clj" t="Include" />
+            </e>
+          </e>
+          <e p="stacktrace.clj" t="Include" />
+          <e p="string.clj" t="Include" />
+          <e p="template.clj" t="Include" />
+          <e p="test" t="Include">
+            <e p="junit.clj" t="Include" />
+            <e p="tap.clj" t="Include" />
+          </e>
+          <e p="test.clj" t="Include" />
+          <e p="uuid.clj" t="Include" />
+          <e p="walk.clj" t="Include" />
+          <e p="zip.clj" t="Include" />
+        </e>
+        <e p="obj" t="ExcludeRecursive" />
+      </e>
+      <e p="Clojure.Tests" t="IncludeRecursive">
+        <e p="Clojure.Tests.csproj" t="IncludeRecursive" />
+        <e p="Properties" t="Include">
+          <e p="AssemblyInfo.cs" t="Include" />
+        </e>
+        <e p="ReflectorTryCatchFixture.cs" t="Include" />
+        <e p="clojure" t="Include">
+          <e p="run_test.clj" t="Include" />
+          <e p="run_test_generative.clj" t="Include" />
+          <e p="run_test_generative_i.clj" t="Include" />
+          <e p="run_test_i.clj" t="Include" />
+          <e p="test_clojure" t="Include">
+            <e p="agents.clj" t="Include" />
+            <e p="api.clj" t="Include" />
+            <e p="atoms.clj" t="Include" />
+            <e p="attributes.clj" t="Include" />
+            <e p="clojure_set.clj" t="Include" />
+            <e p="clojure_walk.clj" t="Include" />
+            <e p="clojure_xml.clj" t="Include" />
+            <e p="clojure_zip.clj" t="Include" />
+            <e p="clr" t="Include">
+              <e p="added.clj" t="Include" />
+              <e p="io.clj" t="Include" />
+            </e>
+            <e p="compilation" t="Include">
+              <e p="examples.clj" t="Include" />
+              <e p="line_number_examples.clj" t="Include" />
+              <e p="load_ns.clj" t="Include" />
+            </e>
+            <e p="compilation.clj" t="Include" />
+            <e p="control.clj" t="Include" />
+            <e p="data.clj" t="Include" />
+            <e p="data_structures.clj" t="Include" />
+            <e p="data_structures_interop.clj" t="Include" />
+            <e p="def.clj" t="Include" />
+            <e p="delays.clj" t="Include" />
+            <e p="edn.clj" t="Include" />
+            <e p="errors.clj" t="Include" />
+            <e p="evaluation.clj" t="Include" />
+            <e p="fn.clj" t="Include" />
+            <e p="for.clj" t="Include" />
+            <e p="genclass" t="Include">
+              <e p="examples.clj" t="Include" />
+            </e>
+            <e p="genclass.clj" t="Include" />
+            <e p="generators.clj" t="Include" />
+            <e p="java_interop.clj" t="Include" />
+            <e p="keywords.clj" t="Include" />
+            <e p="logic.clj" t="Include" />
+            <e p="macros.clj" t="Include" />
+            <e p="main.clj" t="Include" />
+            <e p="metadata.clj" t="Include" />
+            <e p="multimethods.clj" t="Include" />
+            <e p="ns_libs.clj" t="Include" />
+            <e p="numbers.clj" t="Include" />
+            <e p="other_functions.clj" t="Include" />
+            <e p="parallel.clj" t="Include" />
+            <e p="pprint" t="Include">
+              <e p="test_cl_format.clj" t="Include" />
+              <e p="test_helper.clj" t="Include" />
+              <e p="test_pretty.clj" t="Include" />
+            </e>
+            <e p="pprint.clj" t="Include" />
+            <e p="predicates.clj" t="Include" />
+            <e p="printer.clj" t="Include" />
+            <e p="protocols" t="Include">
+              <e p="examples.clj" t="Include" />
+              <e p="hash_collisions.clj" t="Include" />
+              <e p="more_examples.clj" t="Include" />
+            </e>
+            <e p="protocols.clj" t="Include" />
+            <e p="reader.cljc" t="Include" />
+            <e p="reducers.clj" t="Include" />
+            <e p="refs.clj" t="Include" />
+            <e p="repl" t="Include">
+              <e p="example.clj" t="Include" />
+            </e>
+            <e p="repl.clj" t="Include" />
+            <e p="rt.clj" t="Include" />
+            <e p="sequences.clj" t="Include" />
+            <e p="serialization.clj" t="Include" />
+            <e p="server.clj" t="Include" />
+            <e p="special.clj" t="Include" />
+            <e p="string.clj" t="Include" />
+            <e p="test.clj" t="Include" />
+            <e p="test_fixtures.clj" t="Include" />
+            <e p="transducers.clj" t="Include" />
+            <e p="transients.clj" t="Include" />
+            <e p="try_catch.clj" t="Include" />
+            <e p="vars.clj" t="Include" />
+            <e p="vectors.clj" t="Include" />
+            <e p="volatiles.clj" t="Include" />
+          </e>
+          <e p="test_helper.clj" t="Include" />
+        </e>
+        <e p="obj" t="ExcludeRecursive" />
+        <e p="packages.config" t="Include" />
+      </e>
+      <e p="ClojureCLR.sln" t="IncludeFlat" />
+      <e p="Csharp.Tests" t="IncludeRecursive">
+        <e p="Csharp.Tests.csproj" t="IncludeRecursive" />
+        <e p="FixtureSetupClass.cs" t="Include" />
+        <e p="LibTests" t="Include">
+          <e p="AFnImplTests.cs" t="Include" />
+          <e p="APersistentVectorTests.cs" t="Include" />
+          <e p="ARefTests.cs" t="Include" />
+          <e p="AReferenceTests.cs" t="Include" />
+          <e p="AgentTests.cs" t="Include" />
+          <e p="ArraySeqTests.cs" t="Include" />
+          <e p="ArrayStreamTests.cs" t="Include" />
+          <e p="AtomTests.cs" t="Include" />
+          <e p="BigDecimalTests.cs" t="Include" />
+          <e p="BigIntegerTests.cs" t="Include" />
+          <e p="CachedSeqTests.cs" t="Include" />
+          <e p="ConsTests.cs" t="Include" />
+          <e p="CountDownLatchTests.cs" t="Include" />
+          <e p="DelayTests.cs" t="Include" />
+          <e p="DummyFn.cs" t="Include" />
+          <e p="DummyMeta.cs" t="Include" />
+          <e p="EnumeratorSeqTests.cs" t="Include" />
+          <e p="FutureTests.cs" t="Include" />
+          <e p="GenProxyTests.cs" t="Include" />
+          <e p="IObjTests.cs" t="Include" />
+          <e p="ISeqTestHelper.cs" t="Include" />
+          <e p="IteratorStreamTests.cs" t="Include" />
+          <e p="KeywordTests.cs" t="Include" />
+          <e p="LazilyPersistentVectorTests.cs" t="Include" />
+          <e p="LazySeqTests.cs" t="Include" />
+          <e p="LispReaderTests.cs" t="Include" />
+          <e p="LockingTransactionTests.cs" t="Include" />
+          <e p="MapEntryTests.cs" t="Include" />
+          <e p="NamespaceTests.cs" t="Include" />
+          <e p="NumbersTests.cs" t="Include" />
+          <e p="ObjTests.cs" t="Include" />
+          <e p="PersistentArrayMapTests.cs" t="Include" />
+          <e p="PersistentHashMapTests.cs" t="Include" />
+          <e p="PersistentHashSetTests.cs" t="Include" />
+          <e p="PersistentListTests.cs" t="Include" />
+          <e p="PersistentQueueTests.cs" t="Include" />
+          <e p="PersistentStructMapTests.cs" t="Include" />
+          <e p="PersistentTreeMapTests.cs" t="Include" />
+          <e p="PersistentTreeSetTests.cs" t="Include" />
+          <e p="PersistentVectorTests.cs" t="Include" />
+          <e p="PrintfTests.cs" t="Include" />
+          <e p="RangeTests.cs" t="Include" />
+          <e p="RatioTests.cs" t="Include" />
+          <e p="RefTests.cs" t="Include" />
+          <e p="RestFnImplTests.cs" t="Include" />
+          <e p="RestFnTests.cs" t="Include" />
+          <e p="StreamTests.cs" t="Include" />
+          <e p="StringSeqTests.cs" t="Include" />
+          <e p="SymbolTests.cs" t="Include" />
+          <e p="TestTest.cs" t="Include" />
+        </e>
+        <e p="Properties" t="Include">
+          <e p="AssemblyInfo.cs" t="Include" />
+        </e>
+        <e p="ReaderTests" t="Include">
+          <e p="LineNumberingTextReaderTests.cs" t="Include" />
+        </e>
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="obj" t="ExcludeRecursive" />
+        <e p="packages.config" t="Include" />
+      </e>
+      <e p="DlrConsole" t="IncludeRecursive">
+        <e p="App.config" t="Include" />
+        <e p="DlrConsole.csproj" t="IncludeRecursive" />
+        <e p="Program.cs" t="Include" />
+        <e p="Properties" t="Include">
+          <e p="AssemblyInfo.cs" t="Include" />
+        </e>
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="obj" t="ExcludeRecursive" />
+        <e p="packages.config" t="Include" />
+      </e>
+      <e p="Simple.Console" t="IncludeRecursive">
+        <e p="Properties" t="Include">
+          <e p="AssemblyInfo.cs" t="Include" />
+        </e>
+        <e p="Simple.Console.csproj" t="IncludeRecursive" />
+        <e p="SimpleConsole.cs" t="Include" />
+        <e p="obj" t="ExcludeRecursive" />
+      </e>
+      <e p="Solution Items" t="Include" />
+      <e p="build.proj" t="Include" />
+      <e p="packages" t="ExcludeRecursive" />
+    </e>
+    <e p="$PROJECT_DIR$/../bin/4.0/Debug" t="ExcludeRecursive" />
+  </component>
+</project>
