@@ -1,0 +1,6 @@
+[submodule "clr.spec.alpha"]
+	path = clr.spec.alpha
+	url = https://github.com/arcadia-unity/clr.spec.alpha.git
+[submodule "clr.core.specs.alpha"]
+	path = clr.core.specs.alpha
+	url = https://github.com/arcadia-unity/clr.core.specs.alpha.git
