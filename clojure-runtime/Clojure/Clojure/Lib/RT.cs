@@ -3500,72 +3500,82 @@ namespace clojure.lang
         {
             string cljname = relativePath + ".clj";
             string assemblyname = relativePath.Replace('/', '.') + ".clj.dll";
+            bool loaded = false;
 
-            if (!RuntimeBootstrapFlag.DisableFileLoad)
+            foreach (var source in RuntimeBootstrapFlag.CodeLoadOrder)
             {
-                FileInfo cljInfo = FindFile(cljname);
-                if (cljInfo == null )
+                if(source == RuntimeBootstrapFlag.CodeSource.FileSystem)
                 {
-                    cljname = relativePath + ".cljc";
-                    cljInfo = FindFile(cljname);
-                }
-                FileInfo assyInfo = FindFile(assemblyname);
-                if ( assyInfo == null )
-                {
-                    assemblyname = relativePath.Replace('/', '.') + ".cljc.dll";
-                    assyInfo = FindFile(assemblyname);
-                }
+                    if (!RuntimeBootstrapFlag.DisableFileLoad)
+                    {
+                        FileInfo cljInfo = FindFile(cljname);
+                        if (cljInfo == null )
+                        {
+                            cljname = relativePath + ".cljc";
+                            cljInfo = FindFile(cljname);
+                        }
+                        FileInfo assyInfo = FindFile(assemblyname);
+                        if ( assyInfo == null )
+                        {
+                            assemblyname = relativePath.Replace('/', '.') + ".cljc.dll";
+                            assyInfo = FindFile(assemblyname);
+                        }
 
 
-                if ((assyInfo != null &&
-                     (cljInfo == null || assyInfo.LastWriteTime >= cljInfo.LastWriteTime)))
+                        if ((assyInfo != null &&
+                            (cljInfo == null || assyInfo.LastWriteTime >= cljInfo.LastWriteTime)))
+                        {
+                            try
+                            {
+                                Var.pushThreadBindings(RT.mapUniqueKeys(CurrentNSVar, CurrentNSVar.deref(),
+                                                                WarnOnReflectionVar, WarnOnReflectionVar.deref(),
+                                                                RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
+                                Compiler.LoadAssembly(assyInfo, relativePath);
+                                return;
+                            }
+                            finally
+                            {
+                                Var.popThreadBindings();
+                            }
+                        }
+
+                        if (cljInfo != null)
+                        {
+                            if (booleanCast(Compiler.CompileFilesVar.deref()))
+                                Compile(cljInfo, cljname);
+                            else
+                                LoadScript(cljInfo, cljname);
+                            return;
+                        }
+                    }
+                }
+                else if(source == RuntimeBootstrapFlag.CodeSource.InitType)
                 {
                     try
                     {
-                        Var.pushThreadBindings(RT.mapUniqueKeys(CurrentNSVar, CurrentNSVar.deref(),
-                                                          WarnOnReflectionVar, WarnOnReflectionVar.deref(),
-                                                          RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
-                        Compiler.LoadAssembly(assyInfo, relativePath);
-                        return;
+                        Var.pushThreadBindings(RT.map(CurrentNSVar, CurrentNSVar.deref(),
+                            WarnOnReflectionVar, WarnOnReflectionVar.deref(),
+                            RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
+                        if (Compiler.TryLoadInitType(relativePath))
+                            return;
                     }
                     finally
                     {
                         Var.popThreadBindings();
                     }
                 }
-
-                if (cljInfo != null)
+                else if(source == RuntimeBootstrapFlag.CodeSource.EmbeddedResource)
                 {
-                    if (booleanCast(Compiler.CompileFilesVar.deref()))
-                        Compile(cljInfo, cljname);
-                    else
-                        LoadScript(cljInfo, cljname);
-                    return;
+                    loaded = TryLoadFromEmbeddedResource(relativePath, assemblyname);
                 }
             }
-
-            try
-            {
-                Var.pushThreadBindings(RT.map(CurrentNSVar, CurrentNSVar.deref(),
-                    WarnOnReflectionVar, WarnOnReflectionVar.deref(),
-                    RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
-                if (Compiler.TryLoadInitType(relativePath))
-                    return;
-            }
-            finally
-            {
-                Var.popThreadBindings();
-            }
-
-
-            bool loaded = TryLoadFromEmbeddedResource(relativePath, assemblyname);
-
 
             if (!loaded && failIfNotFound)
                 throw new FileNotFoundException(String.Format("Could not locate {0} or {1} on load path.{2}", 
                     assemblyname, 
                     cljname,
                     relativePath.Contains("_") ? " Please check that namespaces with dashes use underscores in the Clojure file name." : ""));
+
         }
 
         private static bool TryLoadFromEmbeddedResource(string relativePath, string assemblyname)
@@ -3822,6 +3832,27 @@ namespace clojure.lang
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "Flag")]
     public static class RuntimeBootstrapFlag
     {
+        // a configurable load order mechanism
+        // code in clojure can come from one of three source:
+        // - the file system (.clj, .cljc, .clj.dll files, picking the latest)
+        // - an init type (when the namespace is already loaded in memory)
+        // - an embedded resource
+        // this enum and the static LoadOrder array are used to control the order
+        // in which these sources are searched.
+        public enum CodeSource
+        {
+            FileSystem,
+            InitType,
+            EmbeddedResource
+        }
+
+        public static CodeSource[] CodeLoadOrder = new[] 
+        {
+            CodeSource.FileSystem,
+            CodeSource.InitType,
+            CodeSource.EmbeddedResource
+        }
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]
         public static bool _doRTBootstrap = true;
         
