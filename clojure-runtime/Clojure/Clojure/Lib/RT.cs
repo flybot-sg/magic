@@ -3851,7 +3851,7 @@ namespace clojure.lang
             CodeSource.FileSystem,
             CodeSource.InitType,
             CodeSource.EmbeddedResource
-        }
+        };
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]
         public static bool _doRTBootstrap = true;
