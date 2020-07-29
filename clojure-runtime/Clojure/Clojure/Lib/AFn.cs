@@ -18,7 +18,7 @@ using Microsoft.Scripting.Ast;
 #else
 using System.Linq.Expressions;
 #endif
-using clojure.lang.Runtime.Binding;
+// using clojure.lang.Runtime.Binding;
 using System.Dynamic;
 
 namespace clojure.lang
@@ -27,7 +27,7 @@ namespace clojure.lang
     /// Provides a basic implementation of <see cref="IFn">IFn</see> interface methods.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "Fn"), Serializable]
-    public abstract class AFn : IFn, IDynamicMetaObjectProvider, IFnArity
+    public abstract class AFn : IFn, IFnArity
     {
         #region IFn Members
 
@@ -474,10 +474,10 @@ namespace clojure.lang
 
         #region IDynamicMetaObjectProvider methods
 
-        public DynamicMetaObject GetMetaObject(Expression parameter)
-        {
-            return new MetaAFn(parameter, this);
-        }
+        // public DynamicMetaObject GetMetaObject(Expression parameter)
+        // {
+        //     return new MetaAFn(parameter, this);
+        // }
 
         #endregion
 

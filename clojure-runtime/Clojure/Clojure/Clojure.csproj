@@ -43,7 +43,7 @@
     <DefineConstants>$(PlatformSym);TRACE;DEBUG;CLR2</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+    <!-- <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet> -->
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release 3.5|AnyCPU' ">
@@ -78,7 +78,7 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.Dynamic" Condition=" '$(TargetFrameworkVersion)' == 'v3.5' ">
+    <!-- <Reference Include="Microsoft.Dynamic" Condition=" '$(TargetFrameworkVersion)' == 'v3.5' ">
       <HintPath>..\packages\DynamicLanguageRuntime.1.1.0\lib\Net35\Microsoft.Dynamic.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.Dynamic, Version=1.1.0.20, Culture=neutral, PublicKeyToken=7f709c5b713576e1, processorArchitecture=MSIL" Condition=" '$(TargetFrameworkVersion)' == 'v4.0' ">
@@ -108,7 +108,7 @@
     <Reference Include="Microsoft.Scripting.Metadata, Version=1.1.0.20, Culture=neutral, PublicKeyToken=7f709c5b713576e1, processorArchitecture=MSIL" Condition=" '$(TargetFrameworkVersion)' == 'v4.0' ">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\packages\DynamicLanguageRuntime.1.1.0\lib\Net40\Microsoft.Scripting.Metadata.dll</HintPath>
-    </Reference>
+    </Reference> -->
     <Reference Include="System" />
     <Reference Include="System.ServiceModel">
     </Reference>
@@ -120,11 +120,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="api\Clojure.cs" />
     <Compile Include="CljCompiler\ArrayIter.cs" />
+    <!-- <Compile Include="api\Clojure.cs" />
     <Compile Include="CljCompiler\Ast\IlGen.cs" />
     <Compile Include="CljCompiler\Ast\Intrinsics.cs" />
-    <Compile Include="CljCompiler\Ast\CaseExpr.cs" />
+    <Compile Include="CljCompiler\Ast\CaseExpr.cs" /> -->
     <Compile Include="Lib\ClrTypeSpec.cs" />
     <Compile Include="Lib\Cycle.cs" />
     <Compile Include="Lib\EdnReader.cs" />
@@ -153,7 +153,7 @@
     <Compile Include="Lib\Volatile.cs" />
     <Compile Include="Lib\WarnBoxedMathAttribute.cs" />
     <Compile Include="Readers\PushbackInputStream.cs" />
-    <Compile Include="Runtime\Binding\BindingHelpers.cs" />
+    <!-- <Compile Include="Runtime\Binding\BindingHelpers.cs" />
     <Compile Include="Runtime\Binding\ClojureOverloadResolver.cs" />
     <Compile Include="Runtime\Binding\ClojureCreateInstanceBinder.cs" />
     <Compile Include="Runtime\Binding\ClojureGetZeroArityMemberBinder.cs" />
@@ -169,20 +169,20 @@
     <Compile Include="CljCompiler\Ast\NewInstanceExpr.cs" />
     <Compile Include="CljCompiler\Ast\NewInstanceMethod.cs" />
     <Compile Include="CljCompiler\Ast\NumberExpr.cs" />
-    <Compile Include="Runtime\Binding\ClojureBinder.cs" />
-    <Compile Include="CljCompiler\Ast\ObjExpr.cs" />
+    <Compile Include="Runtime\Binding\ClojureBinder.cs" /> -->
+    <!-- <Compile Include="CljCompiler\Ast\ObjExpr.cs" />
     <Compile Include="CljCompiler\Ast\ObjMethod.cs" />
     <Compile Include="CljCompiler\Ast\ParserContext.cs" />
     <Compile Include="CljCompiler\Ast\ParseException.cs" />
     <Compile Include="CljCompiler\Ast\StaticInvokeExpr.cs" />
     <Compile Include="CljCompiler\GenClass.cs" />
     <Compile Include="CljCompiler\GenInterface.cs" />
-    <Compile Include="CljCompiler\MethodSignature.cs" />
+    <Compile Include="CljCompiler\MethodSignature.cs" /> -->
     <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="Lib\ArityException.cs" />
     <Compile Include="Lib\AtomicBoolean.cs" />
     <Compile Include="Lib\BigDecimal.cs" />
-    <Compile Include="CljCompiler\Ast\AssignableExpr.cs" />
+    <!-- <Compile Include="CljCompiler\Ast\AssignableExpr.cs" />
     <Compile Include="CljCompiler\Ast\AssignExpr.cs" />
     <Compile Include="CljCompiler\Ast\BindingInit.cs" />
     <Compile Include="CljCompiler\Ast\BooleanExpr.cs" />
@@ -229,7 +229,7 @@
     <Compile Include="CljCompiler\Ast\VectorExpr.cs" />
     <Compile Include="CljCompiler\Ast\StringExpr.cs" />
     <Compile Include="CljCompiler\GenDelegate.cs" />
-    <Compile Include="CljCompiler\GenProxy.cs" />
+    <Compile Include="CljCompiler\GenProxy.cs" /> -->
     <Compile Include="Lib\ArrayChunk.cs" />
     <Compile Include="Lib\ArrayHelper.cs" />
     <Compile Include="Lib\ATransientMap.cs" />
@@ -351,7 +351,7 @@
     <Compile Include="Lib\Symbol.cs" />
     <Compile Include="Lib\Util.cs" />
     <Compile Include="Lib\Var.cs" />
-    <Compile Include="Runtime\Binding\IClojureSite.cs" />
+    <!-- <Compile Include="Runtime\Binding\IClojureSite.cs" />
     <Compile Include="Runtime\Binding\MetaAFn.cs" />
     <Compile Include="Runtime\ClojureContext.cs" />
     <Compile Include="Runtime\ClojureOps.cs" />
@@ -359,9 +359,9 @@
     <Compile Include="Runtime\ConversionWrappers.cs" />
     <Compile Include="Runtime\Converter.cs" />
     <Compile Include="Runtime\ImmutableDictionaryEnumerator.cs" />
+    <Compile Include="Runtime\Reflector.cs" /> -->
     <Compile Include="Runtime\Printf.cs" />
     <Compile Include="Runtime\Properties.cs" />
-    <Compile Include="Runtime\Reflector.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">

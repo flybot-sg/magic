@@ -24,8 +24,8 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
-using clojure.lang.Runtime;
-using Microsoft.Scripting.Hosting;
+// using clojure.lang.Runtime;
+// using Microsoft.Scripting.Hosting;
 using RTProperties = clojure.runtime.Properties;
 //using BigDecimal = java.math.BigDecimal;
 
@@ -473,6 +473,71 @@ namespace clojure.lang
 
         #endregion
 
+        #region Bootstrap Dynamic Var Functions
+
+        // a number of functions need to be provided by the host by 
+        // dynamically binding vars. they will throw NotSupportedException by
+        // default. these were put in place to break any dependency between
+        // the clojure libraries and the clojure compiler to ease integration
+        // with MAGIC.
+        // -nasser
+
+        internal class DefaultHostFunction : AFn
+        {
+            string message;
+            public DefaultHostFunction(string varName) { this.message = String.Format("Bind the var {0} to enable this functionality.", varName); }
+            public override object invoke() { throw new NotSupportedException(message); }
+            public override object invoke(object a) { throw new NotSupportedException(message); }
+            public override object invoke(object a, object b) { throw new NotSupportedException(message); }
+            public override object invoke(object a, object b, object c) { throw new NotSupportedException(message); }
+            public override object invoke(object a, object b, object c, object d) { throw new NotSupportedException(message); }
+        }
+
+        // ^object [^Type type ^objects args]
+        internal static readonly Var EvalReaderInvokeConstructorVar
+            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                Symbol.intern("*read-eval-invoke-constructor*"), 
+                new DefaultHostFunction("clojure.core/*read-eval-invoke-constructor*")).setDynamic();  
+
+        // ^object [^Type type ^string method-name ^objects args]
+        internal static readonly Var EvalReaderInvokeStaticMethodVar
+            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                Symbol.intern("*read-eval-invoke-static-method*"), 
+                new DefaultHostFunction("clojure.core/*read-eval-invoke-static-method*")).setDynamic();  
+
+        // ^object [^string path]
+        internal static readonly Var LoadFileVar
+            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                Symbol.intern("*load-file*"), 
+                new DefaultHostFunction("clojure.core/*load-file*")).setDynamic();
+
+        // ^void [^FileInfo assy ^string relativePath]
+        // ^void [^bytes assy ^string relativePath]
+        internal static readonly Var LoadAssemblyVar
+            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                Symbol.intern("*load-assembly*"), 
+                new DefaultHostFunction("clojure.core/*load-assembly*")).setDynamic();
+
+        // ^bool [^string relativePath]
+        internal static readonly Var LoadInitTypeVar
+            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                Symbol.intern("*load-init-type*"), 
+                new DefaultHostFunction("clojure.core/*load-init-type*")).setDynamic();
+
+        // ^void [^string dirName ^string name ^TextReader rdr ^string relativePath]
+        internal static readonly Var CompileVar
+            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                Symbol.intern("*compile*"), 
+                new DefaultHostFunction("clojure.core/*compile*")).setDynamic();
+
+        // ^void [^string fullName ^string name ^TextReader rdr ^string relativePath]
+        internal static readonly Var LoadScriptVar
+            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                Symbol.intern("*load-script*"), 
+                new DefaultHostFunction("clojure.core/*load-script*")).setDynamic();
+
+        #endregion
+
         #region  Clojure-environment IFns needing support
 
         static readonly Symbol InNsSymbol = Symbol.intern("in-ns");
@@ -523,7 +588,7 @@ namespace clojure.lang
         {
             public override object invoke(object arg1)
             {
-                return Compiler.loadFile(arg1.ToString());
+                return LoadFileVar.invoke(arg1.ToString());
             }
         }
 
@@ -572,17 +637,17 @@ namespace clojure.lang
 
             // TODO: Check for existence of ClojureContext.Default before doing this?
 
-            ScriptRuntimeSetup setup = new ScriptRuntimeSetup();
-            LanguageSetup lsetup = new LanguageSetup(
-                typeof(ClojureContext).AssemblyQualifiedName,
-                ClojureContext.ClojureDisplayName,
-                ClojureContext.ClojureNames.Split(new Char[] { ';' }),
-                ClojureContext.ClojureFileExtensions.Split(new Char[] { ';' }));
+            // ScriptRuntimeSetup setup = new ScriptRuntimeSetup();
+            // LanguageSetup lsetup = new LanguageSetup(
+            //     typeof(ClojureContext).AssemblyQualifiedName,
+            //     ClojureContext.ClojureDisplayName,
+            //     ClojureContext.ClojureNames.Split(new Char[] { ';' }),
+            //     ClojureContext.ClojureFileExtensions.Split(new Char[] { ';' }));
 
 
-            setup.LanguageSetups.Add(lsetup);
-            ScriptRuntime env = new ScriptRuntime(setup);
-            env.GetEngine("clj");
+            // setup.LanguageSetups.Add(lsetup);
+            // ScriptRuntime env = new ScriptRuntime(setup);
+            // env.GetEngine("clj");
 
 
             _versionProperties.LoadFromString(clojure.lang.Properties.Resources.version); 
@@ -622,23 +687,23 @@ namespace clojure.lang
                 DoInit();
         }
 
-        public static void LoadSpecCode()
-        {
-            try
-            {
-                Var.pushThreadBindings(RT.map(Compiler.CompileFilesVar, false));
-                // We need to prevent loading more than once.
-                IFn require = clojure.clr.api.Clojure.var("clojure.core", "require");
-                require.invoke(clojure.clr.api.Clojure.read("clojure.spec.alpha"));
-                require.invoke(clojure.clr.api.Clojure.read("clojure.core.specs.alpha"));
-                //load("clojure/spec/alpha");
-                //load("clojure/core/specs/alpha");
-            }
-            finally
-            {
-                Var.popThreadBindings();
-            }
-        }
+        // public static void LoadSpecCode()
+        // {
+        //     try
+        //     {
+        //         Var.pushThreadBindings(RT.map(Compiler.CompileFilesVar, false));
+        //         // We need to prevent loading more than once.
+        //         IFn require = clojure.clr.api.Clojure.var("clojure.core", "require");
+        //         require.invoke(clojure.clr.api.Clojure.read("clojure.spec.alpha"));
+        //         require.invoke(clojure.clr.api.Clojure.read("clojure.core.specs.alpha"));
+        //         //load("clojure/spec/alpha");
+        //         //load("clojure/core/specs/alpha");
+        //     }
+        //     finally
+        //     {
+        //         Var.popThreadBindings();
+        //     }
+        // }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2001:AvoidCallingProblematicMethods", MessageId = "System.Reflection.Assembly.LoadFrom")]
         static void DoInit()
@@ -646,6 +711,8 @@ namespace clojure.lang
             //Stopwatch sw = new Stopwatch();
             //sw.Start();
             load("clojure/core");
+            // Assembly.LoadFrom("clojure.spec.alpha.dll");
+            // Assembly.LoadFrom("clojure.core.specs.alpha.dll");
             //sw.Stop();
             //Console.WriteLine("Initial clojure/core load: {0} milliseconds.", sw.ElapsedMilliseconds);
 
@@ -672,15 +739,12 @@ namespace clojure.lang
                 refer.invoke(CLOJURE);
                 MaybeLoadCljScript("user.clj");
 
-                if (RuntimeBootstrapFlag._startDefaultServer)
-                {
-                    // start socket servers
-                    Var require = var("clojure.core", "require");
-                    Symbol SERVER = Symbol.intern("clojure.core.server");
-                    require.invoke(SERVER);
-                    Var start_servers = var("clojure.core.server", "start-servers");
-                    start_servers.invoke(Environment.GetEnvironmentVariables());
-                }
+                // start socket servers
+                // Var require = var("clojure.core", "require");
+                // Symbol SERVER = Symbol.intern("clojure.core.server");
+                // require.invoke(SERVER);
+                // Var start_servers = var("clojure.core.server", "start-servers");
+                // start_servers.invoke(Environment.GetEnvironmentVariables());
             }
             finally
             {
@@ -1274,7 +1338,7 @@ namespace clojure.lang
                 return str[n];
 
             if (coll.GetType().IsArray)
-                return Reflector.prepRet(coll.GetType().GetElementType(),((Array)coll).GetValue(n));
+                return ((Array)coll).GetValue(n);
 
             // Java has RandomAccess here.  CLR has no equiv.
             // Trying to replace it with IList caused some real problems,  See the fix in ASeq.
@@ -1374,7 +1438,7 @@ namespace clojure.lang
             {
                 Array a = (Array)coll;
                 if (n < a.Length)
-                    return Reflector.prepRet(a.GetType().GetElementType(),a.GetValue(n)); 
+                    return a.GetValue(n); 
                 return notFound;
             }
 
@@ -3001,10 +3065,10 @@ namespace clojure.lang
 
             if (t != null)
                 return t;
-
-            t = Compiler.FindDuplicateType(p);
-            if (t != null)
-                return t;
+            // i dont think we actually need this? -nasser
+            // t = Compiler.FindDuplicateType(p);
+            // if (t != null)
+            //     return t;
 
             AppDomain domain = AppDomain.CurrentDomain;
             Assembly[] assys = domain.GetAssemblies();
@@ -3589,7 +3653,7 @@ namespace clojure.lang
                     Var.pushThreadBindings(RT.map(CurrentNSVar, CurrentNSVar.deref(),
                                                   WarnOnReflectionVar, WarnOnReflectionVar.deref(),
                                                   RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
-                    Compiler.LoadAssembly(ReadStreamBytes(asmStream), relativePath);
+                    LoadAssemblyVar.invoke(ReadStreamBytes(asmStream), relativePath);
                     return true;
                 }
                 finally
@@ -3646,7 +3710,7 @@ namespace clojure.lang
 
         private static void LoadScript(string fullName, string name, TextReader rdr, string relativePath)
         {
-            Compiler.load(rdr, fullName, name, relativePath);
+            LoadScriptVar.invoke(rdr, fullName, name, relativePath);
         }
 
         private static void Compile(FileInfo cljInfo, string relativePath)
@@ -3657,7 +3721,7 @@ namespace clojure.lang
 
         private static void Compile(string dirName, string name, TextReader rdr, string relativePath)
         {
-            Compiler.Compile(rdr, dirName, name, relativePath);
+            CompileVar.invoke(rdr, dirName, name, relativePath);
         }
 
         static FileInfo FindFile(string path, string filename)

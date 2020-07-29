@@ -1863,13 +1863,13 @@ namespace clojure.lang
                         //return Reflector.InvokeConstructor(RT.classForName(fs.Name.Substring(0, fs.Name.Length - 1)), args);
                         // I think the JVM code is wrong here
                         string s = fs.ToString();
-                        return Reflector.InvokeConstructor(RT.classForNameE(s.Substring(0, s.Length - 1)), args);
+                        return RT.EvalReaderInvokeConstructorVar.invoke(RT.classForNameE(s.Substring(0, s.Length - 1)), args);
                     }
                     if (Compiler.NamesStaticMember(fs))
                     {
 
                         Object[] args = RT.toArray(RT.next(o));
-                        return Reflector.InvokeStaticMethod(fs.Namespace, fs.Name, args);
+                        return RT.EvalReaderInvokeStaticMethodVar.invoke(fs.Namespace, fs.Name, args);
                     }
 
                     Object v = Compiler.maybeResolveIn(Compiler.CurrentNamespace, fs);
@@ -1962,7 +1962,7 @@ namespace clojure.lang
                     if (!ctorFound)
                         throw new ArgumentException(String.Format("Unexpected number of constructor arguments to {0}: got {1}", recordType.ToString(), recordEntries.count()));
 
-                    ret = Reflector.InvokeConstructor(recordType, RT.toArray(recordEntries));
+                    ret = RT.EvalReaderInvokeConstructorVar.invoke(recordType, RT.toArray(recordEntries));
                 }
                 else if ((vals = form as IPersistentMap) != null)
                 {
@@ -1972,7 +1972,7 @@ namespace clojure.lang
                             throw new ArgumentException(String.Format("Unreadable defrecord form: key must be of type clojure.lang.Keyword, got {0}", s.first().ToString()));
                     }
 
-                    ret = Reflector.InvokeStaticMethod(recordType, "create", new Object[] { vals });
+                    ret = RT.EvalReaderInvokeStaticMethodVar.invoke(recordType, "create", new Object[] { vals });
                 }
                 else
                 {
