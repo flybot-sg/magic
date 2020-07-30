@@ -628,7 +628,7 @@ namespace clojure.lang
         public static bool instrumentMacros = !ReadTrueFalseDefault(Environment.GetEnvironmentVariable("clojure.spec.skip-macros"), false);
 #endif
         
-        internal static volatile bool CHECK_SPECS = false;
+        internal static volatile bool CHECK_SPECS = true;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline")]
         static RT()
@@ -719,7 +719,7 @@ namespace clojure.lang
             if ( RuntimeBootstrapFlag._doRTPostBootstrap )
             PostBootstrapInit();
 
-            CHECK_SPECS = RuntimeBootstrapFlag.SkipSpecChecks ? false : RT.instrumentMacros;
+            // CHECK_SPECS = RuntimeBootstrapFlag.SkipSpecChecks ? false : RT.instrumentMacros;
         }
 
         public static void PostBootstrapInit()
