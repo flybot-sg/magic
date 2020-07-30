@@ -719,7 +719,7 @@ namespace clojure.lang
             if ( RuntimeBootstrapFlag._doRTPostBootstrap )
             PostBootstrapInit();
 
-            CHECK_SPECS = RT.instrumentMacros;
+            CHECK_SPECS = RuntimeBootstrapFlag.SkipSpecChecks ? false : RT.instrumentMacros;
         }
 
         public static void PostBootstrapInit()
@@ -3938,6 +3938,8 @@ namespace clojure.lang
         /// Preform post bootstrap
         /// </summary>
         public static bool _doRTPostBootstrap = true;
+        
+        public static bool SkipSpecChecks = false;
     }
 
 }
