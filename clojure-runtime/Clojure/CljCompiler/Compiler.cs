@@ -1,4 +1,4 @@
-﻿/**
+/**
  *   Copyright (c) Rich Hickey. All rights reserved.
  *   The use and distribution terms for this software are covered by the
  *   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
@@ -150,8 +150,8 @@ namespace clojure.lang
 //         internal static readonly Var SourceVar = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
 //                                         Symbol.intern("*source-path*"), "NO_SOURCE_FILE").setDynamic();
 //         // String
-//         internal static readonly Var SourcePathVar = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-//             Symbol.intern("*file*"), "NO_SOURCE_PATH").setDynamic();
+        internal static readonly Var SourcePathVar = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+            Symbol.intern("*file*"), "NO_SOURCE_PATH").setDynamic();
 
 //         //Integer
         public static readonly Var LineVar = Var.create(0).setDynamic();          // From the JVM version
