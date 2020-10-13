@@ -1,4 +1,4 @@
-/**
+﻿/**
  *   Copyright (c) Rich Hickey. All rights reserved.
  *   The use and distribution terms for this software are covered by the
  *   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
@@ -1746,7 +1746,7 @@ namespace clojure.lang
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes")]
-        private static void InitAssembly(Assembly assy, string relativePath)
+        public static void InitAssembly(Assembly assy, string relativePath)
         {
             Type initType = GetTypeFromAssy(assy,InitClassName(relativePath));
             if (initType == null)
@@ -1772,7 +1772,7 @@ namespace clojure.lang
             }
         }
 
-        internal static bool TryLoadInitType(string relativePath)
+        public static bool TryLoadInitType(string relativePath)
         {
             var initClassName = InitClassName(relativePath);
             Type initType = null;
