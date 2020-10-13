@@ -34,7 +34,7 @@ namespace clojure.lang
     {
 //         #region other constants
 
-//         internal const int MaxPositionalArity = 20;
+        internal const int MaxPositionalArity = 20;
 //         //internal const string CompileStubPrefix = "compile__stub";
 //         internal const string DeftypeBaseClassNamePrefix = "DeftypeBase";
 
@@ -366,7 +366,7 @@ namespace clojure.lang
 
 //         internal static readonly ConstructorInfo Ctor_Serializable = typeof(SerializableAttribute).GetConstructor(Type.EmptyTypes);
 
-//         internal static readonly MethodInfo[] Methods_IFn_invoke = new MethodInfo[MaxPositionalArity + 2];
+        internal static readonly MethodInfo[] Methods_IFn_invoke = new MethodInfo[MaxPositionalArity + 2];
 //         internal static readonly MethodInfo[] Methods_CreateTuple = new MethodInfo[] { 
 //             typeof(Tuple).GetMethod("create",CreateObjectTypeArray(0)),
 //             typeof(Tuple).GetMethod("create",CreateObjectTypeArray(1)),
@@ -377,23 +377,23 @@ namespace clojure.lang
 //             typeof(Tuple).GetMethod("create",CreateObjectTypeArray(6)),
 //         };
 
-//         internal static Type[] CreateObjectTypeArray(int size)
-//         {
-//             Type[] typeArray = new Type[size];
-//             for (int i = 0; i < size; i++)
-//                 typeArray[i] = typeof(Object);
-//             return typeArray;
-//         }
+        internal static Type[] CreateObjectTypeArray(int size)
+        {
+            Type[] typeArray = new Type[size];
+            for (int i = 0; i < size; i++)
+                typeArray[i] = typeof(Object);
+            return typeArray;
+        }
 
 //         #endregion
 
 //         #region C-tors & factory methods
 
 //         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline")]
-//         static Compiler()
-//         {
-//             for (int i = 0; i <= Compiler.MaxPositionalArity; i++)
-//                 Methods_IFn_invoke[i] = typeof(IFn).GetMethod("invoke", CreateObjectTypeArray(i));
+        static Compiler()
+        {
+            for (int i = 0; i <= Compiler.MaxPositionalArity; i++)
+                Methods_IFn_invoke[i] = typeof(IFn).GetMethod("invoke", CreateObjectTypeArray(i));
 
 //             Type[] types = new Type[Compiler.MaxPositionalArity + 1];
 //             CreateObjectTypeArray(Compiler.MaxPositionalArity).CopyTo(types, 0);
@@ -402,7 +402,7 @@ namespace clojure.lang
 //                 = typeof(IFn).GetMethod("invoke", types);
 
 //             InitializeCompilerOptions();
-//         }
+        }
 
 //         #endregion
 
