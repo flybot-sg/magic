@@ -3553,6 +3553,37 @@ namespace clojure.lang
 
         # region Loading/compiling
 
+        public static void LoadAssembly(string fullPath, string relativePath)
+        {
+            try
+            {
+                Var.pushThreadBindings(RT.map(CurrentNSVar, CurrentNSVar.deref(),
+                    WarnOnReflectionVar, WarnOnReflectionVar.deref(),
+                    RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
+                var assy = Assembly.LoadFrom(fullPath);
+                Compiler.InitAssembly(assy, relativePath);
+            }
+            finally
+            {
+                Var.popThreadBindings();
+            }
+        }
+
+        public static bool TryLoadInitType(string relativePath)
+        {
+            try
+            {
+                Var.pushThreadBindings(RT.map(CurrentNSVar, CurrentNSVar.deref(),
+                    WarnOnReflectionVar, WarnOnReflectionVar.deref(),
+                    RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
+                return Compiler.TryLoadInitType(relativePath);
+            }
+            finally
+            {
+                Var.popThreadBindings();
+            }
+        }
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
         public static void load(String relativePath)
         {
@@ -3594,7 +3625,7 @@ namespace clojure.lang
                                 Var.pushThreadBindings(RT.mapUniqueKeys(CurrentNSVar, CurrentNSVar.deref(),
                                                                 WarnOnReflectionVar, WarnOnReflectionVar.deref(),
                                                                 RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
-                                Compiler.LoadAssembly(assyInfo, relativePath);
+                                LoadAssembly(assyInfo.FullName, relativePath);
                                 return;
                             }
                             finally
@@ -3615,18 +3646,8 @@ namespace clojure.lang
                 }
                 else if(source == RuntimeBootstrapFlag.CodeSource.InitType)
                 {
-                    try
-                    {
-                        Var.pushThreadBindings(RT.map(CurrentNSVar, CurrentNSVar.deref(),
-                            WarnOnReflectionVar, WarnOnReflectionVar.deref(),
-                            RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
-                        if (Compiler.TryLoadInitType(relativePath))
-                            return;
-                    }
-                    finally
-                    {
-                        Var.popThreadBindings();
-                    }
+                    if (TryLoadInitType(relativePath))
+                        return;
                 }
                 else if(source == RuntimeBootstrapFlag.CodeSource.EmbeddedResource)
                 {
