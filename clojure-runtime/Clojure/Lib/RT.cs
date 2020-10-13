@@ -1,4 +1,4 @@
-﻿/**
+/**
  *   Copyright (c) Rich Hickey. All rights reserved.
  *   The use and distribution terms for this software are covered by the
  *   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
@@ -631,7 +631,7 @@ namespace clojure.lang
         internal static volatile bool CHECK_SPECS = false;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline")]
-        static RT()
+        public static void Initialize(bool doRuntimeBootstrap=true, bool doRuntimePostBoostrap=true)
         {
             AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
 
@@ -667,8 +667,8 @@ namespace clojure.lang
 
             //// during bootstrap, ns same as in-ns
             //Var nv = Var.intern(CLOJURE_NS, NAMESPACE, new InNamespaceFn());
-            Var nv = Var.intern(ClojureNamespace, NsSymbol, new BootNamespaceFN());
-            nv.setMacro();
+            // Var nv = Var.intern(ClojureNamespace, NsSymbol, new BootNamespaceFN());
+            // nv.setMacro();
 
             Var v;
             v = Var.intern(ClojureNamespace, InNsSymbol, new InNamespaceFn());
@@ -683,8 +683,8 @@ namespace clojure.lang
             //v.setMeta(map(dockw, "tests if 2 arguments are the same object",
             //    arglistskw, list(vector(Symbol.intern("x"), Symbol.intern("y")))));
 
-            if ( RuntimeBootstrapFlag._doRTBootstrap )
-                DoInit();
+            if ( doRuntimeBootstrap )
+                DoInit(doRuntimePostBoostrap);
         }
 
         // public static void LoadSpecCode()
@@ -706,7 +706,7 @@ namespace clojure.lang
         // }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2001:AvoidCallingProblematicMethods", MessageId = "System.Reflection.Assembly.LoadFrom")]
-        static void DoInit()
+        static void DoInit(bool doRuntimePostBoostrap)
         {
             //Stopwatch sw = new Stopwatch();
             //sw.Start();
@@ -716,7 +716,7 @@ namespace clojure.lang
             //sw.Stop();
             //Console.WriteLine("Initial clojure/core load: {0} milliseconds.", sw.ElapsedMilliseconds);
 
-            if ( RuntimeBootstrapFlag._doRTPostBootstrap )
+            if ( doRuntimePostBoostrap )
             PostBootstrapInit();
 
             // CHECK_SPECS = RuntimeBootstrapFlag.SkipSpecChecks ? false : RT.instrumentMacros;
