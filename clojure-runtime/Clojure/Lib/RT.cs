@@ -1,4 +1,4 @@
-/**
+﻿/**
  *   Copyright (c) Rich Hickey. All rights reserved.
  *   The use and distribution terms for this software are covered by the
  *   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
@@ -508,33 +508,19 @@ namespace clojure.lang
         // ^object [^string path]
         internal static readonly Var LoadFileVar
             = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*load-file*"), 
-                new DefaultHostFunction("clojure.core/*load-file*")).setDynamic();
+                Symbol.intern("*load-file-fn*"), 
+                new DefaultHostFunction("clojure.core/*load-file-fn*")).setDynamic();
 
-        // ^void [^FileInfo assy ^string relativePath]
-        // ^void [^bytes assy ^string relativePath]
-        internal static readonly Var LoadAssemblyVar
+        internal static readonly Var LoadVar
             = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*load-assembly*"), 
-                new DefaultHostFunction("clojure.core/*load-assembly*")).setDynamic();
-
-        // ^bool [^string relativePath]
-        internal static readonly Var LoadInitTypeVar
-            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*load-init-type*"), 
-                new DefaultHostFunction("clojure.core/*load-init-type*")).setDynamic();
+                Symbol.intern("*load-fn*"), 
+                new DefaultHostFunction("clojure.core/*load-fn*")).setDynamic();
 
         // ^void [^string dirName ^string name ^TextReader rdr ^string relativePath]
-        internal static readonly Var CompileVar
+        internal static readonly Var CompileFileVar
             = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*compile*"), 
-                new DefaultHostFunction("clojure.core/*compile*")).setDynamic();
-
-        // ^void [^string fullName ^string name ^TextReader rdr ^string relativePath]
-        internal static readonly Var LoadScriptVar
-            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*load-script*"), 
-                new DefaultHostFunction("clojure.core/*load-script*")).setDynamic();
+                Symbol.intern("*compile-file-fn*"), 
+                new DefaultHostFunction("clojure.core/*compile-file-fn*")).setDynamic();
 
         #endregion
 
@@ -552,19 +538,6 @@ namespace clojure.lang
                 return ns;
             }
         }
-        static readonly Symbol NsSymbol = Symbol.intern("ns");
-
-        sealed class BootNamespaceFN : AFn
-        {
-            public override object invoke(object __form, object __env, object arg1)
-            {
-                Symbol nsname = (Symbol)arg1;
-                Namespace ns = Namespace.findOrCreate(nsname);
-                CurrentNSVar.set(ns);
-                return ns;
-            }
-        }
-
 
         //static readonly Symbol IDENTICAL = Symbol.intern("identical?");
 
@@ -710,7 +683,7 @@ namespace clojure.lang
         {
             //Stopwatch sw = new Stopwatch();
             //sw.Start();
-            load("clojure/core");
+            TryLoadInitType("clojure/core");
             // Assembly.LoadFrom("clojure.spec.alpha.dll");
             // Assembly.LoadFrom("clojure.core.specs.alpha.dll");
             //sw.Stop();
@@ -3593,115 +3566,7 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
         public static void load(String relativePath, Boolean failIfNotFound)
         {
-            string cljname = relativePath + ".clj";
-            string assemblyname = relativePath.Replace('/', '.') + ".clj.dll";
-            bool loaded = false;
-
-            foreach (var source in RuntimeBootstrapFlag.CodeLoadOrder)
-            {
-                if(source == RuntimeBootstrapFlag.CodeSource.FileSystem)
-                {
-                    if (!RuntimeBootstrapFlag.DisableFileLoad)
-                    {
-                        FileInfo cljInfo = FindFile(cljname);
-                        if (cljInfo == null )
-                        {
-                            cljname = relativePath + ".cljc";
-                            cljInfo = FindFile(cljname);
-                        }
-                        FileInfo assyInfo = FindFile(assemblyname);
-                        if ( assyInfo == null )
-                        {
-                            assemblyname = relativePath.Replace('/', '.') + ".cljc.dll";
-                            assyInfo = FindFile(assemblyname);
-                        }
-
-
-                        if ((assyInfo != null &&
-                            (cljInfo == null || assyInfo.LastWriteTime >= cljInfo.LastWriteTime)))
-                        {
-                            try
-                            {
-                                Var.pushThreadBindings(RT.mapUniqueKeys(CurrentNSVar, CurrentNSVar.deref(),
-                                                                WarnOnReflectionVar, WarnOnReflectionVar.deref(),
-                                                                RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
-                                LoadAssembly(assyInfo.FullName, relativePath);
-                                return;
-                            }
-                            finally
-                            {
-                                Var.popThreadBindings();
-                            }
-                        }
-
-                        if (cljInfo != null)
-                        {
-                            if (booleanCast(Compiler.CompileFilesVar.deref()))
-                                Compile(cljInfo, cljname);
-                            else
-                                LoadScript(cljInfo, cljname);
-                            return;
-                        }
-                    }
-                }
-                else if(source == RuntimeBootstrapFlag.CodeSource.InitType)
-                {
-                    if (TryLoadInitType(relativePath))
-                        return;
-                }
-                else if(source == RuntimeBootstrapFlag.CodeSource.EmbeddedResource)
-                {
-                    loaded = TryLoadFromEmbeddedResource(relativePath, assemblyname);
-                }
-            }
-
-            if (!loaded && failIfNotFound)
-                throw new FileNotFoundException(String.Format("Could not locate {0} or {1} on load path.{2}", 
-                    assemblyname, 
-                    cljname,
-                    relativePath.Contains("_") ? " Please check that namespaces with dashes use underscores in the Clojure file name." : ""));
-
-        }
-
-        private static bool TryLoadFromEmbeddedResource(string relativePath, string assemblyname)
-        {
-            Assembly containingAssembly;
-            var asmStream = GetEmbeddedResourceStream(assemblyname, out containingAssembly);
-            if (asmStream != null)
-            {
-                try
-                {
-                    Var.pushThreadBindings(RT.map(CurrentNSVar, CurrentNSVar.deref(),
-                                                  WarnOnReflectionVar, WarnOnReflectionVar.deref(),
-                                                  RT.UncheckedMathVar, RT.UncheckedMathVar.deref()));
-                    LoadAssemblyVar.invoke(ReadStreamBytes(asmStream), relativePath);
-                    return true;
-                }
-                finally
-                {
-                    Var.popThreadBindings();
-                }
-            }
-
-            var embeddedCljName = relativePath.Replace("/", ".") + ".clj";
-            var stream = GetEmbeddedResourceStream(embeddedCljName, out containingAssembly);
-            if ( stream == null )
-            {
-                embeddedCljName = relativePath.Replace("/", ".") + ".cljc";
-                stream = GetEmbeddedResourceStream(embeddedCljName, out containingAssembly);
-            }
-            if (stream != null)
-            {
-                using (var rdr = new StreamReader(stream))
-                {
-                    if (booleanCast(Compiler.CompileFilesVar.deref()))
-                        Compile(containingAssembly.FullName, embeddedCljName, rdr, relativePath);
-                    else
-                        LoadScript(containingAssembly.FullName, embeddedCljName, rdr, relativePath);
-                }
-                return true;
-            }
-            return false;
+            LoadVar.invoke(relativePath, failIfNotFound);
         }
 
         private static void MaybeLoadCljScript(string cljname)
@@ -3725,113 +3590,22 @@ namespace clojure.lang
 
         public  static void LoadScript(FileInfo cljInfo, string relativePath)
         {
-            using (TextReader rdr = cljInfo.OpenText())
-                LoadScript(cljInfo.FullName, cljInfo.Name, rdr, relativePath);
-        }
-
-        private static void LoadScript(string fullName, string name, TextReader rdr, string relativePath)
-        {
-            LoadScriptVar.invoke(rdr, fullName, name, relativePath);
+            LoadFileVar.invoke(cljInfo, relativePath);
         }
 
         private static void Compile(FileInfo cljInfo, string relativePath)
         {
-            using ( TextReader rdr = cljInfo.OpenText() )
-                Compile(cljInfo.Directory.FullName, cljInfo.Name, rdr, relativePath);
-        }
-
-        private static void Compile(string dirName, string name, TextReader rdr, string relativePath)
-        {
-            CompileVar.invoke(rdr, dirName, name, relativePath);
+            CompileFileVar.invoke(cljInfo, relativePath);
         }
 
         static FileInfo FindFile(string path, string filename)
         {
-            string probePath = ConvertPath(Path.Combine(path, filename));
-            if (File.Exists(probePath))
-                return new FileInfo(probePath);
-
-            return null;
+            return (FileInfo)RT.var("clojure.core", "find-file").invoke(path, filename);
         }
-
-        public static IEnumerable<string> GetFindFilePaths()
-        {
-            return GetFindFilePathsRaw().Distinct();
-        }
-
-        static IEnumerable<string> GetFindFilePathsRaw()
-        {
-            // these cause problems in android export
-            // see https://github.com/arcadia-unity/Arcadia/issues/248#issuecomment-445419022
-            // yield return System.AppDomain.CurrentDomain.BaseDirectory;
-            // yield return Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "bin");
-            yield return Directory.GetCurrentDirectory();
-            yield return Path.GetDirectoryName(typeof(RT).Assembly.Location);
-
-            Assembly assy = Assembly.GetEntryAssembly();
-            if ( assy != null )
-                yield return Path.GetDirectoryName(assy.Location);
-
-            string rawpaths = (string)System.Environment.GetEnvironmentVariable(ClojureLoadPathString);
-            if (rawpaths == null)
-                yield break;
-
-            string[] paths = rawpaths.Split(Path.PathSeparator);
-            foreach (string path in paths)
-                yield return path;
-        }
-
 
         public static FileInfo FindFile(string fileName)
         {
-            FileInfo fi;
-
-            foreach (string path in GetFindFilePaths())
-                if ((fi = FindFile(path, fileName)) != null)
-                    return fi;
-
-            return FindRemappedFile(fileName);
-        }
-
-        public static readonly Var NSLoadMappings
-            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                                                 Symbol.intern("*ns-load-mappings*"), new Atom(PersistentVector.EMPTY)).setDynamic();
-
-        public static FileInfo FindRemappedFile(string fileName)
-        {
-            var nsLoadMappings = NSLoadMappings.deref() as Atom;
-            if (nsLoadMappings == null) return null;
-            var nsLoadMappingsVal = nsLoadMappings.deref() as PersistentVector;
-            foreach (var x in nsLoadMappingsVal)
-            {
-                var mapping = x as PersistentVector;
-                if (mapping == null || mapping.length() < 2) continue;
-                var nsRoot = mapping[0] as string;
-                if (nsRoot == null) continue;
-                nsRoot = nsRoot.Replace('.', '/');
-                if(fileName.StartsWith(nsRoot))
-                {
-                    var fsRoot = mapping[1] as string;
-                    var probePath = ConvertPath(fsRoot) + ConvertPath(fileName.Substring(nsRoot.Length));
-                    if(File.Exists(probePath))
-                        return new FileInfo(probePath);
-                }
-            }
-            return null;
-        }
-
-        public static IEnumerable<FileInfo> FindFiles(string fileName)
-        {
-            FileInfo fi;
-
-            foreach (string path in GetFindFilePaths())
-                if ((fi = FindFile(path, fileName)) != null)
-                    yield return fi;
-        }
-
-        static string ConvertPath(string path)
-        {
-            return path.Replace('/', Path.DirectorySeparatorChar);
+            return (FileInfo)RT.var("clojure.core", "find-file").invoke(fileName);
         }
 
         static Stream GetEmbeddedResourceStream(string resourceName, out Assembly containingAssembly)
