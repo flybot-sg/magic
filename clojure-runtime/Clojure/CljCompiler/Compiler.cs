@@ -139,9 +139,9 @@ namespace clojure.lang
 //                                                          Symbol.intern("instance?"), false).setDynamic();  
 
 
-//         //String
-//         public static readonly Var CompilePathVar = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-//                                                  Symbol.intern("*compile-path*"), null).setDynamic();
+        //String
+        public static readonly Var CompilePathVar = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                                                 Symbol.intern("*compile-path*"), null).setDynamic();
 
 //         public static readonly Var CompileVar = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
 //                                                 Symbol.intern("compile"));
