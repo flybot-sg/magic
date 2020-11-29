@@ -511,16 +511,16 @@ namespace clojure.lang
                 Symbol.intern("*load-file-fn*"), 
                 new DefaultHostFunction("clojure.core/*load-file-fn*")).setDynamic();
 
-        internal static readonly Var LoadVar
-            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*load-fn*"), 
-                new DefaultHostFunction("clojure.core/*load-fn*")).setDynamic();
-
         // ^void [^string dirName ^string name ^TextReader rdr ^string relativePath]
         internal static readonly Var CompileFileVar
             = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
                 Symbol.intern("*compile-file-fn*"), 
                 new DefaultHostFunction("clojure.core/*compile-file-fn*")).setDynamic();
+
+        internal static readonly Var LoadVar
+            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
+                Symbol.intern("*load-fn*"), 
+                var("clojure.core", "-load")).setDynamic();
 
         #endregion
 
