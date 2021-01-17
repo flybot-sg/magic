@@ -4,8 +4,7 @@
             files
             [magic.core :refer [*spells*]]
             [magic.spells.sparse-case :refer [sparse-case]]
-            [mage.core :as il]
-            [magic.profiler :refer [profile write-trace!]])
+            [mage.core :as il])
   (:import [System.Reflection MethodAttributes TypeAttributes BindingFlags]
            [System.IO File Directory Path DirectoryInfo]))
 
@@ -15,12 +14,7 @@
    files/clojure-root
    files/analyzer-root
    (str files/clojure-root "clojure") ;; HACK
-   files/test-root
-   "."
-   "/home/nasser/projects/magic/sandbox"
-   "/home/nasser/projects/magic/datascript/src"
-   "/home/nasser/projects/magic/datascript/test"
-   "/home/nasser/projects/arcadia/Assets/Arcadia/Source/"])
+   files/test-root])
 
 (defn bootstrap [& opts]
   (let [opts (set opts)]
@@ -115,7 +109,7 @@
   (copy-dir "Magic.IL2CPP/bin/Release/net461" "Magic.Unity/Infrastructure/IL2CPP")
   
   ;; build clojure core
-  (build-core)
+  ;;(build-core)
   ;; patch clojure core for il2cpp
   (exec "mono" (str "Magic.IL2CPP/bin/Release/net461/Magic.IL2CPP.CLI.exe "
                     (String/Join " " (Directory/EnumerateFiles "." "*.clj.dll"))))

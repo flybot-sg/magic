@@ -2,3 +2,7 @@ Magic.Unity
 deps
 *.meta
 *.dll
+.clj-kondo/
+.lsp/
+temp/
+files.clj
