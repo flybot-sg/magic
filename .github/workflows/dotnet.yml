@@ -1,5 +1,7 @@
 name: .NET
 
+# This script generates the new magic assemblies using Nostrand
+
 on: [push, pull_request]
 
 jobs:
