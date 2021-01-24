@@ -17,7 +17,7 @@
    files/test-root])
 
 (def std-libs-to-compile
-  '[#_clojure.core
+  '[#_clojure.core  ;;FIXME unable to compile
     clojure.spec.alpha
     clojure.core.specs.alpha
     clojure.pprint
