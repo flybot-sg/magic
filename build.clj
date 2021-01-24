@@ -77,7 +77,8 @@
       (println (str "build 'clojure.walk"))
       (compile 'clojure.zip)
       (println (str "build 'clojure.zip"))
-      (compile 'magic.api))))
+      (compile 'magic.api)
+      (println (str "build 'magic.api")))))
 
 (defn move [source destination]
   (println "[moving]" source destination)
