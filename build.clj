@@ -1,20 +1,7 @@
 (ns build
-  (:require [magic.api :as api]
-            magic.util
-            files
-            [magic.core :refer [*spells*]]
-            [magic.spells.sparse-case :refer [sparse-case]]
-            [mage.core :as il])
-  (:import [System.Reflection MethodAttributes TypeAttributes BindingFlags]
-           [System.IO File Directory Path DirectoryInfo]))
-
-(def local-load-paths
-  [files/magic-root
-   files/mage-root
-   files/clojure-root
-   files/analyzer-root
-   (str files/clojure-root "clojure") ;; HACK
-   files/test-root])
+  (:require [magic.core :refer [*spells*]]
+            [magic.spells.sparse-case :refer [sparse-case]])
+  (:import [System.IO File Directory Path DirectoryInfo]))
 
 (def std-libs-to-compile
   '[#_clojure.core  ;;FIXME unable to compile
@@ -45,10 +32,6 @@
   (let [opts (set opts)]
     (binding [*print-meta* true
               clojure.core/*loaded-libs* (ref (sorted-set))
-              *load-paths* (vec (concat local-load-paths *load-paths*))
-              *eval-form-fn* magic.api/eval
-              *compile-file-fn* magic.api/runtime-compile-file
-              *load-file-fn* magic.api/runtime-load-file
               *spells* (if (:portable opts) (conj *spells* sparse-case) *spells*)
               *warn-on-reflection* true
               *compile-path* "bootstrap"]
