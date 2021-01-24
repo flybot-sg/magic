@@ -16,6 +16,31 @@
    (str files/clojure-root "clojure") ;; HACK
    files/test-root])
 
+(def std-libs-to-compile
+  '[#_clojure.core
+    clojure.spec.alpha
+    clojure.core.specs.alpha
+    clojure.pprint
+    clojure.clr.io
+    clojure.clr.shell
+    clojure.core.protocols
+    clojure.core.reducers
+    clojure.core.server
+    clojure.data
+    clojure.edn
+    clojure.instant
+    clojure.main
+    clojure.repl
+    clojure.set
+    clojure.template
+    clojure.string
+    clojure.stacktrace
+    clojure.test
+    clojure.uuid
+    clojure.walk
+    clojure.zip
+    magic.api])
+
 (defn bootstrap [& opts]
   (let [opts (set opts)]
     (binding [*print-meta* true
@@ -27,51 +52,9 @@
               *spells* (if (:portable opts) (conj *spells* sparse-case) *spells*)
               *warn-on-reflection* true
               *compile-path* "bootstrap"]
-      (compile 'clojure.core)
-      (println (str "build 'clojure.core"))
-      (compile 'clojure.spec.alpha)
-      (println (str "build 'clojure.spec.alpha"))
-      (compile 'clojure.core.specs.alpha)
-      (println (str "build 'clojure.core.specs.alpha"))
-      (compile 'clojure.pprint)
-      (println (str "build 'clojure.pprint"))
-      (compile 'clojure.clr.io)
-      (println (str "build 'clojure.clr.io"))
-      (compile 'clojure.clr.shell)
-      (println (str "build 'clojure.clr.shell"))
-      (compile 'clojure.core.protocols)
-      (println (str "build 'clojure.core.protocols"))
-      (compile 'clojure.core.reducers)
-      (println (str "build 'clojure.core.reducers"))
-      (compile 'clojure.core.server)
-      (println (str "build 'clojure.core.server"))
-      (compile 'clojure.data)
-      (println (str "build 'clojure.data"))
-      (compile 'clojure.edn)
-      (println (str "build 'clojure.edn"))
-      (compile 'clojure.instant)
-      (println (str "build 'clojure.instant"))
-      (compile 'clojure.main)
-      (println (str "build 'clojure.main"))
-      (compile 'clojure.repl)
-      (println (str "build 'clojure.repl"))
-      (compile 'clojure.set)
-      (println (str "build 'clojure.set"))
-      (compile 'clojure.stacktrace)
-      (println (str "build 'clojure.stacktrace"))
-      (compile 'clojure.string)
-      (println (str "build 'clojure.string"))
-      (compile 'clojure.template)
-      (println (str "build 'clojure.template"))
-      (compile 'clojure.test)
-      (println (str "build 'clojure.test"))
-      (compile 'clojure.uuid)
-      (println (str "build 'clojure.uuid"))
-      (compile 'clojure.walk)
-      (println (str "build 'clojure.walk"))
-      (compile 'clojure.zip)
-      (println (str "build 'clojure.zip"))
-      (compile 'magic.api))))
+      (doseq [lib std-libs-to-compile]
+        (println (str "building " lib))
+        (compile lib)))))
 
 (defn move [source destination]
   (println "[moving]" source destination)
