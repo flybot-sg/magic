@@ -84,21 +84,9 @@ jobs:
         rm -rf bootstrap/
         dotnet "../nostrand/bin/x64/Debug/net5.0/Nostrand.dll" "build/bootstrap"
 
-    # Replace the old dlls in the bootstrap folder with the new ones and push to current branch
-    - name: Commit the dll folder
-      run: |
-        cd magic/
-        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        if [ -n "$(git status --porcelain)" ]
-        then
-        git add bootstrap
-        git commit -m "Generate the magic dll files in bootstrap folder"
-        fi
-
-    - name: Push changes
-      uses: ad-m/github-push-action@master
+   # Store the bootstrap folder with the new assemblies as artifact
+    - name: Store new DLLs as a github artifact
+      uses: actions/upload-artifact@v2
       with:
-        directory: ./magic
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ env.BRANCH_NAME }} 
+        name: magic-assemblies
+        path: ./magic/bootstrap
