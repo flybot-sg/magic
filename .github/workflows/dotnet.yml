@@ -67,15 +67,13 @@ jobs:
         dotnet build
 
     # Compile magic to dll with old Nostrand version
-    - name: Generate new Magic assemblies
+    - name: Compile Magic using Nostrand
       run: |
         cd magic/
-        rm -rf bootstrap/
         dotnet "../nostrand/bin/x64/Debug/net5.0/Nostrand.dll" "build/bootstrap"
     
-
     # Copy Magic dll to nostrand
-    - name: Copy current Magic bootstrap dlls to nostrand references
+    - name: Copy new Magic dlls in bootstrap to Nostrand reference
       run: |
         if [ -d "/magic/bootstrap" ] 
         then
@@ -87,13 +85,13 @@ jobs:
         cp magic/Magic.Runtime/bin/Debug/net461/* nostrand/references-net4x/
 
     # Rebuild Nostrand using the new magic DLLs
-    - name: Build Nostrand
+    - name: Rebuild Nostrand (with new Magic dlls)
       run: |
         cd nostrand/
         dotnet build
 
     # Compile magic to dll with new nostrand (self-hosting cycle complete)
-    - name: Generate new Magic assemblies
+    - name: Recompile Magic with the new Nostrand version
       run: |
         cd magic/
         rm -rf bootstrap/
