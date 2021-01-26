@@ -1,6 +1,7 @@
 name: .NET
 
-# This script generates the new magic assemblies using Nostrand
+# This script achieves the MAGIC compiler boostrappping and stores the new assemblies in a github artifact
+# that will be accessible for 90 days upon build date.
 
 on: [push, pull_request]
 
@@ -59,7 +60,21 @@ jobs:
         cd magic/Magic.Runtime/
         dotnet build
 
-    # Copy Magic dll of current branch to nostrand
+    # Build Magic with Nostrand repo DLLs (old Dlls)
+    - name: Build Nostrand
+      run: |
+        cd nostrand/
+        dotnet build
+
+    # Compile magic to dll with old Nostrand version
+    - name: Generate new Magic assemblies
+      run: |
+        cd magic/
+        rm -rf bootstrap/
+        dotnet "../nostrand/bin/x64/Debug/net5.0/Nostrand.dll" "build/bootstrap"
+    
+
+    # Copy Magic dll to nostrand
     - name: Copy current Magic bootstrap dlls to nostrand references
       run: |
         if [ -d "/magic/bootstrap" ] 
@@ -71,20 +86,20 @@ jobs:
         cp magic/Magic.Runtime/bin/Debug/netstandard2.0/* nostrand/references-netstandard/
         cp magic/Magic.Runtime/bin/Debug/net461/* nostrand/references-net4x/
 
-    # Build Nostrand using the previously copied dll
+    # Rebuild Nostrand using the new magic DLLs
     - name: Build Nostrand
       run: |
         cd nostrand/
         dotnet build
 
-    # Compile magic to dll with nostrand (self-hosting)
+    # Compile magic to dll with new nostrand (self-hosting cycle complete)
     - name: Generate new Magic assemblies
       run: |
         cd magic/
         rm -rf bootstrap/
         dotnet "../nostrand/bin/x64/Debug/net5.0/Nostrand.dll" "build/bootstrap"
 
-   # Store the bootstrap folder with the new assemblies as artifact
+   # Store the bootstrap folder with the new assemblies as artifact for 90 days
     - name: Store new DLLs as a github artifact
       uses: actions/upload-artifact@v2
       with:
