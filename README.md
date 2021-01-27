@@ -17,6 +17,75 @@ MAGIC is a compiler for Clojure written in Clojure targeting the Common Language
 1. Take full advantage of the CLR's features to produce better byte code
 2. Leverage Clojure's functional programming and data structures to be more tunable, composeable, and maintainable
 
+Getting Started
+--------
+
+To compile a clojure file or clojure project to .NET assemblies using Magic, you need [Nostrand](https://github.com/nasser/nostrand).
+
+`Nostrand` was built using Magic and Magic is compiled using Nostrand (There is a cyclic dependency to achieve the compile boostrapping).
+
+The steps to setup and compile your clojure project are the following:
+
+1) Clone [Nostrand](https://github.com/nasser/nostrand)
+
+2) Download the latest Magic dlls from the magic project last build artifact.
+
+Click on the last build in the [actions](https://github.com/flybot-sg/magic/actions) and then click on the artifact at the bottom.
+
+3) Copy the previously downloaded dlls in the `references` folder of `nostrand`.
+
+4) At the root of the nostrand project, run `dotnet build`.
+
+Nostrand uses the previously copied dll to build itself.
+
+5) Compile Magic using Nostrand.
+
+To compile magic you can chose either dotnet (for netcore) or mono (for net framework). Using `mono` is more stable at the moment. As mentioned in the `nostrand` readme, `nos` is a command that runs a function. for mono the `nos` script is in `nostrand/bin/x64/Debug/net471`. Add nos to your Path and just create a small bash script to access the command :
+
+```
+mono "/Users/.../nostrand/bin/x64/Debug/net471/Nostrand.exe" "$@" 
+```
+
+6) Create a function to compile your file of project.
+
+You now need to create a clojure function that will compile your files and call it with nos, for more info check the [nostrand readme](https://github.com/nasser/nostrand). The clojure file with the build function needs to be added in the `nostrand/bin/x64/Debug/net471` folder if you use mono.
+
+- To compile just clojure files
+
+Here is an example of the build function to compile your files in the current folder.
+```
+(ns mytasks)
+
+(defn build []
+  (binding [*compile-path* "build"]
+    (compile 'loic-exos)))
+```
+Then you call the function in the folder containing the clojure file : `nos mytasks/build`
+And your dll will be added in the `build` folder inside your project repo.
+
+- To compile a clojure project
+If your project has dependencies or has files in different folders (src, test etc), you need to provide a `project.edn` file that is a specific format of a `deps.edn` or `project.clj` if you use tool or lein. Following, an example of a project with 2 files, one in src folder, one in test folder and a dependency to specs.
+
+```
+{:name "loic exos"
+ :source-paths ["src" "test"]
+ :dependencies [[:github nasser/test.check "master"]]}
+```
+This `project.edn` file must be at the root of your clojure project. You can now update your `mytasks` file :
+
+```
+(ns mytasks)
+
+(defn build []
+  (binding [*compile-path* "build"]
+    (compile 'loic-exos)
+    (compile 'loic-exos-test)))
+```
+
+Tou can now compile using the same command as before : `nos mytasks/build`. The 2 dlls with be added to the `build` folder.
+
+7) If you want to recompile the files and some dlls are already present in the compile-path (`build` in our example), it won't overwrite, so always delete the `build` folder before running nos again.
+
 Strategy
 --------
 MAGIC consumes AST nodes from [`clojure.tools.analyzer.clr`](https://github.com/nasser/tools.analyzer.clr). It turns those AST nodes into [MAGE](https://github.com/nasser/mage) byte code to be compiled into executable MSIL. By using the existing ClojureCLR reader and building on [`clojure.tools.analyzer`](https://github.com/clojure/tools.analyzer), we avoid rewriting most of what is already a high performance, high quality code. By using MAGE, we are granted the full power of Clojure to reason about generating byte code without withholding any functionality of the CLR.
