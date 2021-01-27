@@ -28,7 +28,11 @@ The steps to setup and compile your clojure project are the following:
 
 1) Clone [Nostrand](https://github.com/nasser/nostrand)
 
-Nostrand runs a clojure functions that will compile your files or projects. Clone it to your machine.
+Nostrand runs a clojure functions that will compile your files or projects.
+
+```
+git clone https://github.com/nasser/nostrand.git
+```
 
 2) Download the latest Magic dlls from the magic project last build artifact.
 
@@ -36,7 +40,10 @@ Click on the last build in the [actions](https://github.com/flybot-sg/magic/acti
 
 3) Copy the previously downloaded dlls in the `references` folder of `nostrand`.
 
-4) At the root of the nostrand project, run `dotnet build`.
+4) At the root of the nostrand project, build nostrand.
+```
+dotnet build
+```
 
 Nostrand uses the previously copied dll to build itself.
 
@@ -48,7 +55,7 @@ To compile magic you can chose either dotnet (for net core) or mono (for net fra
 mono "/Users/.../nostrand/bin/x64/Debug/net471/Nostrand.exe" "$@" 
 ```
 
-6) Create a function to compile your file of project.
+6) Create a function to compile your file or project.
 
 You now need to create a clojure function that will compile your files and call it with nos, for more info check the [nostrand readme](https://github.com/nasser/nostrand). The clojure file with the build function needs to be added in the `nostrand/bin/x64/Debug/net471` folder if you use mono.
 
@@ -62,19 +69,25 @@ Here is an example of the build function to compile your files in the current fo
   (binding [*compile-path* "build"]
     (compile 'loic-exos)))
 ```
-Then you call the function in the folder containing the clojure file : `nos mytasks/build`
-And your dll will be added in the `build` folder created inside your project repo.
+Then you call the `build` function of the `mytasks` file with `nos`:
+```
+nos mytasks/build
+```
+And your dll will be added in the `build` folder in the current directory.
 
 - To compile a clojure project
 
-If your project has dependencies or has files in different folders (src, test etc), you need to provide a `project.edn` file that is a specific format of a `deps.edn` or `project.clj` if you use tool or lein. Following, an example of a project with 2 files, one in src folder, one in test folder and a dependency to specs.
+If your project has dependencies or has files in different folders (src, test etc), you need to provide a `project.edn` file. It is similar to a `deps.edn` or `project.clj` so you can easily adapt the syntax.
+
+Following, an example of a `project.edn` for a project with 2 files (one in src folder, one in test folder) and a dependency to specs.
 
 ```
 {:name         "loic exos"
  :source-paths ["src" "test"]
  :dependencies [[:github nasser/test.check "master"]]}
 ```
-This `project.edn` file must be at the root of your clojure project. You can now update your `mytasks` file :
+This `project.edn` file must be at the root of your clojure project (refer to project tree below).
+You can now update your `mytasks` file :
 
 ```
 (ns mytasks)
@@ -85,7 +98,12 @@ This `project.edn` file must be at the root of your clojure project. You can now
     (compile 'loic-exos-test)))
 ```
 
-You can now compile using the same command as before : `nos mytasks/build`. The 2 dlls with be added to the `build` folder. The dependency is added to a `deps` folder. Following the project tree to help you visualise what was created.
+You can now compile using the same command as before :
+```
+nos mytasks/build
+```
+
+The 2 dlls with be added to the `build` folder. The dependency is added to a `deps` folder. Following the project tree to help you visualise what was created.
 
 ```
 ├── build
@@ -112,8 +130,7 @@ You can now compile using the same command as before : `nos mytasks/build`. The 
     └── loic_exos_test.clj
 ```
 
-
-7) If you want to recompile the files and some dlls are already present in the compile-path (`build` in our example), it won't overwrite, so always delete the `build` folder before running nos again.
+_Note : If you want to recompile the files and some dlls are already present in the compile-path (`build` in our example), it won't overwrite, so always delete the `build` folder before running nos again._
 
 Strategy
 --------
