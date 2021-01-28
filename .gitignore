@@ -1,4 +1,6 @@
 Magic.Unity
 deps
 *.meta
+*.dll
+bootstrap
 temp
