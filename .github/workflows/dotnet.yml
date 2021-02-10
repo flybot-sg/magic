@@ -95,7 +95,7 @@ jobs:
       run: |
         cd magic/
         rm -rf bootstrap/
-        dotnet "../nostrand/bin/x64/Debug/net5.0/Nostrand.dll" "build/bootstrap"
+        mono "../nostrand/bin/x64/Debug/net471/Nostrand.exe" "build/bootstrap"
 
    # Store the bootstrap folder with the new assemblies as artifact for 90 days
     - name: Store new DLLs as a github artifact
