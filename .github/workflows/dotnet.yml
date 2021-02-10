@@ -70,7 +70,7 @@ jobs:
     - name: Compile Magic using Nostrand
       run: |
         cd magic/
-        dotnet "../nostrand/bin/x64/Debug/net5.0/Nostrand.dll" "build/bootstrap"
+        mono "../nostrand/bin/x64/Debug/net471/Nostrand.exe" "build/bootstrap"
     
     # Copy Magic dll to nostrand
     - name: Copy new Magic dlls in bootstrap to Nostrand reference
