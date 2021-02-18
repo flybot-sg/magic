@@ -11,7 +11,7 @@
     clojure.spec.alpha
     clojure.core.specs.alpha
     clojure.main
-    #_clojure.pprint
+    clojure.pprint
     clojure.clr.io
     clojure.clr.shell
     clojure.core.protocols
