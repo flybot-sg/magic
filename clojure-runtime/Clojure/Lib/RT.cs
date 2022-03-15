@@ -3457,7 +3457,24 @@ namespace clojure.lang
 
             public int  Compare(object x, object y)
             {
- 	            return Util.ConvertToInt(_fn.invoke( x,y ));
+                var comparer = _fn as System.Collections.IComparer;
+                if(comparer != null)
+                {
+                    return comparer.Compare(x, y);
+                }
+                else
+                {
+                    // copied from AFunction.Compare -nasser
+                    object o = _fn.invoke(x, y);
+
+                    if (o is Boolean)
+                    {
+                        if (RT.booleanCast(o))
+                            return -1;
+                        return RT.booleanCast(_fn.invoke(y, x)) ? 1 : 0;
+                    }
+                    return Util.ConvertToInt(o);
+                }
             }
 
             #endregion
