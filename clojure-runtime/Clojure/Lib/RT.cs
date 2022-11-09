@@ -3444,7 +3444,7 @@ namespace clojure.lang
         // The Java version goes through Array.sort to do this,
         // but I don't have a way to pass a comparator.
 
-        class ComparerConverter : IComparer
+        class ComparerConverter : IComparer, IComparer<object>
         {
             readonly IFn _fn;
 
@@ -3485,7 +3485,10 @@ namespace clojure.lang
                 Array.Sort(a, new ComparerConverter(fn));
         }
 
-
+        public static ISeq SortedSeq(ASeq a, IFn fn)
+        {
+                return seq(a.OrderBy(x => x, new ComparerConverter(fn)));
+        }
 
         static readonly Random _random = new Random();
 
