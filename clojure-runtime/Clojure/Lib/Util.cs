@@ -44,7 +44,7 @@ namespace clojure.lang
 
             String s = o as string;
             if (s != null)
-                return Murmur3.HashInt(s.GetHashCode());
+                return Murmur3.HashString(s);
 
             return o.GetHashCode();
         }
