@@ -14,20 +14,27 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 7.0.x
-
+    
+    # Checkout repo
+    - name: Checkout MAGIC repository
+      uses: actions/checkout@v2
+      with:
+        repository: magic-clojure/magic
+        path: ./magic
+    
     # Build Everything
     - name: Building and Bootstraping MAGIC
-      run: dotnet build
+      run: cd magic && dotnet build
       
    # Store nostrand and magic.unity as artifacts for 90 days
     - name: Store Nostrand as a github artifact
       uses: actions/upload-artifact@v2
       with:
         name: nostrand
-        path: ./nostrand/bin/x64/Release/net471/
+        path: ./magic/nostrand/bin/x64/Release/net471/
     
     - name: Store Magic.Unity as a github artifact
       uses: actions/upload-artifact@v2
       with:
         name: magic.unity
-        path: ./magic.unity/
+        path: ./magic/magic.unity/
