@@ -601,8 +601,6 @@ namespace clojure.lang
         public static bool instrumentMacros = !ReadTrueFalseDefault(Environment.GetEnvironmentVariable("clojure.spec.skip-macros"), false);
 #endif
         
-        internal static volatile bool CHECK_SPECS = false;
-
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline")]
         public static void Initialize(bool doRuntimeBootstrap=true, bool doRuntimePostBoostrap=true)
         {
@@ -691,8 +689,6 @@ namespace clojure.lang
 
             if ( doRuntimePostBoostrap )
             PostBootstrapInit();
-
-            // CHECK_SPECS = RuntimeBootstrapFlag.SkipSpecChecks ? false : RT.instrumentMacros;
         }
 
         public static void PostBootstrapInit()
@@ -3731,30 +3727,5 @@ namespace clojure.lang
             CodeSource.InitType,
             CodeSource.EmbeddedResource
         };
-
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]
-        public static bool _doRTBootstrap = true;
-        
-        /// <summary>
-        /// Starts default clojure.core.server REPL servers at startup.
-        /// </summary>
-        /// <remarks>Set to false to disable the default REPL server from starting to avoid the cost in startup time</remarks>
-        public static bool _startDefaultServer = true;
-
-        /// <summary>
-        /// Disable file loading
-        /// </summary>
-        /// <remarks>Prevent the load method from searching the file system for .clj and .clj.dll files.  
-        /// Used in production systems when all namespaces are to be found in loaded assemblies.</remarks>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]
-        public static bool DisableFileLoad = false;
-
-        /// <summary>
-        /// Preform post bootstrap
-        /// </summary>
-        public static bool _doRTPostBootstrap = true;
-        
-        public static bool SkipSpecChecks = false;
     }
-
 }
