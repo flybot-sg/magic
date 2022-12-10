@@ -15,7 +15,10 @@
         <ClojureRuntimeDllNetStandard>clojure.runtime/bin/Release/netstandard2.0/Clojure.dll</ClojureRuntimeDllNetStandard>
         <NostrandClojureReferenceNet4x>nostrand/references-net4x/Clojure.dll</NostrandClojureReferenceNet4x>
         <NostrandClojureReferenceNetStandard>nostrand/references-netstandard/Clojure.dll</NostrandClojureReferenceNetStandard>
-        <MagicRuntimeDll>magic.runtime/Magic.Runtime/bin/Release/net471/Magic.Runtime.dll</MagicRuntimeDll>
+        <NostrandMagicRuntimeReferenceNet4x>nostrand/references-net4x/Magic.Runtime.dll</NostrandMagicRuntimeReferenceNet4x>
+        <NostrandMagicRuntimeReferenceNetStandard>nostrand/references-netstandard/Magic.Runtime.dll</NostrandMagicRuntimeReferenceNetStandard>
+        <MagicRuntimeDllNetStandard>magic.runtime/Magic.Runtime/bin/Release/netstandard2.0/Magic.Runtime.dll</MagicRuntimeDllNetStandard>
+        <MagicRuntimeDllNet471>magic.runtime/Magic.Runtime/bin/Release/net471/Magic.Runtime.dll</MagicRuntimeDllNet471>
         <NostrandReferences>nostrand/references</NostrandReferences>
         <MagicBoostrap>magic/bootstrap</MagicBoostrap>
     </PropertyGroup>
@@ -34,20 +37,21 @@
     <Target Name="ClojureRuntime" DependsOnTargets="CloneRepositories" Condition="!Exists('$(ClojureRuntimeDllNet471)') Or !Exists('$(ClojureRuntimeDllNetStandard)')">
         <Exec WorkingDirectory="clojure.runtime" Command="dotnet build -c Release" />
     </Target>
-    <Target Name="MagicRuntime" DependsOnTargets="CloneRepositories" Condition="!Exists('$(MagicRuntimeDll)')">
+    <Target Name="MagicRuntime" DependsOnTargets="CloneRepositories" Condition="!Exists('$(MagicRuntimeDllNet471)')">
         <Exec WorkingDirectory="magic.runtime/Magic.Runtime" Command="dotnet build -c Release" />
     </Target>
-    <Target Name="Nostrand" DependsOnTargets="ClojureRuntime" Condition="!Exists('$(NostrandExeNet4x)') Or !Exists('$(NostrandExeNet5)')" >
+    <Target Name="Nostrand" DependsOnTargets="ClojureRuntime;MagicRuntime" Condition="!Exists('$(NostrandExeNet4x)') Or !Exists('$(NostrandExeNet5)')" >
         <Copy SourceFiles="$(ClojureRuntimeDllNet471);$(ClojureRuntimeDllNetStandard)" DestinationFiles="$(NostrandClojureReferenceNet4x);$(NostrandClojureReferenceNetStandard)" />
+        <Copy SourceFiles="$(MagicRuntimeDllNet471);$(MagicRuntimeDllNetStandard)" DestinationFiles="$(NostrandMagicRuntimeReferenceNet4x);$(NostrandMagicRuntimeReferenceNetStandard)" />
         <Exec WorkingDirectory="nostrand" Command="dotnet build -c Release" />
     </Target>
-    <Target Name="Magic" DependsOnTargets="Nostrand;MagicRuntimeLegacy" Condition="!Exists('$(MagicBoostrap)')">
+    <Target Name="Magic" DependsOnTargets="Nostrand" Condition="!Exists('$(MagicBoostrap)')">
         <Exec WorkingDirectory="magic" Command="mono ../$(NostrandExeNet4x) build/bootstrap" />
     </Target>
     <Target Name="MagicUnity" DependsOnTargets="Magic;MagicRuntime;ClojureRuntime">
         <Copy SourceFiles="@(MagicRuntimeBinaries)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
         <Copy SourceFiles="$(ClojureRuntimeDllNet471)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
-        <Copy SourceFiles="$(MagicRuntimeDll)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
+        <Copy SourceFiles="$(MagicRuntimeDllNet471)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
     </Target>
     <Target Name="Bootstrap" DependsOnTargets="Magic">
         <Copy SourceFiles="@(MagicAllBinaries)" DestinationFolder="$(NostrandReferences)" />
