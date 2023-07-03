@@ -8,8 +8,8 @@
         <NostrandCloneString>master https://github.com/nasser/nostrand.git</NostrandCloneString>
     </PropertyGroup>
     <PropertyGroup>
-        <NostrandExeNet4x>nostrand/bin/x64/Release/net471/Nostrand.exe</NostrandExeNet4x>
-        <NostrandExeNet5>nostrand/bin/x64/Release/net5.0/Nostrand.dll</NostrandExeNet5>
+        <NostrandExeNet4x>nostrand/bin/Release/net471/NostrandMain.exe</NostrandExeNet4x>
+        <NostrandExeNet5>nostrand/bin/Release/net5.0/NostrandMain.dll</NostrandExeNet5>
         <MagicUnityInfrastructureExport>magic.unity/Infrastructure/Export</MagicUnityInfrastructureExport>
         <ClojureRuntimeDllNet471>clojure.runtime/bin/Release/net471/Clojure.dll</ClojureRuntimeDllNet471>
         <ClojureRuntimeDllNetStandard>clojure.runtime/bin/Release/netstandard2.0/Clojure.dll</ClojureRuntimeDllNetStandard>
@@ -43,6 +43,9 @@
     <Target Name="Nostrand" DependsOnTargets="ClojureRuntime;MagicRuntime" Condition="!Exists('$(NostrandExeNet4x)') Or !Exists('$(NostrandExeNet5)')" >
         <Copy SourceFiles="$(ClojureRuntimeDllNet471);$(ClojureRuntimeDllNetStandard)" DestinationFiles="$(NostrandClojureReferenceNet4x);$(NostrandClojureReferenceNetStandard)" />
         <Copy SourceFiles="$(MagicRuntimeDllNet471);$(MagicRuntimeDllNetStandard)" DestinationFiles="$(NostrandMagicRuntimeReferenceNet4x);$(NostrandMagicRuntimeReferenceNetStandard)" />
+        <Move SourceFiles="nostrand/Nostrand.csproj" DestinationFiles="nostrand/NostrandMain.csproj" OverwriteReadOnlyFiles="true" />
+        <Copy SourceFiles="Scripts/nos-framework" DestinationFiles="nostrand/Scripts/nos-framework" OverwriteReadOnlyFiles="true" />
+        <Delete Files="nostrand/Nostrand.sln"/>
         <Exec WorkingDirectory="nostrand" Command="dotnet build -c Release" />
     </Target>
     <Target Name="Magic" DependsOnTargets="Nostrand" Condition="!Exists('$(MagicBoostrap)')">
