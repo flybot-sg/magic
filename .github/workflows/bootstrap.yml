@@ -1,7 +1,4 @@
-name: .NET
-# This script achieves the MAGIC compiler boostrappping and stores the new assemblies in a github artifact
-# The DLLs will be accessible for 90 days upon build date.
-# based on work by @skydread1
+name: Build
 
 on: [push, workflow_dispatch]
 
@@ -9,32 +6,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    # Setup .Net
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 7.0.x
-    
-    # Checkout repo
-    - name: Checkout MAGIC repository
-      uses: actions/checkout@v2
-      with:
-        repository: magic-clojure/magic
-        path: ./magic
-    
-    # Build Everything
-    - name: Building and Bootstraping MAGIC
-      run: cd magic && dotnet build
-      
-   # Store nostrand and magic.unity as artifacts for 90 days
-    - name: Store Nostrand as a github artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: nostrand
-        path: ./magic/nostrand/bin/x64/Release/net471/
-    
-    - name: Store Magic.Unity as a github artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: magic.unity
-        path: ./magic/magic.unity/
+
+    - name: Install Mono
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y mono-complete
+
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Build and bootstrap MAGIC
+      run: dotnet build
