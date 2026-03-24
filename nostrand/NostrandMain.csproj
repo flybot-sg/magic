@@ -1,0 +1,50 @@
+<!-- <Project InitialTargets="PreBuild" Sdk="Microsoft.NET.Sdk"> -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net471;net6.0</TargetFrameworks>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Scripts/nos-core" Link="nos" CopyToOutputDirectory="PreserveNewest" Condition="'$(TargetFramework)' == 'net5.0'" />
+    <Content Include="Scripts/nos-framework" Link="nos" CopyToOutputDirectory="PreserveNewest" Condition="'$(TargetFramework)' == 'net471'" />
+    <Content Include="nostrand/**/*.*">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>  
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.0-preview.2" PrivateAssets="All" />
+    <PackageReference Include="Mono.Terminal" Version="5.4.0" />
+    <PackageReference Include="Lokad.ILPack" Version="0.1.5" Condition="'$(TargetFramework)' == 'net5.0'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../clojure-runtime/Clojure.csproj" />
+    <ProjectReference Include="../magic-runtime/Magic.Runtime/Magic.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="references/*.dll" />
+  </ItemGroup>
+
+  <Target Name="SetSourceRevisionId" BeforeTargets="InitializeSourceControlInformation">
+    <Exec 
+      Command="git describe --long --always --exclude=* --abbrev=8"
+      StandardOutputImportance="low"
+      ConsoleToMSBuild="True"
+      IgnoreExitCode="False"
+      >
+      <Output PropertyName="SourceRevisionId" TaskParameter="ConsoleOutput"/>
+    </Exec>
+  </Target>
+
+  <!-- <Target Name="PreBuild">
+    <Exec Command="sh Scripts/patch-assembly-info.sh" />
+  </Target>
+  <Target Name="PostBuild" AfterTargets="Build">
+    <Exec Command="sh Scripts/unpatch-assembly-info.sh" />
+    <Exec Command="sh Scripts/aot-assemblies.sh $(OutDir)" Condition="'$(Configuration)'=='Release'" />
+  </Target> -->
+</Project>
