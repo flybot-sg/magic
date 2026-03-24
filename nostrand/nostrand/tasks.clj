@@ -1,7 +1,7 @@
 (ns
-    ^{:author "Ramsey Nasser"
-      :doc    "Built in nostrand tasks, available from the command line as unqualified functions"}
-    nostrand.tasks
+ ^{:author "Ramsey Nasser"
+   :doc    "Built in nostrand tasks, available from the command line as unqualified functions"}
+ nostrand.tasks
   (:import
    [Nostrand Nostrand]
    [System.IO Directory]
@@ -20,10 +20,13 @@
    (Nostrand.Terminal/Message header body color)))
 
 (defn version []
-  (msg "Nostrand" (Nostrand/Version))
-  (msg "Clojure.Runtime" (Nostrand/ClojureRuntimeVersion))
-  (msg "Magic.Runtime" (Nostrand/MagicRuntimeVersion))
-  (msg "Clojure" (clojure-version)))
+  (msg "Nostrand" (Nostrand/Version) ConsoleColor/Cyan)
+  (msg "Clojure.Runtime" (Nostrand/ClojureRuntimeVersion) ConsoleColor/Cyan)
+  (msg "Magic.Runtime" (Nostrand/MagicRuntimeVersion) ConsoleColor/Cyan)
+  (msg "Clojure" (clojure-version) ConsoleColor/Cyan)
+  (msg "Runtime" (str (Environment/get_Version)
+                      " (" (Environment/get_OSVersion) ")")
+       ConsoleColor/DarkGray))
 
 (defn cli-repl
   ([] (cli-repl nil))
@@ -36,11 +39,11 @@
 (defn repl
   ([]
    (version)
-   #_ (repl/repl 11217)
+   #_(repl/repl 11217)
    (cli-repl))
   ([port]
    (version)
-   #_ (repl/repl port)
+   #_(repl/repl port)
    (cli-repl)))
 
 (defn tasks []
@@ -58,7 +61,6 @@
                      vals)]
         (doseq [f fns]
           ((var clojure.repl/print-doc) (meta f)))))))
-
 
 (defn clojure-socket-repl [args]
   (print "Starting Clojure socket repl...")
