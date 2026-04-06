@@ -1,5 +1,22 @@
-clojure.runtime
-magic
-magic.runtime
-magic.unity
-nostrand
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+.clj-kondo/
+.lsp/
+
+# Build artifacts
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+!nostrand/references/*.dll
+!magic-unity/Runtime/Infrastructure/Export/*.dll
+
+# macOS
+.DS_Store
+
+# Bootstrap output
+magic-compiler/bootstrap/

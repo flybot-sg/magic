@@ -1,30 +1,17 @@
 <Project>
     <PropertyGroup>
-        <!-- the branch and remote url from which to clone magic's repos -->
-        <ClojureRuntimeCloneString>clojure.runtime https://github.com/nasser/Clojure.Runtime.git</ClojureRuntimeCloneString>
-        <MagicCloneString>master https://github.com/nasser/magic.git</MagicCloneString>
-        <MagicUnityCloneString>master https://github.com/nasser/Magic.Unity.git</MagicUnityCloneString>
-        <MagicRuntimeCloneString>main https://github.com/nasser/Magic.Runtime.git</MagicRuntimeCloneString>
-        <NostrandCloneString>master https://github.com/nasser/nostrand.git</NostrandCloneString>
-    </PropertyGroup>
-    <PropertyGroup>
         <NostrandExeNet4x>nostrand/bin/Release/net471/NostrandMain.exe</NostrandExeNet4x>
         <NostrandExeNet5>nostrand/bin/Release/net5.0/NostrandMain.dll</NostrandExeNet5>
-        <MagicUnityInfrastructureExport>magic.unity/Infrastructure/Export</MagicUnityInfrastructureExport>
-        <ClojureRuntimeDllNet471>clojure.runtime/bin/Release/net471/Clojure.dll</ClojureRuntimeDllNet471>
-        <ClojureRuntimeDllNetStandard>clojure.runtime/bin/Release/netstandard2.0/Clojure.dll</ClojureRuntimeDllNetStandard>
-        <NostrandClojureReferenceNet4x>nostrand/references-net4x/Clojure.dll</NostrandClojureReferenceNet4x>
-        <NostrandClojureReferenceNetStandard>nostrand/references-netstandard/Clojure.dll</NostrandClojureReferenceNetStandard>
-        <NostrandMagicRuntimeReferenceNet4x>nostrand/references-net4x/Magic.Runtime.dll</NostrandMagicRuntimeReferenceNet4x>
-        <NostrandMagicRuntimeReferenceNetStandard>nostrand/references-netstandard/Magic.Runtime.dll</NostrandMagicRuntimeReferenceNetStandard>
-        <MagicRuntimeDllNetStandard>magic.runtime/Magic.Runtime/bin/Release/netstandard2.0/Magic.Runtime.dll</MagicRuntimeDllNetStandard>
-        <MagicRuntimeDllNet471>magic.runtime/Magic.Runtime/bin/Release/net471/Magic.Runtime.dll</MagicRuntimeDllNet471>
+        <MagicUnityInfrastructureExport>magic-unity/Runtime/Infrastructure/Export</MagicUnityInfrastructureExport>
+        <ClojureRuntimeDllNet471>clojure-runtime/bin/Release/net471/Clojure.dll</ClojureRuntimeDllNet471>
+        <ClojureRuntimeDllNetStandard>clojure-runtime/bin/Release/netstandard2.0/Clojure.dll</ClojureRuntimeDllNetStandard>
+        <MagicRuntimeDllNet471>magic-runtime/Magic.Runtime/bin/Release/net471/Magic.Runtime.dll</MagicRuntimeDllNet471>
         <NostrandReferences>nostrand/references</NostrandReferences>
-        <MagicBoostrap>magic/bootstrap</MagicBoostrap>
+        <MagicBootstrap>magic-compiler/bootstrap</MagicBootstrap>
     </PropertyGroup>
     <ItemGroup>
-        <MagicAllBinaries Include="magic/bootstrap/*.clj.dll"/>
-        <MagicRuntimeBinaries Include="magic/bootstrap/clojure*.clj.dll" Exclude="magic/bootstrap/clojure.tools.analyzer*.clj.dll" />
+        <MagicAllBinaries Include="magic-compiler/bootstrap/*.clj.dll"/>
+        <MagicRuntimeBinaries Include="magic-compiler/bootstrap/clojure*.clj.dll" Exclude="magic-compiler/bootstrap/clojure.tools.analyzer*.clj.dll" />
     </ItemGroup>
 
     <Target Name="All">
@@ -34,24 +21,13 @@
         <Exec Command="dotnet build -t:MagicUnity" />
     </Target>
 
-    <Target Name="ClojureRuntime" DependsOnTargets="CloneRepositories" Condition="!Exists('$(ClojureRuntimeDllNet471)') Or !Exists('$(ClojureRuntimeDllNetStandard)')">
-        <Exec WorkingDirectory="clojure.runtime" Command="dotnet build -c Release" />
-    </Target>
-    <Target Name="MagicRuntime" DependsOnTargets="CloneRepositories" Condition="!Exists('$(MagicRuntimeDllNet471)')">
-        <Exec WorkingDirectory="magic.runtime/Magic.Runtime" Command="dotnet build -c Release" />
-    </Target>
-    <Target Name="Nostrand" DependsOnTargets="ClojureRuntime;MagicRuntime" Condition="!Exists('$(NostrandExeNet4x)') Or !Exists('$(NostrandExeNet5)')" >
-        <Copy SourceFiles="$(ClojureRuntimeDllNet471);$(ClojureRuntimeDllNetStandard)" DestinationFiles="$(NostrandClojureReferenceNet4x);$(NostrandClojureReferenceNetStandard)" />
-        <Copy SourceFiles="$(MagicRuntimeDllNet471);$(MagicRuntimeDllNetStandard)" DestinationFiles="$(NostrandMagicRuntimeReferenceNet4x);$(NostrandMagicRuntimeReferenceNetStandard)" />
-        <Move SourceFiles="nostrand/Nostrand.csproj" DestinationFiles="nostrand/NostrandMain.csproj" OverwriteReadOnlyFiles="true" />
-        <Copy SourceFiles="Scripts/nos-framework" DestinationFiles="nostrand/Scripts/nos-framework" OverwriteReadOnlyFiles="true" />
-        <Delete Files="nostrand/Nostrand.sln"/>
+    <Target Name="Nostrand" Condition="!Exists('$(NostrandExeNet4x)') Or !Exists('$(NostrandExeNet5)')">
         <Exec WorkingDirectory="nostrand" Command="dotnet build -c Release" />
     </Target>
-    <Target Name="Magic" DependsOnTargets="Nostrand" Condition="!Exists('$(MagicBoostrap)')">
-        <Exec WorkingDirectory="magic" Command="mono ../$(NostrandExeNet4x) build/bootstrap" />
+    <Target Name="Magic" DependsOnTargets="Nostrand" Condition="!Exists('$(MagicBootstrap)')">
+        <Exec WorkingDirectory="magic-compiler" Command="mono ../$(NostrandExeNet4x) build/bootstrap" />
     </Target>
-    <Target Name="MagicUnity" DependsOnTargets="Magic;MagicRuntime;ClojureRuntime">
+    <Target Name="MagicUnity" DependsOnTargets="Magic">
         <Copy SourceFiles="@(MagicRuntimeBinaries)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
         <Copy SourceFiles="$(ClojureRuntimeDllNet471)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
         <Copy SourceFiles="$(MagicRuntimeDllNet471)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
@@ -60,30 +36,8 @@
         <Copy SourceFiles="@(MagicAllBinaries)" DestinationFolder="$(NostrandReferences)" />
         <Exec WorkingDirectory="nostrand" Command="dotnet build -c Release" />
     </Target>
-    
-    <Target Name="CloneRepositories">
-        <Exec Command="git clone --depth 1 --branch $(ClojureRuntimeCloneString) clojure.runtime" Condition="!Exists('clojure.runtime')" />
-        <Exec Command="git clone --depth 1 --branch $(MagicCloneString) magic" Condition="!Exists('magic')" />
-        <Exec Command="git clone --depth 1 --branch $(MagicUnityCloneString) magic.unity" Condition="!Exists('magic.unity')" />
-        <Exec Command="git clone --depth 1 --branch $(MagicRuntimeCloneString) magic.runtime" Condition="!Exists('magic.runtime')" />
-        <Exec Command="git clone --depth 1 --branch $(NostrandCloneString) nostrand" Condition="!Exists('nostrand')" />
-    </Target>
-    <Target Name="Pull" DependsOnTargets="CloneRepositories">
-        <Message Importance="high" Text="pulling clojure.runtime" />
-        <Exec WorkingDirectory="clojure.runtime" Command="git pull" />
-        <Message Importance="high" Text="pulling magic" />
-        <Exec WorkingDirectory="magic" Command="git pull" />
-        <Message Importance="high" Text="pulling magic.unity" />
-        <Exec WorkingDirectory="magic.unity" Command="git pull" />
-        <Message Importance="high" Text="pulling magic.runtime" />
-        <Exec WorkingDirectory="magic.runtime" Command="git pull" />
-        <Message Importance="high" Text="pulling nostrand" />
-        <Exec WorkingDirectory="nostrand" Command="git pull" />
-    </Target>
+
     <Target Name="Clean">
-        <RemoveDir Directories="clojure.runtime/bin;nostrand/bin;magic.runtime/bin;magic/bootstrap" />
-    </Target>
-    <Target Name="DeepClean">
-        <RemoveDir Directories="clojure.runtime;nostrand;magic.runtime;magic" />
+        <RemoveDir Directories="clojure-runtime/bin;nostrand/bin;magic-runtime/bin;magic-compiler/bootstrap" />
     </Target>
 </Project>

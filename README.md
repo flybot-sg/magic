@@ -1,70 +1,113 @@
-# MAGIC Build Pipeline
-The build pipeline for the [Morgan And Grand Iron Clojure](https://github.com/nasser/magic) compiler.
+# MAGIC
 
-This repository aims to simplify ongoing work on MAGIC by providing a single place to reproducibly build the compiler, its dependencies, and dependents.
+Morgan And Grand Iron Clojure
 
-## Subprojects
-MAGIC is a complex project consisting of multiple subprojects hosted in their own repositories with their own histories
+A Clojure compiler targeting the Common Language Runtime (.NET). MAGIC compiles Clojure to MSIL bytecode, enabling Clojure to run in Unity (including IL2CPP/iOS builds) without the DLR.
 
-### Clojure.Runtime
-The data structures, reader, and utility functions Clojure uses at runtime. This does not include the Clojure standard library itself, just the functionality that the standard library uses, such as the implementation of Keywords, Vars, all the persistent data structures, and so on.
+## Rationale
 
-It is a C# codebase hosted at [nasser/Clojure.Runtime](https://github.com/nasser/Clojure.Runtime) and can be built with the `dotnet` command line tool.
+The JVM Clojure compiler targets the Java Virtual Machine. MAGIC targets .NET instead, taking full advantage of the CLR's features to produce better bytecode. This enables Clojure in environments where the JVM cannot run, notably Unity game engine (including iOS via IL2CPP).
 
-It is forked from [arcadia-unity/clojure-clr](https://github.com/arcadia-unity/clojure-clr) which was forked from the original [clojure/clojure-clr](https://github.com/clojure/clojure-clr). As a result Clojure.Runtime is largely the result of [David Miller](https://github.com/dmiller)'s hard work. MAGIC's Clojure.Runtime is a subset of ClojureCLR, removing the C# implementation of the ClojureCLR compiler and making other changes to better work with MAGIC, particularly around how namespaces and files are loaded.
+MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself through Nostrand, its task runner.
 
-### Magic.Runtime
-Additional data structures and utility functionality used by MAGIC. Its primary contribution is to provide the implementation of fast dynamic call sites.
+## Components
 
-It is a C# codebase hosted at [nasser/Magic.Runtime](https://github.com/nasser/Magic.Runtime) and can be built with the `dotnet` command line tool.
+| Component | Description | Language |
+|-----------|-------------|----------|
+| [clojure-runtime](./clojure-runtime) | Persistent data structures, Keywords, Vars, reader | C# |
+| [magic-runtime](./magic-runtime) | Fast dynamic call sites | C# |
+| [mage](./mage) | Symbolic MSIL bytecode emitter | Clojure |
+| [magic-compiler](./magic-compiler) | The compiler (s-expressions to MSIL) | Clojure |
+| [nostrand](./nostrand) | Task runner, dependency manager, REPL | C# + Clojure |
+| [magic-unity](./magic-unity) | Unity integration package (IL2CPP support) | C# |
 
-The decision was made not to add new functionality to Clojure.Runtime to make ingesting upstream updates easier, so anything "new" that MAGIC needs tends to end up in this runtime instead.
+Each component has its own README with detailed documentation.
 
-### MAGIC
-The MAGIC compiler itself, a pure Clojure transformation of s-expressions to MSIL bytecode. 
-
-This repository also includes a patched Clojure standard library. It is modified for performance and to work with MAGIC's different semantics around type hints. It also provides more flexible mechanisms around file and namespace loading to accommodate MAGIC's self-hosting and running on restrictive platforms like iOS. The modifications are designed to work with Clojure.Runtime.
-
-MAGIC is a pure Clojure codebase hosted at [nasser/magic](https://github.com/nasser/magic) and must be built with Nostrand. It depends on [nasser/mage](https://github.com/nasser/mage) and [clojure/tools.analyzer](https://github.com/clojure/tools.analyzer) which are pulled in by Nostrand during the build.
-
-### Nostrand
-A task runner, dependency manager and REPL for Clojure on Mono. Something like Leiningen for MAGIC and the C# runtime.
-
-It is a hybrid C# and Clojure codebase hosted at [nasser/nostrand](https://github.com/nasser/nostrand). Its Clojure parts run through MAGIC, so any change to MAGIC or either of its runtimes requires a rebuild of Nostrand.
-
-### Magic.Unity
-An integration package to get MAGIC compiled Clojure code running in Unity games, including iOS builds.
-
-It is a C# codebase hosted at [nasser/Magic.Unity](https://github.com/nasser/Magic.Unity) and can be built with the `dotnet` command line tool. It includes bytecode post-processing to work around Unity specific issues with MAGIC compiled code.
-
-## Requirements
-
-* [`git`](https://git-scm.com/)
-* [`dotnet`](https://dotnet.microsoft.com/en-us/download) (version 7 or later)
-* [`mono`](https://www.mono-project.com/)
-
-## Usage
+## Architecture
 
 ```
+clojure-runtime    C# data structures, Vars, Keywords
+       |
+magic-runtime      C# dynamic call sites
+       |
+nostrand           Task runner, links against both runtimes
+       |
+magic-compiler     Clojure compiler, built via mono + Nostrand
+       |                (depends on mage at build time)
+bootstrap          Copies compiler DLLs back into Nostrand, rebuilds it
+       |
+magic-unity        Unity package, copies runtime + compiler DLLs
+```
+
+## Prerequisites
+
+- [`git`](https://git-scm.com/)
+- [`dotnet`](https://dotnet.microsoft.com/en-us/download) (v7+)
+- [`mono`](https://www.mono-project.com/)
+
+## Getting Started
+
+```bash
 git clone https://github.com/magic-clojure/magic.git
 cd magic
 dotnet build
 ```
 
-This will clone MAGIC and its subprojects locally, then build and bootstrap them in the correct order. The result should be the following folders corresponding to the subprojects:
+The full build takes a few minutes on first run. Subsequent builds are incremental.
 
-* `clojure.runtime`
-* `magic.runtime`
-* `magic`
-* `nostrand`
-* `magic.unity`
+## Tasks
 
-A usable Nostrand executable should be available at `nostrand/bin/x64/Release/net471/Nostrand.exe` which can be used with mono to run tasks and compile Clojure code to optimized DLL files. These files can be used in a Unity project that uses the integration found in the `magic.unity` folder. The other folders are of interest to compiler developers only.
+The build is orchestrated by `Magic.csproj`:
 
-# Legal
-Copyright © 2015-2022 Ramsey Nasser and contributers
+| Task | Description |
+|------|-------------|
+| `dotnet build` | Full build (all components in dependency order) |
+| `dotnet build -t:Nostrand` | Build task runner only |
+| `dotnet build -t:Magic` | Compiler bootstrap (requires mono) |
+| `dotnet build -t:Bootstrap` | Copy compiler DLLs into Nostrand, rebuild |
+| `dotnet build -t:MagicUnity` | Unity package |
+| `dotnet build -t:Clean` | Remove build artifacts |
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+After build, set up the `nos` command:
 
-http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+```bash
+ln -s $(pwd)/nostrand/Scripts/nos-framework /usr/local/bin/nos
+```
+
+## Testing
+
+Tests run through Nostrand. Projects define test tasks in a `dotnet.clj` file at their root:
+
+```bash
+nos dotnet/run-tests
+```
+
+## Unity
+
+Add to your Unity project via `manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "com.nasser.magic": "https://github.com/magic-clojure/magic.git?path=magic-unity"
+  }
+}
+```
+
+See the [magic-compiler README](magic-compiler/README.md) for compilation instructions.
+
+## Git History
+
+This monorepo consolidates 6 repositories using [git-filter-repo](https://github.com/newren/git-filter-repo). All commits, authors, and dates are preserved. Scope history to any component:
+
+```bash
+git log -- nostrand/
+git log -- magic-compiler/
+git blame magic-compiler/src/magic/core.clj
+```
+
+## License
+
+Copyright © 2015-2026 Ramsey Nasser and contributors
+
+Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
