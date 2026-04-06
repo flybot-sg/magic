@@ -1,0 +1,7 @@
+{:name "MAGIC Compiler"
+ :description "Morgan And Grand Iron Clojure Compiler"
+ :author "Ramsey Nasser"
+ :source-paths ["src" "src/stdlib" "test"]
+ :dependencies [[:github nasser/mage "master" :paths ["src"]]
+                [:github nasser/test.check "master"]
+                [:maven org.clojure/tools.analyzer "1.0.0"]]}
