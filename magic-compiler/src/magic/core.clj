@@ -425,7 +425,8 @@
                               (convert-type (type c) Object)])
                      v))
      (il/call method)
-     (convert-type (.ReturnType method) (types/data-structure-types :vector))]))
+     (convert-type (.ReturnType method) (types/data-structure-types :vector))
+     (load-constant-meta v)]))
 
 (defmethod load-constant
   clojure.lang.APersistentSet [v]
