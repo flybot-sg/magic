@@ -20,3 +20,10 @@ obj/
 
 # Bootstrap output
 magic-compiler/bootstrap/
+
+# Local AI assistant files
+CLAUDE.md
+.claude/
+
+# Local dev logs (impl progress, session notes)
+dev-logs/
