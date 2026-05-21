@@ -22,10 +22,36 @@ namespace Magic.Unity
         }
         public static void BuildLinkXml(IEnumerable<string> linkXmlEntries)
         {
+            var linkPath = "Assets/link.xml";
+            if (File.Exists(linkPath))
+            {
+                Debug.Log("[Magic.Unity/LinkXmlGenerator] Update link.xml");
+                var doc = new XmlDocument();
+                doc.Load(linkPath);
+                var linker = doc.DocumentElement;
+                var existed = linker.ChildNodes
+                    .Cast<XmlNode>()
+                    .Select(assembly => assembly.Attributes?["fullname"].Value)
+                    .ToHashSet();
+                var added = linkXmlEntries
+                    .Where(e => !existed.Contains(e))
+                    .ToArray();
+                if (added.Any())
+                {
+                    linker.AppendChild(doc.CreateComment("auto add by builder"));
+                    foreach (var e in added)
+                    {
+                        Debug.Log($"[Magic.Unity/LinkXmlGenerator] Adding entry '{e}'");
+                        var ele = doc.CreateElement("assembly");
+                        ele.SetAttribute("fullname", e);
+                        linker.AppendChild(ele);
+                    }
+                    doc.Save(linkPath);
+                }
+                return;
+            }
             Debug.Log("[Magic.Unity/LinkXmlGenerator] Generating link.xml");
-            if (File.Exists("Assets/link.xml"))
-                File.Delete("Assets/link.xml");
-            var linkXml = XmlWriter.Create("Assets/link.xml");
+            var linkXml = XmlWriter.Create(linkPath);
             linkXml.WriteStartElement("linker");
             foreach (var entry in linkXmlEntries)
             {

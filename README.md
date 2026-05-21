@@ -66,10 +66,10 @@ bb build         # or: dotnet build
 
 The full build takes a few minutes on first run. Subsequent builds are incremental.
 
-After build, set up the `nos` command on your PATH (used by Clojure projects that consume MAGIC):
+After build, set up the `nos` command on your PATH (used by Clojure projects that consume MAGIC). The launcher must point at the build-output copy that lives next to `NostrandMain.exe`; the source-controlled `Scripts/nos-framework` will not work as a symlink target because its sibling directory has no exe.
 
 ```bash
-ln -s $(pwd)/nostrand/Scripts/nos-framework /usr/local/bin/nos
+ln -s $(pwd)/nostrand/bin/Release/net471/nos /usr/local/bin/nos
 ```
 
 ## Development

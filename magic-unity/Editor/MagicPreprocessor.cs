@@ -17,7 +17,11 @@ namespace Magic.Unity
         public void OnPreprocessBuild(BuildReport report)
         {
             Debug.Log($"[Magic.Unity] preprocessing build at path {report.summary.outputPath} ({report.summary.platform})");
+#if UNITY_2022_1_OR_NEWER
+            foreach (var file in report.GetFiles())
+#else
             foreach (var file in report.files)
+#endif
             {
                 Debug.Log($"[Magic.Unity] file {file.path}");
             }

@@ -46,9 +46,8 @@ namespace Magic.Unity
             var resolver = new DefaultAssemblyResolver();
             resolver.AddSearchDirectory(runtimeLocation);
             var outfile = file + ".out";
-            using (var assyFile = File.OpenRead(file))
+            using (var assy = AssemblyDefinition.ReadAssembly(file, new ReaderParameters { AssemblyResolver = resolver }))
             {
-                var assy = AssemblyDefinition.ReadAssembly(file, new ReaderParameters { AssemblyResolver = resolver });
                 Debug.LogFormat("[Magic.Unity] processing {0} ({1})", assy.FullName, file);
 
                 GenerateGenericWorkaroundMethods.MaybeRemoveIL2CPPWorkaround(assy);
@@ -58,7 +57,7 @@ namespace Magic.Unity
                     Debug.LogFormat("[Magic.Unity] {0} adding IL2CPP workarounds", assy.FullName);
 
                     GenerateGenericWorkaroundMethods.StartRewriteAssembly(assy);
-                    
+
                     foreach (var t in assy.MainModule.Types)
                     {
                         foreach (var m in t.Methods)
@@ -67,7 +66,7 @@ namespace Magic.Unity
                                 ProcessMethod(m);
                         }
                     }
-                    
+
                     GenerateGenericWorkaroundMethods.FinishRewriteAssembly(assy);
                 }
 
