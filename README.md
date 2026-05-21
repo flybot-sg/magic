@@ -43,44 +43,104 @@ magic-unity        Unity package, copies runtime + compiler DLLs
 
 - [`git`](https://git-scm.com/)
 - [`dotnet`](https://dotnet.microsoft.com/en-us/download) (v7+)
-- [`mono`](https://www.mono-project.com/)
+- [`mono`](https://www.mono-project.com/) (only needed at build time to host Nostrand; will go away once we drop net471)
+- [`bb`](https://github.com/babashka/babashka) (optional, for the dev workflows in [Development](#development))
 
 ## Getting Started
 
 ```bash
 git clone https://github.com/magic-clojure/magic.git
 cd magic
-dotnet build
+bb build         # or: dotnet build
 ```
 
 The full build takes a few minutes on first run. Subsequent builds are incremental.
 
-## Tasks
-
-The build is orchestrated by `Magic.csproj`:
-
-| Task | Description |
-|------|-------------|
-| `dotnet build` | Full build (all components in dependency order) |
-| `dotnet build -t:Nostrand` | Build task runner only |
-| `dotnet build -t:Magic` | Compiler bootstrap (requires mono) |
-| `dotnet build -t:Bootstrap` | Copy compiler DLLs into Nostrand, rebuild |
-| `dotnet build -t:MagicUnity` | Unity package |
-| `dotnet build -t:Clean` | Remove build artifacts |
-
-After build, set up the `nos` command:
+After build, set up the `nos` command on your PATH (used by Clojure projects that consume MAGIC):
 
 ```bash
 ln -s $(pwd)/nostrand/Scripts/nos-framework /usr/local/bin/nos
 ```
 
-## Testing
+## Development
 
-Tests run through Nostrand. Projects define test tasks in a `dotnet.clj` file at their root:
+This repo mixes C# (runtimes + host) and Clojure (compiler + stdlib). Different edits need different rebuilds; doing the wrong one wastes minutes per iteration. The `bb` task runner encodes which rebuild matches which edit.
+
+### What needs what
+
+| You changed                          | Run                | Why                                                                                  |
+|--------------------------------------|--------------------|--------------------------------------------------------------------------------------|
+| `clojure-runtime/**/*.cs`            | `bb dev-runtime`   | `.clj.dll` references runtime DLLs by name; new bodies load without re-bootstrap     |
+| `magic-runtime/Magic.Runtime/*.cs`   | `bb dev-runtime`   | Same                                                                                 |
+| `*.mustache` (callsite templates)    | `bb dev-callsites` | Regenerates `.g.cs` first, then rebuilds runtime                                     |
+| `nostrand/*.cs` (host code)          | `bb build-runtime` | Rebuilds nostrand (and runtimes transitively via `ProjectReference`)                 |
+| `magic-compiler/src/**/*.clj`        | `bb dev-compiler`  | Compiler is bootstrapped; cold tests need re-bootstrap                               |
+| `magic-compiler/src/stdlib/**/*.clj` | `bb dev-compiler`  | Same                                                                                 |
+| Fresh checkout                       | `bb build`         | Full bootstrap                                                                       |
+
+For interactive iteration on compiler `.clj` files, prefer `bb repl` plus `(require '... :reload)` over re-running `bb dev-compiler` each time.
+
+### The bootstrap chicken-and-egg
+
+MAGIC is self-hosting: the compiler is Clojure code that emits CLR bytecode, and it needs a previous version of itself to compile. The repo ships pre-built `.clj.dll` files in `nostrand/references/` for this reason. They ARE the compiler that compiles the new compiler.
+
+Practical consequence: `bb dev-runtime` does not need a bootstrap. Already-compiled `.clj.dll` files reference `Magic.Runtime.dll` and `Clojure.dll` by name and pick up new bodies at load time. Only `bb dev-compiler` (changes to compiler or stdlib `.clj` source) triggers the slow re-bootstrap path.
+
+### Refreshing the bootstrap binaries
+
+Two folders of pre-built binaries are tracked in git:
+
+- `nostrand/references/*.clj.dll`: the compiler Nostrand loads at startup
+- `magic-unity/Runtime/Infrastructure/Export/*.dll`: the prebuilt runtime that Unity loads at play time
+
+The `bb dev-*` tasks auto-revert any changes to these folders so day-to-day iteration commits stay clean. A maintainer refreshes them on purpose, usually after a batch of compiler or runtime fixes, by running either `bb build` (full path) or `bb build-magic` followed by `bb build-bootstrap` (faster: bootstrap + deploy). Both paths refresh `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` together. A fresh clone runs the test suite without needing to build first.
+
+### Common workflows
 
 ```bash
-nos dotnet/run-tests
+bb tasks         # list all tasks with their docs
+bb build         # full build (minutes, first time)
+bb build-runtime # incremental C# runtimes + nostrand (seconds)
+bb test          # run magic-compiler test suite
+bb dev-runtime   # build-runtime + test  (after C# runtime edits)
+bb dev-callsites # regen + build-runtime + test  (after .mustache edits)
+bb dev-compiler  # build-magic + test  (after compiler .clj edits)
+bb check-drift   # regen and fail if .g.cs files are stale (CI uses this)
+bb repl          # nostrand CLI REPL in magic-compiler/
+bb clean         # remove bin/ and bootstrap/
 ```
+
+### Before opening a PR
+
+```bash
+bb clean
+bb build
+bb check-drift   # catches forgotten regen after .mustache edits
+bb test
+```
+
+### MSBuild targets (underlying)
+
+The actual build is orchestrated by `Magic.csproj`. The `bb` tasks call into these; invoke them directly if you'd rather not install bb.
+
+| Target                       | Description                                              |
+|------------------------------|----------------------------------------------------------|
+| `dotnet build`               | Full build (all components in dependency order)          |
+| `dotnet build -t:Nostrand`   | Build task runner only                                   |
+| `dotnet build -t:Magic`      | Magic compiler bootstrap (requires mono)                 |
+| `dotnet build -t:Bootstrap`  | Copy compiler DLLs into Nostrand, rebuild                |
+| `dotnet build -t:MagicUnity` | Unity package                                            |
+| `dotnet build -t:Clean`      | Remove build artifacts                                   |
+
+## Testing
+
+```bash
+bb test
+# or directly:
+cd magic-compiler && mono ../nostrand/bin/Release/net471/NostrandMain.exe test/all
+```
+
+Projects downstream of MAGIC (e.g. application code compiled with `nos`) define their own test tasks in a `dotnet.clj` at their root and run them via `nos dotnet/run-tests`. The MAGIC compiler itself uses the `test/all` entrypoint in [magic-compiler/test.clj](magic-compiler/test.clj).
 
 ## Unity
 

@@ -12,6 +12,7 @@ obj/
 *.dll
 *.pdb
 *.exe
+*.sln
 !nostrand/references/*.dll
 !magic-unity/Runtime/Infrastructure/Export/*.dll
 
