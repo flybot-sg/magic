@@ -866,18 +866,15 @@
       (mapv #(compile % compilers) args)
       (mapv convert args (interop/parameter-types method)))
      (cond
-       (and (not value-type-target?) virtual-method? (not non-virtual?))
-       (il/callvirt method)
-       (and (not value-type-target?) (not virtual-method?))
-       (il/call method)
-       (and value-type-target? virtual-method?)
-       (il/call method)
-       (and value-type-target? (not virtual-method?))
-       (il/call method)
        non-virtual?
        (il/call method)
+       value-type-target?
+       [(il/constrained target-type)
+        (il/callvirt method)]
+       virtual-method?
+       (il/callvirt method)
        :else
-       (il/callvirt method))]))
+       (il/call method))]))
 
 (defn initobj-compiler
   "Symbolic bytecode for zero arity value type constructor invocation"
