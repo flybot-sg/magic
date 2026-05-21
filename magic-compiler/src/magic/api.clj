@@ -68,8 +68,9 @@
   (cond
     (and (seq? expr)
          (= 'do (first expr)))
-    (doseq [expr' (drop 1 expr)]
-      (compile-expression-top-level expr' ctx opts))
+    (reduce (fn [_ expr'] (compile-expression-top-level expr' ctx opts))
+            nil
+            (rest expr))
     :else
     (compile-expression expr ctx opts)))
 
