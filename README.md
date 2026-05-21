@@ -4,6 +4,14 @@ Morgan And Grand Iron Clojure
 
 A Clojure compiler targeting the Common Language Runtime (.NET). MAGIC compiles Clojure to MSIL bytecode, enabling Clojure to run in Unity (including IL2CPP/iOS builds) without the DLR.
 
+## About this version
+
+This monorepo bundles the six MAGIC repositories ([magic](https://github.com/nasser/magic), [mage](https://github.com/nasser/mage), [Clojure.Runtime](https://github.com/nasser/Clojure.Runtime), [Magic.Runtime](https://github.com/nasser/Magic.Runtime), [nostrand](https://github.com/nasser/nostrand), [Magic.Unity](https://github.com/nasser/Magic.Unity)) originally created by [Ramsey Nasser](https://nas.sr) and contributors (2014-2023).
+
+[Flybot](https://flybot.sg) uses MAGIC to ship Clojure code on Unity. We consolidated the six repositories into this single repository using `git filter-repo` (preserving all commit history and authorship) to make maintenance easier and to streamline contributions, bug fixes, and new features, both for our team and for anyone else building on MAGIC.
+
+This is not a replacement of Ramsey's MAGIC. It's the version Flybot maintains.
+
 ## Rationale
 
 The JVM Clojure compiler targets the Java Virtual Machine. MAGIC targets .NET instead, taking full advantage of the CLR's features to produce better bytecode. This enables Clojure in environments where the JVM cannot run, notably Unity game engine (including iOS via IL2CPP).
@@ -22,6 +30,8 @@ MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself t
 | [magic-unity](./magic-unity) | Unity integration package (IL2CPP support) | C# |
 
 Each component has its own README with detailed documentation.
+
+`clojure-runtime/` is forked from [ClojureCLR](https://github.com/clojure/clojure-clr) (a .NET port of Clojure maintained by David Miller). Its full commit history is preserved here, so David Miller and other ClojureCLR contributors appear in the GitHub contributors view.
 
 ## Architecture
 
@@ -49,7 +59,7 @@ magic-unity        Unity package, copies runtime + compiler DLLs
 ## Getting Started
 
 ```bash
-git clone https://github.com/magic-clojure/magic.git
+git clone https://github.com/flybot-sg/magic.git
 cd magic
 bb build         # or: dotnet build
 ```
@@ -93,7 +103,7 @@ Two folders of pre-built binaries are tracked in git:
 - `nostrand/references/*.clj.dll`: the compiler Nostrand loads at startup
 - `magic-unity/Runtime/Infrastructure/Export/*.dll`: the prebuilt runtime that Unity loads at play time
 
-The `bb dev-*` tasks auto-revert any changes to these folders so day-to-day iteration commits stay clean. A maintainer refreshes them on purpose, usually after a batch of compiler or runtime fixes, by running either `bb build` (full path) or `bb build-magic` followed by `bb build-bootstrap` (faster: bootstrap + deploy). Both paths refresh `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` together. A fresh clone runs the test suite without needing to build first.
+The `bb dev-*` tasks auto-revert any changes to these folders so day-to-day iteration commits stay clean. A maintainer refreshes them on purpose, usually after a batch of compiler or runtime fixes, by running either `bb build` (full path) or `bb build-magic` followed by `bb build-bootstrap` (faster: bootstrap + deploy). For stdlib-only edits (any `magic-compiler/src/stdlib/**/*.clj`), `bb refresh-stdlib` recompiles only the affected `.clj.dll` files and updates the SHA256 manifest (`magic-compiler/stdlib-manifest.edn`) that `bb check-drift` uses. Both paths refresh `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` together.
 
 ### Common workflows
 
@@ -190,7 +200,7 @@ Add to your Unity project via `manifest.json`:
 ```json
 {
   "dependencies": {
-    "com.nasser.magic": "https://github.com/magic-clojure/magic.git?path=magic-unity"
+    "com.nasser.magic": "https://github.com/flybot-sg/magic.git?path=magic-unity"
   }
 }
 ```
@@ -207,8 +217,11 @@ git log -- magic-compiler/
 git blame magic-compiler/src/magic/core.clj
 ```
 
-## License
+## License & attribution
 
-Copyright © 2015-2026 Ramsey Nasser and contributors
+MAGIC was created and developed by [Ramsey Nasser](https://nas.sr) and contributors from 2014 to 2023.
 
-Licensed under the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0).
+This monorepo version is maintained by [Flybot Pte. Ltd.](https://flybot.sg) from 2026.
+
+- Most components: Apache License 2.0
+- `clojure-runtime/`: [Eclipse Public License 1.0](./clojure-runtime/epl-v10.html), derived from [ClojureCLR](https://github.com/clojure/clojure-clr) by David Miller and contributors
