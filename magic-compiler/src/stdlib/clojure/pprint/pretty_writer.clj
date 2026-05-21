@@ -237,7 +237,7 @@
   (write-to-base ^String (pp-newline))
   (dosync (setf :trailing-white-space nil))
   (let [lb (:logical-block nl)
-        ^String prefix (:per-line-prefix lb)] 
+        prefix (:per-line-prefix lb)] 
     (if prefix 
        (write-to-base prefix))
     (let [^String istr (apply str (repeat (- @(:indent lb) (count prefix))
