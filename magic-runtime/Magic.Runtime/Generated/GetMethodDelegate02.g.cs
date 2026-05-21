@@ -35,7 +35,7 @@ namespace Magic
                     var f = (CallsiteActionRef<T0,T1>)Delegate.CreateDelegate(typeof(CallsiteActionRef<T0,T1>), method);
                     return (arg0,arg1) => {
                         var target = (T0)arg0;
-                        f(ref target,(T1)arg1);
+                        f(ref target,(arg1 is T1 ? (T1)arg1 : (T1)Binder.Shared.ConvertArgument(typeof(T1), arg1)));
                         return null;
                     };
                 }
@@ -44,7 +44,7 @@ namespace Magic
                     var f = (CallsiteFuncRef<T0,T1,T2>)Delegate.CreateDelegate(typeof(CallsiteFuncRef<T0,T1,T2>), method);
                     return (arg0,arg1) => {
                         var target = (T0)arg0;
-                        return f(ref target,(T1)arg1);
+                        return f(ref target,(arg1 is T1 ? (T1)arg1 : (T1)Binder.Shared.ConvertArgument(typeof(T1), arg1)));
                     };
                 }
             }
@@ -54,14 +54,14 @@ namespace Magic
                 {
                     var f = (CallsiteAction<T0,T1>)Delegate.CreateDelegate(typeof(CallsiteAction<T0,T1>), method);
                     return (arg0,arg1) => {
-                        f((T0)arg0,(T1)arg1);
+                        f((arg0 is T0 ? (T0)arg0 : (T0)Binder.Shared.ConvertArgument(typeof(T0), arg0)),(arg1 is T1 ? (T1)arg1 : (T1)Binder.Shared.ConvertArgument(typeof(T1), arg1)));
                         return null;
                     };
                 }
                 else
                 {
                     var f = (CallsiteFunc<T0,T1,T2>)Delegate.CreateDelegate(typeof(CallsiteFunc<T0,T1,T2>), method);
-                    return (arg0,arg1) => f((T0)arg0,(T1)arg1);
+                    return (arg0,arg1) => f((arg0 is T0 ? (T0)arg0 : (T0)Binder.Shared.ConvertArgument(typeof(T0), arg0)),(arg1 is T1 ? (T1)arg1 : (T1)Binder.Shared.ConvertArgument(typeof(T1), arg1)));
                 }
             }
         }
