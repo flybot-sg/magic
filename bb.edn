@@ -47,6 +47,15 @@
            (fs/delete-tree (fs/file compiler-dir "bootstrap"))
            (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "build/bootstrap"))}
 
+  build-magic-portable
+  {:doc "Like build-magic but applies the sparse-case spell. Use as the first pass when changing hashing semantics, then run build-magic again."
+   :depends [-check-nostrand]
+   :task (do
+           (fs/delete-tree (fs/file compiler-dir "bootstrap"))
+           (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe)
+                  "build/bootstrap"
+                  ":spells" "[magic.spells.sparse-case/sparse-case]"))}
+
   build-bootstrap
   {:doc "After build-magic, deploy bootstrap DLLs into nostrand/references (rebuilds nostrand) and into magic-unity Runtime/Infrastructure/Export."
    :task (shell "dotnet build -t:Bootstrap;MagicUnity")}
