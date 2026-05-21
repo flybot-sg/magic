@@ -1013,22 +1013,30 @@
                       [(il/ldloc loc)
                        (when (-> form locals :init)
                          (convert (-> form locals :init) (non-void-ast-type ast)))])
-                    (compile* ast compilers)))})
-        binding-il (map #(compile % specialized-compilers) bindings)]
-    ;; emit local initializations
-    [(map (fn [il binding]
-            [(drop-last il)
-             (convert (:init binding) (non-void-ast-type binding))
-             (il/stloc (binding-map (:name binding)))])
-          binding-il bindings)
-     (interleave
-      (map (fn [il binding]
-             [(il/ldloc (binding-map (:name binding)))
-              (when-let [fn-type (-> binding :init :fn-type)]
-                (convert-type (non-void-ast-type binding) fn-type))
-              (last il)])
-           binding-il bindings)
-      (repeat (il/pop)))
+                    (compile* ast compilers)))})]
+    (doseq [{:keys [init]} bindings]
+      (compile-fn-type init specialized-compilers))
+    [(map (fn [{:keys [init name] :as binding}]
+            (let [fn-type (:fn-type init)]
+              [(il/newobj (first (.GetConstructors fn-type)))
+               (convert-type fn-type (non-void-ast-type binding))
+               (il/stloc (binding-map name))]))
+          bindings)
+     (map (fn [{:keys [init name] :as binding}]
+            (let [fn-type (:fn-type init)
+                  fields (.GetFields fn-type
+                                     (enum-or BindingFlags/NonPublic
+                                              BindingFlags/Instance))]
+              [(il/ldloc (binding-map name))
+               (convert-type (non-void-ast-type binding) fn-type)
+               (map (fn [co-ast field]
+                      [(il/dup)
+                       (compile co-ast specialized-compilers)
+                       (il/stfld field)])
+                    (vals (:closed-overs init))
+                    fields)
+               (il/pop)]))
+          bindings)
      (compile body specialized-compilers)]))
 
 (defn if-compiler
