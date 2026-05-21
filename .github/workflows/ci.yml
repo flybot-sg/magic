@@ -7,19 +7,19 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: |
           7.0.x
           8.0.x
 
     - name: Setup Babashka
-      uses: turtlequeue/setup-babashka@v1.7.0
+      uses: turtlequeue/setup-babashka@v1.8.0
       with:
         babashka-version: 1.12.213
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Build and bootstrap MAGIC
       run: dotnet build
