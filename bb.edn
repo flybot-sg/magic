@@ -51,6 +51,11 @@
   {:doc "After build-magic, deploy bootstrap DLLs into nostrand/references (rebuilds nostrand) and into magic-unity Runtime/Infrastructure/Export."
    :task (shell "dotnet build -t:Bootstrap;MagicUnity")}
 
+  refresh-stdlib
+  {:doc "Recompile every committed stdlib clojure.*.clj.dll from source and redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity/Runtime/Infrastructure/Export/. Use after editing any magic-compiler/src/stdlib/**/*.clj. Bootstrap namespaces (clojure.core etc.) are skipped; use bb build-magic + bb build-bootstrap for those."
+   :depends [-check-nostrand]
+   :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "refresh/stdlib")}
+
   ;; ============================================================
   ;; Codegen
   ;; ============================================================
@@ -60,24 +65,36 @@
    :task (shell {:dir callsites-dir} "dotnet run")}
 
   check-drift
-  {:doc "Verify generated files are current. Runs regen and fails if the working tree changed. Use in CI and before opening a PR."
-   :depends [regen-callsites]
-   :task (let [generated-dir "magic-runtime/Magic.Runtime/Generated"
-               {:keys [out]} (shell {:continue true :out :string}
-                                    "git" "diff" "--" generated-dir)]
+  {:doc "Verify generated files and stdlib bootstrap DLLs are current. Runs regen + refresh-stdlib and fails if the working tree changed. Use in CI and before opening a PR."
+   :depends [regen-callsites refresh-stdlib]
+   ;; Drift signals checked:
+   ;;  - magic-runtime/Magic.Runtime/Generated: .g.cs files produced by Mustache
+   ;;    templates. Deterministic text output; byte-diffable.
+   ;;  - magic-compiler/stdlib-manifest.edn: maps each stdlib namespace to its
+   ;;    source SHA256. Updated by refresh-stdlib. If a source was edited since
+   ;;    last refresh, the SHA in this file changes; that's our drift signal.
+   ;;    We do NOT diff DLL bytes themselves because compilation is
+   ;;    non-deterministic (gensyms, hash tokens) and would always fail.
+   :task (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
+                              "magic-compiler/stdlib-manifest.edn"]
+               {:keys [out]} (apply shell {:continue true :out :string}
+                                    "git" "diff" "--" checked-paths)]
            (when-not (str/blank? out)
              (binding [*out* *err*]
                (println)
-               (println "Drift detected in" generated-dir)
-               (println "Mustache templates were edited but the generated .g.cs files are stale.")
+               (println "Drift detected.")
+               (println "Either a .mustache template was edited without regenerating .g.cs,")
+               (println "or a stdlib .clj source was edited without refreshing its .clj.dll.")
                (println)
                (println "Fix locally:")
-               (println "  bb regen-callsites")
-               (println "  git add" generated-dir)
+               (println "  bb regen-callsites      # if magic-runtime Generated/ drifted")
+               (println "  bb refresh-stdlib       # if stdlib-manifest.edn drifted")
+               (println "  git add" (str/join " " checked-paths)
+                        "nostrand/references magic-unity/Runtime/Infrastructure/Export")
                (println)
-               (println "Diff (first 60 lines):")
+               (println "Diff:")
                (->> (str/split-lines out)
-                    (take 60)
+                    (take 80)
                     (run! println)))
              (throw (ex-info "drift detected" {:babashka/exit 1}))))}
 
