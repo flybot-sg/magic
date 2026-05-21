@@ -55,15 +55,6 @@
      clojure.tools.analyzer.passes.source-info
      clojure.tools.analyzer.passes.trim})
 
-(def ^:private known-broken-namespaces
-  "Namespaces whose source cannot currently be compiled from CLR Clojure.
-   clojure.datafy uses `.FullName` on `clojure.lang.Namespace`, which is a
-   JVM-only API (the CLR Namespace exposes `.Name`). The committed
-   clojure.datafy.clj.dll appears to be hand-patched. Skipped here so the
-   refresh task doesn't fail; the DLL retains its committed content.
-   Fixing the source is a separate task."
-  '#{clojure.datafy})
-
 (defn- top-level-ns?
   "True if the file's first non-comment, non-blank line starts with `(ns`.
    Sub-files included via `(load ...)` from a parent start with `(in-ns ...)`
@@ -109,7 +100,6 @@
         missing-src   (remove ns->src all-nss)
         top-level-nss (->> all-nss
                            (remove bootstrap-namespaces)
-                           (remove known-broken-namespaces)
                            (filter ns->src)
                            (filter #(top-level-ns? (ns->src %)))
                            vec)
