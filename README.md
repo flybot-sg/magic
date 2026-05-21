@@ -110,6 +110,47 @@ bb repl          # nostrand CLI REPL in magic-compiler/
 bb clean         # remove bin/ and bootstrap/
 ```
 
+### Inspecting the compiler pipeline
+
+Walk a form through the stages: form → macroexpand → AST → symbolic IL.
+
+```bash
+bb pipeline '(let [x 1] (+ x 1))'
+```
+
+Prints to stdout:
+
+| Section          | What it shows                                                                                                                             |
+|------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `FORM`           | The input                                                                                                                                 |
+| `MACROEXPAND`    | Shown only when expansion differs from input                                                                                              |
+| `AST (skeleton)` | Analyzer output with bookkeeping keys (`:env`, source-position, `:raw-forms`) stripped                                                    |
+| `TYPES`          | Every AST node carrying type info; useful for diagnosing intrinsic rewrites, static vs dynamic call-site selection, and numeric promotion |
+| `SYMBOLIC IL`    | Flat instruction listing in emission order                                                                                                |
+
+Also writes EDN dumps under `magic-compiler/target/`:
+
+| File                   | What it is                                                                                                                                                                        |
+|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pipeline-ast.edn`     | Full AST, pprinted                                                                                                                                                                |
+| `pipeline-il.edn`      | Flat instruction list, pprinted (usually what you want)                                                                                                                           |
+| `pipeline-il-tree.edn` | Nested IL tree as mage emits it. The `nil` placeholders are structural alignment that mage filters at byte-emit time; the flat dump is the same instructions without the nesting. |
+
+Forms that synthesize CLR types (`fn`, `defn`, `deftype`, `defrecord`) work too. No destination assembly is needed.
+
+Options (`:key value` pairs after the form):
+
+| Key         | Default                                 | Effect                                                                                              |
+|-------------|-----------------------------------------|-----------------------------------------------------------------------------------------------------|
+| `:out`      | `target`                                | Output directory for EDN dumps                                                                      |
+| `:sections` | all eight                               | Subset of `#{:form :macroexpand :ast :types :il :ast-edn :il-edn :tree-edn}` controlling what renders |
+
+```bash
+bb pipeline '(let [x 1] x)' :out /tmp/inspect
+bb pipeline '(let [x 1] x)' :sections '#{:ast :il}'           # stdout-only, no files
+bb pipeline '(.Length "hi")' :sections '#{:il-edn}' :out /tmp # just dump the flat IL
+```
+
 ### Before opening a PR
 
 ```bash

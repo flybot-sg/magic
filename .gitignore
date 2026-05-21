@@ -22,6 +22,9 @@ obj/
 # Bootstrap output
 magic-compiler/bootstrap/
 
+# Dev tooling output
+magic-compiler/target/
+
 # Local AI assistant files
 CLAUDE.md
 .claude/
