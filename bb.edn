@@ -213,6 +213,29 @@
            (println "Running nos version:")
            (shell (str nos-dir "/nos") "version"))}
 
+  release-tarball
+  {:doc "Build the nos release tarball under target/ and smoke-test it. Run by the release workflow on a tag push."
+   :requires ([clojure.edn :as edn])
+   :depends [build]
+   :task (let [version   (:version (edn/read-string (slurp "version.edn")))
+               dist-name (str "nostrand-v" version "-mono")
+               staging   (str "target/" dist-name)
+               tarball   (str "target/" dist-name ".tar.gz")
+               smoke-dir "target/smoke"]
+           (fs/delete-tree staging)
+           (fs/delete-tree smoke-dir)
+           (fs/create-dirs staging)
+           ;; bin/Release/net471/ is self-contained: nos launcher, NostrandMain.exe,
+           ;; runtime DLLs, all .clj.dll, and the nostrand/ source subdir that the
+           ;; runtime loads at startup. Recursive copy of contents.
+           (shell "cp" "-R" "nostrand/bin/Release/net471/." (str staging "/"))
+           (shell {:dir "target"} "tar" "czf" (str dist-name ".tar.gz") dist-name)
+           (println "Wrote" tarball)
+           (println "Smoke: extract + run nos version")
+           (fs/create-dirs smoke-dir)
+           (shell "tar" "xzf" tarball "-C" smoke-dir)
+           (shell (str smoke-dir "/" dist-name "/nos") "version"))}
+
   tag
   {:doc "Verify dist, then tag from version.edn and push."
    :requires ([clojure.edn :as edn])
