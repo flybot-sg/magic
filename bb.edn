@@ -188,4 +188,39 @@
              (println (str "=== " proj " (NuGet) ==="))
              (shell {:continue true} "dotnet" "list" proj "package" "--outdated"))
            (println)
-           (println "Note: Nostrand `project.edn` deps (GitHub/GitLab/Maven via nos) are not checked. Inspect manually if used."))}}}
+           (println "Note: Nostrand `project.edn` deps (GitHub/GitLab/Maven via nos) are not checked. Inspect manually if used."))}
+
+  verify-dist
+  {:doc "Verify release artifacts are present and `nos version` works. Run before tagging."
+   :task (let [nos-dir   "nostrand/bin/Release/net471"
+               unity-dir "magic-unity/Runtime/Infrastructure/Export"
+               required  [(str nos-dir "/nos")
+                          (str nos-dir "/NostrandMain.exe")
+                          (str nos-dir "/Clojure.dll")
+                          (str nos-dir "/Magic.Runtime.dll")
+                          (str unity-dir "/Clojure.dll")
+                          (str unity-dir "/Magic.Runtime.dll")]
+               globs     [[nos-dir "*.clj.dll"]
+                          [unity-dir "*.clj.dll"]]]
+           (doseq [p required]
+             (when-not (fs/exists? p)
+               (binding [*out* *err*] (println "Missing:" p))
+               (throw (ex-info "verify-dist failed" {:babashka/exit 1}))))
+           (doseq [[dir glob] globs]
+             (when (empty? (fs/glob dir glob))
+               (binding [*out* *err*] (println "No matches:" dir "/" glob))
+               (throw (ex-info "verify-dist failed" {:babashka/exit 1}))))
+           (println "Running nos version:")
+           (shell (str nos-dir "/nos") "version"))}
+
+  tag
+  {:doc "Verify dist, then tag from version.edn and push."
+   :requires ([clojure.edn :as edn])
+   :depends [verify-dist]
+   :task (let [version (:version (edn/read-string (slurp "version.edn")))
+               tag     (str "v" version)]
+           (println "Creating tag:" tag)
+           (shell "git" "tag" "-a" tag "-m" (str "Release " version))
+           (println "Pushing tag to origin...")
+           (shell "git" "push" "origin" tag)
+           (println (str "Done! Release workflow will validate " tag)))}}}

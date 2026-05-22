@@ -1,0 +1,8 @@
+<Project>
+  <PropertyGroup>
+    <_VersionEdnText>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)version.edn'))</_VersionEdnText>
+    <Version>$([System.Text.RegularExpressions.Regex]::Match($(_VersionEdnText), '\d+\.\d+\.\d+').Value)</Version>
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
+    <FileVersion>$(Version).0</FileVersion>
+  </PropertyGroup>
+</Project>
