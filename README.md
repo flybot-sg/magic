@@ -28,6 +28,7 @@ MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself t
 | [magic-compiler](./magic-compiler) | The compiler (s-expressions to MSIL) | Clojure |
 | [nostrand](./nostrand) | Task runner, dependency manager, REPL | C# + Clojure |
 | [magic-unity](./magic-unity) | Unity integration package (IL2CPP support) | C# |
+| [magic-unity-smoke](./magic-unity-smoke) | Standalone Unity project that exercises MAGIC under IL2CPP. Regression suite for AOT-only bugs, runs by hand on the verified Unity version (`2022.3.62f3`). | Clojure + C# |
 
 Each component has its own README with detailed documentation.
 
@@ -58,6 +59,30 @@ magic-unity        Unity package, copies runtime + compiler DLLs
 
 ## Getting Started
 
+Two audiences, two paths.
+
+### Integrating MAGIC into your Unity project
+
+Add MAGIC to `Packages/manifest.json`:
+
+```json
+{
+  "dependencies": {
+    "sg.flybot.magic.unity": "https://github.com/flybot-sg/magic.git?path=magic-unity"
+  }
+}
+```
+
+Compile your Clojure to `.clj.dll` files that Unity loads at play time. The convention is a `nos dotnet/build` task defined in `dotnet.clj` at your project root, paired with `project.edn` listing source paths. [magic-unity-smoke](./magic-unity-smoke) ships a minimal reference: copy `project.edn`, `dotnet.clj`, and your equivalent of `Assets/Scripts/SmokeTestRunner.cs` to bootstrap a new MAGIC-Unity project, then edit the namespace list. Production-pinned compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`) live in that `dotnet.clj` so your build matches what ships.
+
+```bash
+nos dotnet/build
+```
+
+For CI, define a `nos dotnet/run-tests` task in your `dotnet.clj` that loads your suites under Mono and exits non-zero on failure (see [magic-unity-smoke/dotnet.clj](magic-unity-smoke/dotnet.clj) for the pattern). That catches regressions independent of Unity. IL2CPP-only regressions cannot be caught without a Unity-driven build; run [magic-unity-smoke](./magic-unity-smoke) by hand on the verified Unity version (or your own equivalent) after touching the compiler, the runtimes, or `magic-unity`.
+
+### Working on MAGIC itself
+
 ```bash
 git clone https://github.com/flybot-sg/magic.git
 cd magic
@@ -71,6 +96,8 @@ After build, set up the `nos` command on your PATH (used by Clojure projects tha
 ```bash
 ln -s $(pwd)/nostrand/bin/Release/net471/nos /usr/local/bin/nos
 ```
+
+Day-to-day workflows are in [Development](#development) below.
 
 ## Development
 
@@ -191,21 +218,9 @@ bb test
 cd magic-compiler && mono ../nostrand/bin/Release/net471/NostrandMain.exe test/all
 ```
 
-Projects downstream of MAGIC (e.g. application code compiled with `nos`) define their own test tasks in a `dotnet.clj` at their root and run them via `nos dotnet/run-tests`. The MAGIC compiler itself uses the `test/all` entrypoint in [magic-compiler/test.clj](magic-compiler/test.clj).
+The MAGIC compiler itself uses the `test/all` entrypoint in [magic-compiler/test.clj](magic-compiler/test.clj). Downstream projects use their own `nos dotnet/run-tests` (see the Getting Started section above for the pattern).
 
-## Unity
-
-Add to your Unity project via `manifest.json`:
-
-```json
-{
-  "dependencies": {
-    "com.nasser.magic": "https://github.com/flybot-sg/magic.git?path=magic-unity"
-  }
-}
-```
-
-See the [magic-compiler README](magic-compiler/README.md) for compilation instructions.
+For IL2CPP-specific regressions (AOT-only bugs that the Mono editor cannot catch), [magic-unity-smoke](./magic-unity-smoke) drives MAGIC's compile output through Unity's IL2CPP pipeline and reports pass/fail in the built player. Run by hand on the verified Unity version after touching the compiler, the runtimes, or `magic-unity` itself.
 
 ## Git History
 

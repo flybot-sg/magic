@@ -1,5 +1,5 @@
 {
-    "name": "sr.nas.magic.unity",
+    "name": "sg.flybot.magic.unity",
     "version": "1.2.1-beta",
     "displayName": "MAGIC Unity Integration",
     "description": "The integration of the MAGIC Clojure compiler into Unity",

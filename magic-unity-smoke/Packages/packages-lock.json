@@ -16,7 +16,7 @@
         "com.unity.modules.imgui": "1.0.0"
       }
     },
-    "sr.nas.magic.unity": {
+    "sg.flybot.magic.unity": {
       "version": "file:../../magic-unity",
       "depth": 0,
       "source": "local",
