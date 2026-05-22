@@ -7,9 +7,9 @@ var callsiteConstructorTemplate = File.ReadAllText("CallsiteConstructor.mustache
 var getMethodDelegateTemplate = File.ReadAllText("GetMethodDelegate.mustache");
 var stubble = new StubbleBuilder().Build();
 
-GenerateSourceCode();
+GenerateSourceCode(path: args.Length > 0 ? args[0] : "../Magic.Runtime/Generated");
 
-void GenerateSourceCode(int count=20, string path="out")
+void GenerateSourceCode(int count=20, string path="../Magic.Runtime/Generated")
 {
     Directory.CreateDirectory(path);
 

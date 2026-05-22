@@ -54,14 +54,14 @@ namespace Magic
                 {
                     var f = (CallsiteAction<T0>)Delegate.CreateDelegate(typeof(CallsiteAction<T0>), method);
                     return (arg0) => {
-                        f((T0)arg0);
+                        f((arg0 is T0 ? (T0)arg0 : (T0)Binder.Shared.ConvertArgument(typeof(T0), arg0)));
                         return null;
                     };
                 }
                 else
                 {
                     var f = (CallsiteFunc<T0,T1>)Delegate.CreateDelegate(typeof(CallsiteFunc<T0,T1>), method);
-                    return (arg0) => f((T0)arg0);
+                    return (arg0) => f((arg0 is T0 ? (T0)arg0 : (T0)Binder.Shared.ConvertArgument(typeof(T0), arg0)));
                 }
             }
         }

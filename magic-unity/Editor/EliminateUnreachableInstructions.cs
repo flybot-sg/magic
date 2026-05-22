@@ -28,6 +28,20 @@ namespace Magic.Unity
             // methods enter at first instruction
             remaining.Enqueue(instructions.First());
 
+            // Exception-handler boundary instructions (TryStart, TryEnd,
+            // HandlerStart, HandlerEnd, FilterStart) must survive the sweep
+            // so the EH table stays consistent. Seeding them here also lets
+            // BFS pick up the post-handler fall-through path that normal
+            // flow analysis treats as dead when the try body always throws.
+            foreach (var eh in method.Body.ExceptionHandlers)
+            {
+                if (eh.TryStart     != null) remaining.Enqueue(eh.TryStart);
+                if (eh.TryEnd       != null) remaining.Enqueue(eh.TryEnd);
+                if (eh.HandlerStart != null) remaining.Enqueue(eh.HandlerStart);
+                if (eh.HandlerEnd   != null) remaining.Enqueue(eh.HandlerEnd);
+                if (eh.FilterStart  != null) remaining.Enqueue(eh.FilterStart);
+            }
+
             while (remaining.Count > 0)
             {
                 var instruction = remaining.Dequeue();

@@ -467,13 +467,10 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "map")]
         public static int mapHasheq(IPersistentMap m)
         {
-            int hash = 0;
-            for (ISeq s = m.seq(); s != null; s = s.next())
-            {
-                IMapEntry e = (IMapEntry)s.first();
-                hash += Util.hasheq(e.key()) ^ Util.hasheq(e.val());
-            }
-            return hash;
+            // Match JVM Clojure 1.6+ and the instance hasheq() above. Sole
+            // caller is the defrecord-generated hasheq method
+            // (clojure/core_deftype.clj), which bakes bit-xor(type-hash, mapHasheq).
+            return Murmur3.HashUnordered(m);
         }
 
         #endregion

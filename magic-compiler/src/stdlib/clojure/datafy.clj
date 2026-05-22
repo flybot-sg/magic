@@ -7,7 +7,7 @@
 ;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:doc "Functions to turn objects into data. Alpha, subject to change"}
-  clojure.datafy
+ clojure.datafy
   (:require [clojure.core.protocols :as p]))
 
 (set! *warn-on-reflection* true)
@@ -42,21 +42,21 @@
 (extend-protocol p/Datafiable
   Exception                                                                         ;;; Throwable
   (datafy [x]
-          (Throwable->map x))
+    (Throwable->map x))
 
   clojure.lang.IRef
   (datafy [r]
-          (with-meta [(deref r)] (meta r)))
+    (with-meta [(deref r)] (meta r)))
 
   clojure.lang.Namespace
   (datafy [n]
-          (with-meta {:name (.FullName n)                 ;;; .getName
-                      :publics (-> n ns-publics sortmap)
-                      :imports (-> n ns-imports sortmap)
-                      :interns (-> n ns-interns sortmap)}
-            (meta n)))
+    (with-meta {:name (.Name n)                     ;;; .getName  (CLR Namespace exposes .Name, not .FullName)
+                :publics (-> n ns-publics sortmap)
+                :imports (-> n ns-imports sortmap)
+                :interns (-> n ns-interns sortmap)}
+      (meta n)))
 
   System.Type                                                                                            ;;; java.lang.Class
   (datafy [c]
-          (let [{:keys [members] :as ret} ((requiring-resolve 'clojure.reflect/reflect) c)]
-            (assoc ret :name (-> c .FullName symbol) :members (->> members (group-by :name) sortmap)))))     ;;; .getName
+    (let [{:keys [members] :as ret} ((requiring-resolve 'clojure.reflect/reflect) c)]
+      (assoc ret :name (-> c .FullName symbol) :members (->> members (group-by :name) sortmap)))))     ;;; .getName

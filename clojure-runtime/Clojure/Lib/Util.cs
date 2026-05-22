@@ -44,9 +44,17 @@ namespace clojure.lang
 
             String s = o as string;
             if (s != null)
-                return Murmur3.HashString(s);
+                return Murmur3.HashInt(JavaStringHashCode(s));
 
             return o.GetHashCode();
+        }
+
+        private static int JavaStringHashCode(string s)
+        {
+            int h = 0;
+            for (int i = 0; i < s.Length; i++)
+                h = unchecked(31 * h + s[i]);
+            return h;
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "dohasheq")]

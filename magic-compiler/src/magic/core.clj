@@ -425,7 +425,8 @@
                               (convert-type (type c) Object)])
                      v))
      (il/call method)
-     (convert-type (.ReturnType method) (types/data-structure-types :vector))]))
+     (convert-type (.ReturnType method) (types/data-structure-types :vector))
+     (load-constant-meta v)]))
 
 (defmethod load-constant
   clojure.lang.APersistentSet [v]
@@ -865,18 +866,15 @@
       (mapv #(compile % compilers) args)
       (mapv convert args (interop/parameter-types method)))
      (cond
-       (and (not value-type-target?) virtual-method? (not non-virtual?))
-       (il/callvirt method)
-       (and (not value-type-target?) (not virtual-method?))
-       (il/call method)
-       (and value-type-target? virtual-method?)
-       (il/call method)
-       (and value-type-target? (not virtual-method?))
-       (il/call method)
        non-virtual?
        (il/call method)
+       value-type-target?
+       [(il/constrained target-type)
+        (il/callvirt method)]
+       virtual-method?
+       (il/callvirt method)
        :else
-       (il/callvirt method))]))
+       (il/call method))]))
 
 (defn initobj-compiler
   "Symbolic bytecode for zero arity value type constructor invocation"
@@ -1012,22 +1010,30 @@
                       [(il/ldloc loc)
                        (when (-> form locals :init)
                          (convert (-> form locals :init) (non-void-ast-type ast)))])
-                    (compile* ast compilers)))})
-        binding-il (map #(compile % specialized-compilers) bindings)]
-    ;; emit local initializations
-    [(map (fn [il binding]
-            [(drop-last il)
-             (convert (:init binding) (non-void-ast-type binding))
-             (il/stloc (binding-map (:name binding)))])
-          binding-il bindings)
-     (interleave
-      (map (fn [il binding]
-             [(il/ldloc (binding-map (:name binding)))
-              (when-let [fn-type (-> binding :init :fn-type)]
-                (convert-type (non-void-ast-type binding) fn-type))
-              (last il)])
-           binding-il bindings)
-      (repeat (il/pop)))
+                    (compile* ast compilers)))})]
+    (doseq [{:keys [init]} bindings]
+      (compile-fn-type init specialized-compilers))
+    [(map (fn [{:keys [init name] :as binding}]
+            (let [fn-type (:fn-type init)]
+              [(il/newobj (first (.GetConstructors fn-type)))
+               (convert-type fn-type (non-void-ast-type binding))
+               (il/stloc (binding-map name))]))
+          bindings)
+     (map (fn [{:keys [init name] :as binding}]
+            (let [fn-type (:fn-type init)
+                  fields (.GetFields fn-type
+                                     (enum-or BindingFlags/NonPublic
+                                              BindingFlags/Instance))]
+              [(il/ldloc (binding-map name))
+               (convert-type (non-void-ast-type binding) fn-type)
+               (map (fn [co-ast field]
+                      [(il/dup)
+                       (compile co-ast specialized-compilers)
+                       (il/stfld field)])
+                    (vals (:closed-overs init))
+                    fields)
+               (il/pop)]))
+          bindings)
      (compile body specialized-compilers)]))
 
 (defn if-compiler

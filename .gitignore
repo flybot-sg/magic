@@ -12,6 +12,7 @@ obj/
 *.dll
 *.pdb
 *.exe
+*.sln
 !nostrand/references/*.dll
 !magic-unity/Runtime/Infrastructure/Export/*.dll
 
@@ -20,3 +21,14 @@ obj/
 
 # Bootstrap output
 magic-compiler/bootstrap/
+
+# Dev tooling output
+magic-compiler/target/
+target/
+
+# Local AI assistant files
+CLAUDE.md
+.claude/
+
+# Local dev logs (impl progress, session notes)
+dev-logs/

@@ -35,7 +35,7 @@ namespace Magic
                     var f = (CallsiteActionRef<{{#subscripts}}T{{.}},{{/subscripts}}>)Delegate.CreateDelegate(typeof(CallsiteActionRef<{{#subscripts}}T{{.}},{{/subscripts}}>), method);
                     return ({{#subscripts}}arg{{.}},{{/subscripts}}) => {
                         var target = (T0)arg0;
-                        f(ref target,{{#subscriptsSkipOne}}(T{{.}})arg{{.}},{{/subscriptsSkipOne}});
+                        f(ref target,{{#subscriptsSkipOne}}(arg{{.}} is T{{.}} ? (T{{.}})arg{{.}} : (T{{.}})Binder.Shared.ConvertArgument(typeof(T{{.}}), arg{{.}})),{{/subscriptsSkipOne}});
                         return null;
                     };
                 }
@@ -44,7 +44,7 @@ namespace Magic
                     var f = (CallsiteFuncRef<{{#subscriptsPlusOne}}T{{.}},{{/subscriptsPlusOne}}>)Delegate.CreateDelegate(typeof(CallsiteFuncRef<{{#subscriptsPlusOne}}T{{.}},{{/subscriptsPlusOne}}>), method);
                     return ({{#subscripts}}arg{{.}},{{/subscripts}}) => {
                         var target = (T0)arg0;
-                        return f(ref target,{{#subscriptsSkipOne}}(T{{.}})arg{{.}},{{/subscriptsSkipOne}});
+                        return f(ref target,{{#subscriptsSkipOne}}(arg{{.}} is T{{.}} ? (T{{.}})arg{{.}} : (T{{.}})Binder.Shared.ConvertArgument(typeof(T{{.}}), arg{{.}})),{{/subscriptsSkipOne}});
                     };
                 }
             }
@@ -54,14 +54,14 @@ namespace Magic
                 {
                     var f = (CallsiteAction<{{#subscripts}}T{{.}},{{/subscripts}}>)Delegate.CreateDelegate(typeof(CallsiteAction<{{#subscripts}}T{{.}},{{/subscripts}}>), method);
                     return ({{#subscripts}}arg{{.}},{{/subscripts}}) => {
-                        f({{#subscripts}}(T{{.}})arg{{.}},{{/subscripts}});
+                        f({{#subscripts}}(arg{{.}} is T{{.}} ? (T{{.}})arg{{.}} : (T{{.}})Binder.Shared.ConvertArgument(typeof(T{{.}}), arg{{.}})),{{/subscripts}});
                         return null;
                     };
                 }
                 else
                 {
                     var f = (CallsiteFunc<{{#subscriptsPlusOne}}T{{.}},{{/subscriptsPlusOne}}>)Delegate.CreateDelegate(typeof(CallsiteFunc<{{#subscriptsPlusOne}}T{{.}},{{/subscriptsPlusOne}}>), method);
-                    return ({{#subscripts}}arg{{.}},{{/subscripts}}) => f({{#subscripts}}(T{{.}})arg{{.}},{{/subscripts}});
+                    return ({{#subscripts}}arg{{.}},{{/subscripts}}) => f({{#subscripts}}(arg{{.}} is T{{.}} ? (T{{.}})arg{{.}} : (T{{.}})Binder.Shared.ConvertArgument(typeof(T{{.}}), arg{{.}})),{{/subscripts}});
                 }
             }
         }

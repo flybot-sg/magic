@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "sg.flybot.magic.unity": "file:../../magic-unity",
+    "com.unity.ugui": "1.0.0"
+  }
+}

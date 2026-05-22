@@ -1,0 +1,249 @@
+;; MAGIC dev workflows.
+;; Run `bb tasks` for the public list.
+
+{:min-bb-version "1.3.0"
+ :tasks
+ {:requires ([babashka.fs :as fs]
+             [clojure.string :as str])
+  :init
+  (do
+    (def nostrand-exe  "nostrand/bin/Release/net471/NostrandMain.exe")
+    (def nostrand-proj "nostrand/NostrandMain.csproj")
+    (def compiler-dir  "magic-compiler")
+    (def callsites-dir "magic-runtime/Magic.Runtime.Callsites"))
+
+  -check-nostrand
+  {:doc "Abort if Nostrand has not been built yet."
+   :task (when-not (fs/exists? nostrand-exe)
+           (binding [*out* *err*]
+             (println "Nostrand not built. Run `bb build` first (or `bb build-runtime` if everything else is current)."))
+           (throw (ex-info "nostrand not built" {:babashka/exit 1})))}
+
+  -revert-byproducts
+  {:doc "Revert build-byproduct DLLs so iteration commits stay clean. The nostrand/references/ and magic-unity/Runtime/Infrastructure/Export/ binaries are intentionally tracked but only updated via dedicated commits, not as side effects of every iteration."
+   :task (shell "git" "checkout" "--"
+                "nostrand/references/"
+                "magic-unity/Runtime/Infrastructure/Export/")}
+
+  ;; ============================================================
+  ;; Build
+  ;; ============================================================
+
+  build
+  {:doc "Full build: runtimes → nostrand → magic-compiler bootstrap → magic-unity. Slow (minutes) on first run."
+   :task (shell "dotnet build")}
+
+  build-runtime
+  {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand. No magic-compiler bootstrap. Fast."
+   :task (shell "dotnet build" nostrand-proj "-c" "Release")}
+
+  build-magic
+  {:doc "Re-bootstrap magic-compiler (compiles .clj → .clj.dll). Slow. Use after editing compiler or stdlib .clj files."
+   :depends [-check-nostrand]
+   ;; The bootstrap step in magic.api/compile-file skips writing DLLs that
+   ;; already exist on disk, so re-running it without cleaning is a no-op.
+   ;; Delete magic-compiler/bootstrap/ first to force re-compilation.
+   :task (do
+           (fs/delete-tree (fs/file compiler-dir "bootstrap"))
+           (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "build/bootstrap"))}
+
+  build-magic-portable
+  {:doc "Like build-magic but applies the sparse-case spell. Use as the first pass when changing hashing semantics, then run build-magic again."
+   :depends [-check-nostrand]
+   :task (do
+           (fs/delete-tree (fs/file compiler-dir "bootstrap"))
+           (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe)
+                  "build/bootstrap"
+                  ":spells" "[magic.spells.sparse-case/sparse-case]"))}
+
+  build-bootstrap
+  {:doc "After build-magic, deploy bootstrap DLLs into nostrand/references (rebuilds nostrand) and into magic-unity Runtime/Infrastructure/Export."
+   :task (shell "dotnet build -t:Bootstrap;MagicUnity")}
+
+  refresh-stdlib
+  {:doc "Recompile every committed stdlib clojure.*.clj.dll from source and redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity/Runtime/Infrastructure/Export/. Use after editing any magic-compiler/src/stdlib/**/*.clj. Bootstrap namespaces (clojure.core etc.) are skipped; use bb build-magic + bb build-bootstrap for those."
+   :depends [-check-nostrand]
+   :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "refresh/stdlib")}
+
+  ;; ============================================================
+  ;; Codegen
+  ;; ============================================================
+
+  regen-callsites
+  {:doc "Regenerate magic-runtime .g.cs files from .mustache templates."
+   :task (shell {:dir callsites-dir} "dotnet run")}
+
+  check-drift
+  {:doc "Verify generated files and stdlib bootstrap DLLs are current. Runs regen + refresh-stdlib and fails if the working tree changed. Use in CI and before opening a PR."
+   :depends [regen-callsites refresh-stdlib]
+   ;; Drift signals checked:
+   ;;  - magic-runtime/Magic.Runtime/Generated: .g.cs files produced by Mustache
+   ;;    templates. Deterministic text output; byte-diffable.
+   ;;  - magic-compiler/stdlib-manifest.edn: maps each stdlib namespace to its
+   ;;    source SHA256. Updated by refresh-stdlib. If a source was edited since
+   ;;    last refresh, the SHA in this file changes; that's our drift signal.
+   ;;    We do NOT diff DLL bytes themselves because compilation is
+   ;;    non-deterministic (gensyms, hash tokens) and would always fail.
+   :task (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
+                              "magic-compiler/stdlib-manifest.edn"]
+               {:keys [out]} (apply shell {:continue true :out :string}
+                                    "git" "diff" "--" checked-paths)]
+           (when-not (str/blank? out)
+             (binding [*out* *err*]
+               (println)
+               (println "Drift detected.")
+               (println "Either a .mustache template was edited without regenerating .g.cs,")
+               (println "or a stdlib .clj source was edited without refreshing its .clj.dll.")
+               (println)
+               (println "Fix locally:")
+               (println "  bb regen-callsites      # if magic-runtime Generated/ drifted")
+               (println "  bb refresh-stdlib       # if stdlib-manifest.edn drifted")
+               (println "  git add" (str/join " " checked-paths)
+                        "nostrand/references magic-unity/Runtime/Infrastructure/Export")
+               (println)
+               (println "Diff:")
+               (->> (str/split-lines out)
+                    (take 80)
+                    (run! println)))
+             (throw (ex-info "drift detected" {:babashka/exit 1}))))}
+
+  ;; ============================================================
+  ;; Test
+  ;; ============================================================
+
+  test
+  {:doc "Run the magic-compiler test suite. Requires built nostrand."
+   :depends [-check-nostrand]
+   :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "test/all")}
+
+  ;; ============================================================
+  ;; Dev loops
+  ;; ============================================================
+
+  dev-runtime
+  {:doc "After editing C# in clojure-runtime/ or magic-runtime/: rebuild runtimes + test. No bootstrap. Byproduct DLLs reverted at the end."
+   :depends [build-runtime test -revert-byproducts]}
+
+  dev-callsites
+  {:doc "After editing magic-runtime/Magic.Runtime.Callsites/*.mustache: regen + rebuild runtimes + test. Byproduct DLLs reverted at the end."
+   :depends [regen-callsites build-runtime test -revert-byproducts]}
+
+  dev-compiler
+  {:doc "After editing magic-compiler/src/**/*.clj: clean bootstrap, re-bootstrap, deploy DLLs to nostrand/references, then test. Slow. Byproduct DLLs reverted at the end."
+   ;; build-bootstrap is required: build-magic only writes to magic-compiler/bootstrap/,
+   ;; but nos test/all loads compiler DLLs from nostrand/references/. Without
+   ;; build-bootstrap copying them over, tests run the old compiler.
+   :depends [build-magic build-bootstrap test -revert-byproducts]}
+
+  ;; ============================================================
+  ;; Inspect / debug
+  ;; ============================================================
+
+  pipeline
+  {:doc "Walk a Clojure form through reader -> AST -> symbolic IL. Prints form, macroexpand, AST skeleton, type summary, and flattened opcode listing; dumps EDN to <out>/ (default magic-compiler/target). Options: :out <dir>, :sections '#{...}' subset of #{:form :macroexpand :ast :types :il :ast-edn :il-edn :tree-edn}."
+   :depends [-check-nostrand]
+   :task (if (empty? *command-line-args*)
+           (do (binding [*out* *err*]
+                 (println "usage: bb pipeline '<form>' [:key value]...")
+                 (println "examples:")
+                 (println "  bb pipeline '(let [x 1] (+ x 1))'")
+                 (println "  bb pipeline '(let [x 1] x)' :out /tmp/x")
+                 (println "  bb pipeline '(let [x 1] x)' :sections '#{:ast :il}'"))
+               (throw (ex-info "missing form" {:babashka/exit 1})))
+           (apply shell {:dir compiler-dir}
+                  "mono" (str "../" nostrand-exe)
+                  "pipeline/show" *command-line-args*))}
+
+  ;; ============================================================
+  ;; REPL
+  ;; ============================================================
+
+  repl
+  {:doc "Start the Nostrand CLI REPL in magic-compiler/."
+   :override-builtin true
+   :depends [-check-nostrand]
+   :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "repl")}
+
+  ;; ============================================================
+  ;; Hygiene
+  ;; ============================================================
+
+  clean
+  {:doc "Remove bin/ directories and magic-compiler/bootstrap/."
+   :task (shell "dotnet build -t:Clean")}
+
+  outdated
+  {:doc "Report outdated dependencies (GitHub Actions via antq, NuGet via dotnet)."
+   :task (do
+           (println "=== GitHub Actions (antq) ===")
+           (shell {:continue true}
+                  "clojure" "-Sdeps"
+                  "{:deps {com.github.liquidz/antq {:mvn/version \"RELEASE\"}}}"
+                  "-M" "-m" "antq.core")
+           (doseq [proj ["clojure-runtime/Clojure.csproj"
+                         "magic-runtime/Magic.Runtime/Magic.Runtime.csproj"
+                         "magic-runtime/Magic.Runtime.Callsites/Magic.Runtime.Callsites.csproj"
+                         "nostrand/NostrandMain.csproj"]]
+             (println)
+             (println (str "=== " proj " (NuGet) ==="))
+             (shell {:continue true} "dotnet" "list" proj "package" "--outdated"))
+           (println)
+           (println "Note: Nostrand `project.edn` deps (GitHub/GitLab/Maven via nos) are not checked. Inspect manually if used."))}
+
+  verify-dist
+  {:doc "Verify release artifacts are present and `nos version` works. Run before tagging."
+   :task (let [nos-dir   "nostrand/bin/Release/net471"
+               unity-dir "magic-unity/Runtime/Infrastructure/Export"
+               required  [(str nos-dir "/nos")
+                          (str nos-dir "/NostrandMain.exe")
+                          (str nos-dir "/Clojure.dll")
+                          (str nos-dir "/Magic.Runtime.dll")
+                          (str unity-dir "/Clojure.dll")
+                          (str unity-dir "/Magic.Runtime.dll")]
+               globs     [[nos-dir "*.clj.dll"]
+                          [unity-dir "*.clj.dll"]]]
+           (doseq [p required]
+             (when-not (fs/exists? p)
+               (binding [*out* *err*] (println "Missing:" p))
+               (throw (ex-info "verify-dist failed" {:babashka/exit 1}))))
+           (doseq [[dir glob] globs]
+             (when (empty? (fs/glob dir glob))
+               (binding [*out* *err*] (println "No matches:" dir "/" glob))
+               (throw (ex-info "verify-dist failed" {:babashka/exit 1}))))
+           (println "Running nos version:")
+           (shell (str nos-dir "/nos") "version"))}
+
+  release-tarball
+  {:doc "Build the nos release tarball under target/ and smoke-test it. Run by the release workflow on a tag push."
+   :requires ([clojure.edn :as edn])
+   :depends [build]
+   :task (let [version   (:version (edn/read-string (slurp "version.edn")))
+               dist-name (str "nostrand-v" version "-mono")
+               staging   (str "target/" dist-name)
+               tarball   (str "target/" dist-name ".tar.gz")
+               smoke-dir "target/smoke"]
+           (fs/delete-tree staging)
+           (fs/delete-tree smoke-dir)
+           (fs/create-dirs staging)
+           ;; bin/Release/net471/ is self-contained: nos launcher, NostrandMain.exe,
+           ;; runtime DLLs, all .clj.dll, and the nostrand/ source subdir that the
+           ;; runtime loads at startup. Recursive copy of contents.
+           (shell "cp" "-R" "nostrand/bin/Release/net471/." (str staging "/"))
+           (shell {:dir "target"} "tar" "czf" (str dist-name ".tar.gz") dist-name)
+           (println "Wrote" tarball)
+           (println "Smoke: extract + run nos version")
+           (fs/create-dirs smoke-dir)
+           (shell "tar" "xzf" tarball "-C" smoke-dir)
+           (shell (str smoke-dir "/" dist-name "/nos") "version"))}
+
+  tag
+  {:doc "Verify dist, then tag from version.edn and push."
+   :requires ([clojure.edn :as edn])
+   :depends [verify-dist]
+   :task (let [version (:version (edn/read-string (slurp "version.edn")))
+               tag     (str "v" version)]
+           (println "Creating tag:" tag)
+           (shell "git" "tag" "-a" tag "-m" (str "Release " version))
+           (println "Pushing tag to origin...")
+           (shell "git" "push" "origin" tag)
+           (println (str "Done! Release workflow will validate " tag)))}}}

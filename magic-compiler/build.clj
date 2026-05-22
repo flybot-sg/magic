@@ -1,7 +1,6 @@
 (ns build
   (:require [magic.core :refer [*spells*]]
-            [magic.api :refer [compile-namespace]]
-            [magic.spells.sparse-case :refer [sparse-case]])
+            [magic.api :refer [compile-namespace]])
   (:import [System.IO File Directory Path DirectoryInfo]))
 
 (in-ns 'clojure.core)
@@ -66,29 +65,20 @@
     clojure.clr.io
     clojure.core]) ;; if clojure.core not at the end, prevent other files from being compiled
 
-(defn bootstrap-portable [& opts]
-  (let [opts (set opts)]
-    (binding [*print-meta*               true
-              clojure.core/*loaded-libs* (ref (sorted-set))
-              *spells*                   [sparse-case] ; (if (:portable opts) (conj *spells* sparse-case) *spells*)
-              *eval-form-fn*             magic.api/eval
-              *compile-file-fn*          magic.api/runtime-compile-file
-              *load-file-fn*             magic.api/runtime-load-file
-              *warn-on-reflection*       true
-              *compile-path*             "bootstrap"]
-      (doseq [lib std-libs-to-compile]
-        (println (str "building " lib))
-        (compile-namespace lib {:write-files true :suppress-print-forms true})))))
+(defn- resolve-spell [s]
+  (if (symbol? s)
+    (do (require (symbol (namespace s)))
+        @(resolve s))
+    s))
 
-(defn bootstrap [& opts]
-  (let [opts (set opts)]
-    (binding [*print-meta*               true
-              clojure.core/*loaded-libs* (ref (sorted-set))
-              *eval-form-fn*             magic.api/eval
-              *compile-file-fn*          magic.api/runtime-compile-file
-              *load-file-fn*             magic.api/runtime-load-file
-              *warn-on-reflection*       true
-              *compile-path*             "bootstrap"]
-      (doseq [lib std-libs-to-compile]
-        (println (str "building " lib))
-        (compile-namespace lib {:write-files true :suppress-print-forms true})))))
+(defn bootstrap [& {:keys [spells]}]
+  (binding [clojure.core/*loaded-libs* (ref (sorted-set))
+            *spells*                   (into *spells* (map resolve-spell spells))
+            *eval-form-fn*             magic.api/eval
+            *compile-file-fn*          magic.api/runtime-compile-file
+            *load-file-fn*             magic.api/runtime-load-file
+            *warn-on-reflection*       true
+            *compile-path*             "bootstrap"]
+    (doseq [lib std-libs-to-compile]
+      (println (str "building " lib))
+      (compile-namespace lib {:write-files true :suppress-print-forms true}))))

@@ -203,7 +203,7 @@ namespace Magic.Unity
             }
             else
             {
-                UnityEngine.Debug.LogFormat("[Magic.Unity/GenerateGenericWorkaroundMethods] added il2cpp workaround to {1} {0}", existingWorkaroundType, assy);
+                UnityEngine.Debug.LogFormat("[Magic.Unity/GenerateGenericWorkaroundMethods] added il2cpp workaround to {1} {0}", type, assy);
             }
         }
 

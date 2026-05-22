@@ -5950,13 +5950,34 @@ Note that read can execute code (controlled by *read-eval*),
                   (or (not clj-info)
                       (>= (.. assy-info LastWriteTime Ticks)
                           (.. clj-info LastWriteTime Ticks))))
-            (-load-assembly (.FullName assy-info) relative-path)
+            (do
+              (when (= "1" (Environment/GetEnvironmentVariable "MAGIC_DEBUG_LOAD"))
+                (.WriteLine System.Console/Error (str "[MAGIC_DEBUG_LOAD] " relative-path
+                              " -> dll  " (.FullName assy-info)
+                              (when clj-info
+                                (str "  (dll-mtime=" (.LastWriteTime assy-info)
+                                     " clj-mtime=" (.LastWriteTime clj-info) ")")))))
+              (-load-assembly (.FullName assy-info) relative-path))
 
             (and clj-info *compile-files*)
-            (*compile-file-fn* clj-info relative-path)
+            (do
+              (when (= "1" (Environment/GetEnvironmentVariable "MAGIC_DEBUG_LOAD"))
+                (.WriteLine System.Console/Error (str "[MAGIC_DEBUG_LOAD] " relative-path
+                              " -> compile " (.FullName clj-info)
+                              (when assy-info
+                                (str "  (clj-mtime=" (.LastWriteTime clj-info)
+                                     " dll-mtime=" (.LastWriteTime assy-info) ")")))))
+              (*compile-file-fn* clj-info relative-path))
 
             clj-info
-            (*load-file-fn* clj-info relative-path)
+            (do
+              (when (= "1" (Environment/GetEnvironmentVariable "MAGIC_DEBUG_LOAD"))
+                (.WriteLine System.Console/Error (str "[MAGIC_DEBUG_LOAD] " relative-path
+                              " -> clj  " (.FullName clj-info)
+                              (when assy-info
+                                (str "  (clj-mtime=" (.LastWriteTime clj-info)
+                                     " dll-mtime=" (.LastWriteTime assy-info) ")")))))
+              (*load-file-fn* clj-info relative-path))
 
             :else
             (recur (first code-sources) (rest code-sources)))
