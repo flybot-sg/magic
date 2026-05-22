@@ -1,0 +1,40 @@
+# Unity-generated, machine-local
+Library/
+Temp/
+Logs/
+Obj/
+Build/
+Builds/
+MemoryCaptures/
+UserSettings/
+
+# Unity-generated IDE project files
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# MAGIC compiler output. `nos dotnet/build` writes here. The MAGIC
+# compiler window defaults to Assets/Compiled instead, which we
+# also ignore.
+Assets/Plugins/Magic/
+Assets/Plugins/Magic.meta
+Assets/Compiled/
+Assets/Compiled.meta
+
+# Magic.Unity regenerates this at every IL2CPP build.
+Assets/link.xml
+Assets/link.xml.meta
+
+# Nostrand's local dep cache (populated when project.edn lists deps)
+deps/
