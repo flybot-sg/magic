@@ -37,18 +37,22 @@ Each component has its own README with detailed documentation.
 ## Architecture
 
 ```
-clojure-runtime    C# data structures, Vars, Keywords
-       |
-magic-runtime      C# dynamic call sites
-       |
-nostrand           Task runner, links against both runtimes
-       |
-magic-compiler     Clojure compiler, built via mono + Nostrand
-       |                (depends on mage at build time)
-bootstrap          Copies compiler DLLs back into Nostrand, rebuilds it
-       |
-magic-unity        Unity package, copies runtime + compiler DLLs
+Runtimes (C#, ship as DLLs)
+  clojure-runtime   Clojure data: PersistentMap, Vars, Keywords (forked ClojureCLR)
+  magic-runtime     dynamic call sites for Clojure-on-CLR
+
+Compiler (Clojure, AOT-compiles .clj -> .clj.dll)
+  mage              symbolic MSIL emitter
+  magic-compiler    Clojure compiler proper (uses mage)
+
+Host (C#)
+  nostrand          CLI task runner; links the runtimes, hosts the compiler
+
+Packaging
+  magic-unity       UPM package: bundles runtime + compiler DLLs for Unity
 ```
+
+`bootstrap` is a build phase, not a component: compile `magic-compiler` with the previous `nos`, copy the resulting `.clj.dll`s back into `nostrand/references/`, rebuild `nos` against them. See [Development](#development).
 
 ## Install
 
