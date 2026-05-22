@@ -50,38 +50,65 @@ bootstrap          Copies compiler DLLs back into Nostrand, rebuilds it
 magic-unity        Unity package, copies runtime + compiler DLLs
 ```
 
-## Prerequisites
+## Install
+
+Two shippable artifacts; pick the one(s) your project needs.
+
+| Artifact | What it is | Built from | Ships via | Consumer pulls via |
+|---|---|---|---|---|
+| **`nos` CLI** | Build-time task runner that compiles Clojure to MSIL. Used by Unity projects (at build time, before opening Unity) and by non-Unity Clojure libs that want CLR test runs | `nostrand/` + `clojure-runtime/` + `magic-runtime/` + `magic-compiler/` | GitHub Releases tarball, cut on every `v*` tag by [`.github/workflows/release.yml`](.github/workflows/release.yml) | `install/nos.sh` (one-line curl; requires `mono` runtime, no .NET SDK) |
+| **`magic-unity` UPM package** | Play-time Clojure runtime + IL2CPP build pre-processor. Loaded by Unity inside a Unity project; not a standalone artifact | `magic-unity/` subdir of this repo (source + tracked playtime DLLs under `magic-unity/Runtime/Infrastructure/Export/`) | This repo, pinned by git tag | Unity's `Packages/manifest.json` UPM git URL with `?path=magic-unity#<tag>` |
+
+### Use MAGIC in a Unity project
+
+You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package (Unity loads it at play time), and a small `dotnet.clj` in your Unity project root that tells `nos` what to compile.
+
+1. **Install `nos`.** Requires `mono` runtime (macOS: `brew install mono`; Debian/Ubuntu: `sudo apt-get install -y mono-runtime`). No .NET SDK needed.
+
+   ```bash
+   # Latest, version resolved from main's version.edn:
+   curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | sh
+
+   # Or pin a specific release:
+   curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | MAGIC_VERSION=v0.1.0 sh
+   ```
+
+   Defaults install to `$HOME/.local/nostrand/` with the launcher symlinked to `$HOME/.local/bin/nos`. Override with `INSTALL_DIR=` / `INSTALL_LINK=` env vars if needed.
+
+2. **Add the Unity package** to your `Packages/manifest.json`:
+
+   ```json
+   {
+     "dependencies": {
+       "sg.flybot.magic.unity": "https://github.com/flybot-sg/magic.git?path=magic-unity#v0.1.0"
+     }
+   }
+   ```
+
+3. **Add `project.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./magic-unity-smoke/) and edit the namespace list to match your Clojure sources. Production-pinned compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`) live in `dotnet.clj` so your build matches what ships.
+
+4. **Compile your Clojure** before opening Unity:
+
+   ```bash
+   nos dotnet/build
+   ```
+
+   Drops your `.clj.dll` files into `Assets/Plugins/Magic/` where Unity will load them.
+
+5. **Open Unity, hit Play.** For CI, define a `nos dotnet/run-tests` task in your `dotnet.clj` to run Mono-side tests independent of Unity (see [`magic-unity-smoke/dotnet.clj`](magic-unity-smoke/dotnet.clj)). IL2CPP-only regressions need an actual Unity build; [`magic-unity-smoke`](./magic-unity-smoke) is the reference pattern.
+
+### Use `nos` for non-Unity Clojure-on-CLR
+
+Same `install/nos.sh` line, no Unity needed. Drop a `project.edn` + `dotnet.clj` at your library root (see [`magic-unity-smoke/dotnet.clj`](magic-unity-smoke/dotnet.clj) for the shape — the same task definitions work outside Unity), then `nos dotnet/run-tests`. Tests execute under Mono via the `nos` you just installed.
+
+## Prerequisites for working on MAGIC itself
+
+Consumer install needs `bash`, `curl`, `tar`, and `mono` runtime. Contributing to MAGIC needs:
 
 - [`git`](https://git-scm.com/)
 - [`dotnet`](https://dotnet.microsoft.com/en-us/download) (v7+)
 - [`mono`](https://www.mono-project.com/) (only needed at build time to host Nostrand; will go away once we drop net471)
 - [`bb`](https://github.com/babashka/babashka) (optional, for the dev workflows in [Development](#development))
-
-## Getting Started
-
-Two audiences, two paths.
-
-### Integrating MAGIC into your Unity project
-
-Add MAGIC to `Packages/manifest.json`:
-
-```json
-{
-  "dependencies": {
-    "sg.flybot.magic.unity": "https://github.com/flybot-sg/magic.git?path=magic-unity"
-  }
-}
-```
-
-Compile your Clojure to `.clj.dll` files that Unity loads at play time. The convention is a `nos dotnet/build` task defined in `dotnet.clj` at your project root, paired with `project.edn` listing source paths. [magic-unity-smoke](./magic-unity-smoke) ships a minimal reference: copy `project.edn`, `dotnet.clj`, and your equivalent of `Assets/Scripts/SmokeTestRunner.cs` to bootstrap a new MAGIC-Unity project, then edit the namespace list. Production-pinned compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`) live in that `dotnet.clj` so your build matches what ships.
-
-```bash
-nos dotnet/build
-```
-
-For CI, define a `nos dotnet/run-tests` task in your `dotnet.clj` that loads your suites under Mono and exits non-zero on failure (see [magic-unity-smoke/dotnet.clj](magic-unity-smoke/dotnet.clj) for the pattern). That catches regressions independent of Unity. IL2CPP-only regressions cannot be caught without a Unity-driven build; run [magic-unity-smoke](./magic-unity-smoke) by hand on the verified Unity version (or your own equivalent) after touching the compiler, the runtimes, or `magic-unity`.
-
-### Working on MAGIC itself
 
 ```bash
 git clone https://github.com/flybot-sg/magic.git
@@ -89,15 +116,7 @@ cd magic
 bb build         # or: dotnet build
 ```
 
-The full build takes a few minutes on first run. Subsequent builds are incremental.
-
-After build, set up the `nos` command on your PATH (used by Clojure projects that consume MAGIC). The launcher must point at the build-output copy that lives next to `NostrandMain.exe`; the source-controlled `Scripts/nos-framework` will not work as a symlink target because its sibling directory has no exe.
-
-```bash
-ln -s $(pwd)/nostrand/bin/Release/net471/nos /usr/local/bin/nos
-```
-
-Day-to-day workflows are in [Development](#development) below.
+The full build takes a few minutes on first run. Subsequent builds are incremental. Day-to-day workflows are in [Development](#development) below.
 
 ## Development
 
