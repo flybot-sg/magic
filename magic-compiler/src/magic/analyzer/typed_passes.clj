@@ -241,25 +241,31 @@
     ast))
 
 (defn analyze-reify
-  [{:keys [op interfaces methods containing-fn-name] :as ast}]
+  [{:keys [op interfaces methods containing-fn-name form] :as ast}]
   (case op
     :reify
-    (let [interfaces*
-          (conj
-           (->> interfaces
-                (map host/analyze-type)
-                (mapv :val))
-           clojure.lang.IObj)
-          reify-name (gen-il-name (str containing-fn-name "<reify>"))
-          reify-type (gt/reify-type *module* reify-name interfaces*)
-          all-interfaces (into #{} (concat interfaces* (mapcat #(.GetInterfaces %) interfaces*)))
-          candidate-methods (into #{} (concat (.GetMethods Object)
-                                              (mapcat #(.GetMethods %) all-interfaces)))
-          methods (mapv #(analyze-method % candidate-methods :reify-type reify-type true) methods)]
-      (assoc ast
-             :reify-type reify-type
-             :interfaces interfaces*
-             :methods methods))
+    (let [resolved (->> interfaces (map host/analyze-type) (mapv :val))
+          non-ifaces (remove #(.IsInterface %) resolved)]
+      (doseq [t non-ifaces]
+        (when-not (= t Object)
+          (throw (ex-info
+                  (str "reify only supports interfaces or System.Object as parent types, got "
+                       (.FullName t))
+                  {:type t :form form}))))
+      ;; Object is the implicit base; listing it on the TypeBuilder
+      ;; interface array is invalid metadata and breaks IL2CPP.
+      (let [ifaces (filter #(.IsInterface %) resolved)
+            interfaces* (conj (vec ifaces) clojure.lang.IObj)
+            reify-name (gen-il-name (str containing-fn-name "<reify>"))
+            reify-type (gt/reify-type *module* reify-name interfaces*)
+            all-interfaces (into #{} (concat interfaces* (mapcat #(.GetInterfaces %) interfaces*)))
+            candidate-methods (into #{} (concat (.GetMethods Object)
+                                                (mapcat #(.GetMethods %) all-interfaces)))
+            methods (mapv #(analyze-method % candidate-methods :reify-type reify-type true) methods)]
+        (assoc ast
+               :reify-type reify-type
+               :interfaces interfaces*
+               :methods methods)))
     ast))
 
 (defn hint-variadic-parameter [{:keys [op variadic?] :as ast}]

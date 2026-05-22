@@ -1,5 +1,6 @@
 (ns magic.test.reify
-  (:require [clojure.test :refer [deftest]])
+  (:require [clojure.test :refer [deftest]]
+            [magic.api :as m])
   (:use magic.test.common))
 
 (deftest direct-interop
@@ -80,3 +81,22 @@
      (.cons iseq :a)
      (.cons ipc :b)
      @v)))
+
+(deftest object-as-parent
+  (cljclr=magic
+   (.GetHashCode (reify System.Object (GetHashCode [_] 7)))
+   (let [o (reify System.Object
+             (Equals [_ x] (= x :sentinel))
+             (GetHashCode [_] 7))]
+     [(.Equals o :sentinel) (.Equals o :other) (.GetHashCode o)])
+   (let [o (reify clojure.lang.Counted System.Object
+             (count [_] 1)
+             (GetHashCode [_] 42))]
+     [(.count o) (.GetHashCode o)])))
+
+(deftest rejects-non-object-class
+  (clojure.test/is
+   (thrown-with-msg?
+    System.Exception
+    #"reify only supports interfaces or System.Object"
+    (m/eval '(reify System.IO.MemoryStream (ToString [_] "x"))))))
