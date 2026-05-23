@@ -50,3 +50,19 @@
          f (fn [y] (fn [z] (+ x y z)))
          g (f 11)]
      (g 63))))
+
+;; Regression: defmacro with a prepost map used to crash at def-eval
+;; with InvalidCastException via the implicit [&form &env ...] arglist.
+(deftest defmacro-prepost
+  (clojure.test/is
+   (= 7 (magic/eval
+         '(do (defmacro plus [a b] {:pre [(integer? a)]} (list '+ a b))
+              (plus 3 4))))))
+
+;; Regression: a defn arity whose only param is &form used to crash sigs
+;; with ArgumentOutOfRangeException (subvec 2 1).
+(deftest defn-form-only-param
+  (clojure.test/is
+   (= "x" (magic/eval
+           '(do (defn only-form [&form] (str &form))
+                (only-form "x"))))))

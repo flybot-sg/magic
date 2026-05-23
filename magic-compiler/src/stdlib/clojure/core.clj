@@ -267,18 +267,15 @@
  sigs
  (fn [fdecl]
    (assert-valid-fdecl fdecl)
-   (let [asig 
+   (let [asig
+         ;; FIXME(magic#4): JVM also conj's the prepost map onto
+         ;; arglist meta here. Under MAGIC that triggers an
+         ;; InvalidCastException at def-eval. Skipped for now.
          (fn [fdecl]
-           (let [arglist (first fdecl)
-                 ;elide implicit macro args
-                 arglist (if (clojure.lang.Util/equals '&form (first arglist)) 
-                           (clojure.lang.RT/subvec arglist 2 (clojure.lang.RT/count arglist))
-                           arglist)           
-                 body (next fdecl)]
-             (if (map? (first body))
-               (if (next body)
-                 (with-meta arglist (conj (if (meta arglist) (meta arglist) {}) (first body)))
-                 arglist)
+           (let [arglist (first fdecl)]
+             (if (and (clojure.lang.Util/equals '&form (first arglist))
+                      (>= (clojure.lang.RT/count arglist) 2))
+               (clojure.lang.RT/subvec arglist 2 (clojure.lang.RT/count arglist))
                arglist)))
          resolve-tag (fn [argvec]
                         (let [m (meta argvec)
