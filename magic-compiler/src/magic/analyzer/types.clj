@@ -199,7 +199,10 @@
 
 (defn ast-type [ast]
   (if-let [tag (-> ast :form meta :tag)]
-    (resolve tag)
+    (or (resolve tag)
+        (throw! "Unable to resolve type hint " (pr-str tag)
+                " while analyzing form " (pr-str (or (-> ast :raw-forms first)
+                                                     (:form ast)))))
     (ast-type-impl* ast)))
 
 (defn ast-type-ignore-tag [ast]
@@ -229,7 +232,10 @@
 (defmethod ast-type-impl :reify
   [{:keys [reify-type]}] reify-type)
 
-(defmethod ast-type-impl :tagged [{:keys [tag]}] (resolve tag))
+(defmethod ast-type-impl :tagged [{:keys [tag form]}]
+  (or (resolve tag)
+      (throw! "Unable to resolve type hint " (pr-str tag)
+              " while analyzing form " (pr-str form))))
 
 (defmethod ast-type-impl :gen-interface [_] System.Type)
 
