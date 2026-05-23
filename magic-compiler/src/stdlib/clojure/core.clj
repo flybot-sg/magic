@@ -5999,10 +5999,14 @@ Note that read can execute code (controlled by *read-eval*),
 
 ;;;;;; end bootstrap loading machinery
 
-(defonce ^:dynamic 
+(defonce ^:dynamic
   ^{:private true
      :doc "A ref to a sorted set of symbols representing loaded libs"}
   *loaded-libs* (ref (sorted-set)))
+
+;; ns macro skips this conj for clojure.core (the ref doesn't yet exist
+;; when its own ns form runs); seed it once defonce is in scope.
+(dosync (commute *loaded-libs* conj 'clojure.core))
 
 (defonce ^:dynamic 
   ^{:private true
