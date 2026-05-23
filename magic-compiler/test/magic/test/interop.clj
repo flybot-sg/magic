@@ -1,5 +1,6 @@
 (ns magic.test.interop
-  (:require [clojure.test :refer [deftest]])
+  (:require [clojure.test :refer [deftest]]
+            [magic.api :as m])
   (:use magic.test.common))
 
 (deftest static-methods
@@ -44,3 +45,21 @@
 (deftest init-object
   (cljclr=magic
    (Guid.)))
+
+(deftest unresolvable-type-hint-spaced-pipe
+  (clojure.test/is
+   (thrown-with-msg?
+    System.Exception
+    #"Unable to resolve type hint"
+    (m/eval '(System.Guid. ^|System.Byte [] | (byte-array 16))))))
+
+(deftest unresolvable-type-hint-bare-symbol
+  (clojure.test/is
+   (thrown-with-msg?
+    System.Exception
+    #"Unable to resolve type hint"
+    (m/eval '(System.Guid. ^NoSuchType (byte-array 16))))))
+
+(deftest resolvable-array-type-hint-still-works
+  (cljclr=magic
+   (System.Guid. ^|System.Byte[]| (byte-array 16))))
