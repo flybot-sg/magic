@@ -80,18 +80,18 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
    # Latest, version resolved from main's version.edn:
    curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | sh
 
-   # Or pin a specific release:
-   curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | MAGIC_VERSION=v0.1.0 sh
+   # Or pin a specific release (tag from https://github.com/flybot-sg/magic/releases):
+   curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | MAGIC_VERSION=<tag> sh
    ```
 
    Defaults install to `$HOME/.local/nostrand/` with the launcher symlinked to `$HOME/.local/bin/nos`. Override with `INSTALL_DIR=` / `INSTALL_LINK=` env vars if needed.
 
-2. **Add the Unity package** to your `Packages/manifest.json`:
+2. **Add the Unity package** to your `Packages/manifest.json`, pinned to a tag from the [releases page](https://github.com/flybot-sg/magic/releases):
 
    ```json
    {
      "dependencies": {
-       "sg.flybot.magic.unity": "https://github.com/flybot-sg/magic.git?path=magic-unity#v0.1.0"
+       "sg.flybot.magic.unity": "https://github.com/flybot-sg/magic.git?path=magic-unity#<tag>"
      }
    }
    ```

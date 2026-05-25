@@ -1,38 +1,23 @@
 # Nostrand
-Standalone runtime environment and REPL for ClojureCLR on Mono.
+Standalone runtime environment and REPL for ClojureCLR on Mono. Bundled in the [flybot-sg/magic](https://github.com/flybot-sg/magic) monorepo as the task runner that hosts the MAGIC compiler.
 
-## Status
-Very early, pre-alpha. Everything will change. Don't use for anything critical.
+## Install
 
-## Installing
-
-1. clone the `nostrand` repo
+One-line install (requires `mono`, no .NET SDK):
 
 ```
-$ git clone https://github.com/nasser/nostrand.git
+curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | sh
 ```
 
-2. Fetch the last `magic` dlls
+The script resolves the latest MAGIC version from `main`'s `version.edn`, downloads the matching release tarball, extracts it to `~/.local/nostrand`, and symlinks `~/.local/bin/nos`. Verify with `nos version`.
 
-Go to [nasser/magic/actions](https://github.com/nasser/magic/actions).
-
-Click on the last worflow run, scroll down and download the artifact `magic-assemblies`.
-
-Copy the dlls inside the `nostrand/references` folder.
-
-3. Build and REPL
+To pin a specific release instead of latest, set `MAGIC_VERSION` to a tag from the [releases page](https://github.com/flybot-sg/magic/releases):
 
 ```
-$ cd nostrand
-$ dotnet build -c Release
-$ ln -s `pwd`/bin/x64/Release/net471/nos ~/bin/
-$ nos repl
-Nostrand 0.2.1.0 (master/4115065 Sat 08 Feb 2020 05:50:17 PM EST)
-Mono 6.4.0 (makepkg/fe64a4765e6 Sat 16 Nov 2019 04:59:42 PM UTC)
-Clojure 1.10.0-master-SNAPSHOT
-REPL 0.0.0.0:11217
-user>
+curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | MAGIC_VERSION=<tag> sh
 ```
+
+See the [top-level README](../README.md) for source builds and dev workflow.
 
 ## Usage
 
@@ -117,12 +102,13 @@ If a file named `project.edn` is present in the current directory, it will be pa
 
 Nostrand supports packages from Maven Central and Clojars, as well as github and NuGet. `project.edn`'s `:dependencies` key accepts a vector of package coordinates of the form `[source name version]` , where `source` is a keyword that specifies which repository to pull from, `name` is a symbol that specifies the name of the package, and `version` is a string that specifies the verison of the package. `name` and `version` will depend on the `source`.
 
-For example, the [MAGIC project's](https://github.com/nasser/magic) [`project.edn`](https://github.com/nasser/magic/blob/master/project.edn) contains:
+For example, the [MAGIC project's](https://github.com/flybot-sg/magic) [`project.edn`](https://github.com/flybot-sg/magic/blob/main/magic-compiler/project.edn) contains:
 
 ```clojure
-:dependencies [[:github nasser/mage "master"]
-               [:github nasser/test.check "master"]
-               [:maven org.clojure/tools.analyzer "0.6.9"]]
+:dependencies [[:github flybot-sg/clr.test.check "magic"
+                :sha "a5a2aca27873539fe366c1e0a09bb06e36026bf6"
+                :paths ["src"]]
+               [:maven org.clojure/tools.analyzer "1.0.0"]]
 ```
 
 #### `:github`
