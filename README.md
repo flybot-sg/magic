@@ -1,5 +1,12 @@
 # MAGIC
 
+[![Build](https://img.shields.io/github/actions/workflow/status/flybot-sg/magic/ci.yml?label=build&branch=main)](https://github.com/flybot-sg/magic/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/flybot-sg/magic/ci.yml?label=tests&branch=main)](https://github.com/flybot-sg/magic/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/flybot-sg/magic)](https://github.com/flybot-sg/magic/releases/latest)
+[![Clojure](https://img.shields.io/badge/clojure-1.10-blue.svg?logo=clojure&logoColor=white)](https://clojure.org/)
+[![.NET](https://img.shields.io/badge/.NET-Framework%204.7.1%20%2F%20netstandard%202.0-512BD4.svg?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![Unity](https://img.shields.io/badge/unity-2022.3.62f3-000000.svg?logo=unity&logoColor=white)](https://unity.com/)
+
 Morgan And Grand Iron Clojure
 
 A Clojure compiler targeting the Common Language Runtime (.NET). MAGIC compiles Clojure to MSIL bytecode, enabling Clojure to run in Unity (including IL2CPP/iOS builds) without the DLR.
