@@ -218,6 +218,40 @@ bb pipeline '(let [x 1] x)' :sections '#{:ast :il}'           # stdout-only, no 
 bb pipeline '(.Length "hi")' :sections '#{:il-edn}' :out /tmp # just dump the flat IL
 ```
 
+### Evaluating against a live runtime (prepl)
+
+`bb pipeline` shows the *compiled IL* for a form but never runs it. To see what
+a form actually returns at runtime, evaluate it against a warm MAGIC runtime
+over a socket prepl (the MAGIC analogue of a Clojure nREPL). Complementary to
+`bb pipeline`: pipeline answers "how does this compile", prepl answers "what
+does this do".
+
+Start the server in one shell (it blocks, serving connections):
+
+```bash
+bb prepl-server            # listens on 127.0.0.1:5555 (override: bb prepl-server 5560)
+```
+
+Send forms from another shell. Each prints the structured reply map:
+
+```bash
+bb prepl-eval '(+ 1 2)'
+#=> {:tag :ret, :val "3", :ns "user", :ms 1.3, :form "(+ 1 2)"}
+
+bb prepl-eval '(def answer 42)'   # global defs persist across calls
+bb prepl-eval '(* answer 2)'      #=> {:tag :ret, :val "84", ...}
+
+bb prepl-eval '(/ 1 0)'           # errors come back as data, not a text dump
+#=> {:tag :ret, :exception true, :val "{... :cause \"Divide by zero\" :phase :execution}", ...}
+```
+
+Reply tags: `:ret` (eval result + `:ms` timing), `:out`/`:err` (captured
+stdout/stderr during eval), `:tap` (values from `tap>`); an `:exception true`
+`:ret` carries the `Throwable->map` data. The server is MAGIC Clojure
+(`clojure.core.server/io-prepl`); the `bb prepl-eval` client is plain babashka,
+so each call is fast. This runs only under Mono/nostrand: prepl evaluates at
+runtime, so it has no IL2CPP/AOT path.
+
 ### Before opening a PR
 
 ```bash

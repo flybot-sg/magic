@@ -183,6 +183,35 @@
    :depends [-check-nostrand]
    :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "repl")}
 
+  prepl-server
+  {:doc "Start a socket prepl server (io-prepl) on a warm MAGIC runtime, like an nREPL for dev. Blocks. Default port 5555; override: bb prepl-server 5560. Send forms from another shell with `bb prepl-eval`."
+   :depends [-check-nostrand]
+   :task (apply shell {:dir compiler-dir} "mono" (str "../" nostrand-exe)
+                "preplserver/start" *command-line-args*)}
+
+  prepl-eval
+  {:doc "Eval one form against the running prepl server and print the structured reply maps. Usage: bb prepl-eval '(+ 1 2)' or bb prepl-eval :port 5560 '(+ 1 2)'. Global defs persist across calls (Vars are interned in the runtime)."
+   :requires ([clojure.java.io :as io])
+   :task (let [args *command-line-args*
+               [port args] (if (= ":port" (first args))
+                             [(Integer/parseInt (second args)) (drop 2 args)]
+                             [5555 args])
+               form (str/join " " args)]
+           (when (str/blank? form)
+             (binding [*out* *err*] (println "usage: bb prepl-eval '<form>'  (or bb prepl-eval :port N '<form>')"))
+             (throw (ex-info "missing form" {:babashka/exit 1})))
+           (with-open [sock (java.net.Socket. "127.0.0.1" ^long port)]
+             (.setSoTimeout sock 15000)
+             (let [out (io/writer (.getOutputStream sock))
+                   in  (io/reader (.getInputStream sock))]
+               (.write out (str form "\n"))
+               (.flush out)
+               (loop []
+                 (when-let [line (.readLine in)]
+                   (println line)
+                   (when-not (str/includes? line ":tag :ret")
+                     (recur)))))))}
+
   ;; ============================================================
   ;; Hygiene
   ;; ============================================================
