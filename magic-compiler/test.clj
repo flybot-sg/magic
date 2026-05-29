@@ -14,7 +14,8 @@
    magic.test.fn
    magic.test.letfn
    magic.test.pipeline
-   magic.test.hash)
+   magic.test.hash
+   magic.test.stdlib)
   (:use clojure.test))
 
 (defn all []
@@ -33,7 +34,8 @@
    'magic.test.fn
    'magic.test.letfn
    'magic.test.pipeline
-   'magic.test.hash))
+   'magic.test.hash
+   'magic.test.stdlib))
 
 (defn run [& namespaces]
   (apply run-tests namespaces))

@@ -612,11 +612,23 @@
   [x] (instance? clojure.lang.Keyword x))
 
 (defn  symbol
-  "Returns a Symbol with the given namespace and name."
+  "Returns a Symbol with the given namespace and name. Arity-1 works
+  on strings, keywords, and vars."
   {:tag clojure.lang.Symbol
    :added "1.0"
     :static true}
-  ([name] (if (symbol? name) name (clojure.lang.Symbol/intern name)))
+  ([name]
+   (if (symbol? name)
+     name
+     (if (instance? clojure.lang.Var name)
+       (clojure.lang.Symbol/intern (.getName (.getName (.Namespace ^clojure.lang.Var name)))
+                                    (.getName (.Symbol ^clojure.lang.Var name)))
+       (if (instance? clojure.lang.Keyword name)
+         (clojure.lang.Symbol/intern (.getNamespace ^clojure.lang.Keyword name)
+                                      (.getName ^clojure.lang.Keyword name))
+         (if (instance? String name)
+           (clojure.lang.Symbol/intern ^String name)
+           (throw (ArgumentException. "no conversion to symbol")))))))   ;;; IllegalArgumentException.
   ([ns name] (clojure.lang.Symbol/intern ns name)))
 
 (defn gensym
@@ -3807,7 +3819,33 @@ Note that read can execute code (controlled by *read-eval*),
   ([opts stream]
    (. clojure.lang.LispReader (read stream opts))))
 
-(defn read-line  
+(defn read+string
+  "Like read, and taking the same args. stream must be a LineNumberingTextReader.
+  Returns a vector containing the object read and the (whitespace-trimmed) string read."
+  {:added "1.10"}
+  ([] (read+string *in*))
+  ([stream] (read+string stream true nil))
+  ([stream eof-error? eof-value] (read+string stream eof-error? eof-value false))
+  ([^clojure.lang.LineNumberingTextReader stream eof-error? eof-value recursive?]               ;;; LineNumberingPushbackReader
+   (try
+     (.CaptureString stream)                                                                    ;;; .captureString
+     (let [o (read stream eof-error? eof-value recursive?)
+           s (.Trim (.GetString stream))]                                                       ;;; .trim .getString
+       [o s])
+     (catch Exception ex                                                                        ;;; Throwable
+       (.GetString stream)                                                                      ;;; .getString
+       (throw ex))))
+  ([opts ^clojure.lang.LineNumberingTextReader stream]                                          ;;; LineNumberingPushbackReader
+   (try
+     (.CaptureString stream)                                                                    ;;; .captureString
+     (let [o (read opts stream)
+           s (.Trim (.GetString stream))]                                                       ;;; .trim .getString
+       [o s])
+     (catch Exception ex                                                                        ;;; Throwable
+       (.GetString stream)                                                                      ;;; .getString
+       (throw ex)))))
+
+(defn read-line
   "Reads the next line from stream that is the current value of *in* ."
   {:added "1.0"
    :static true}
@@ -8033,3 +8071,53 @@ clojure.lang.IKVReduce
   "Return true if x is a java.net.URI"
   {:added "1.9"}
   [x] (instance? System.Uri x))                                                    ;;; java.net.URI
+
+;;; BlockingCollection`1 lives in System.dll on net471, so unlike ClojureCLR
+;;; (which loads System.Collections.Concurrent.dll for .NET Core) no explicit
+;;; assembly-load is needed here.
+(defonce ^:private tapset (atom #{}))
+(defonce ^:private ^|System.Collections.Concurrent.BlockingCollection`1[System.Object]| tapq    ;;; ^java.util.concurrent.ArrayBlockingQueue
+  (|System.Collections.Concurrent.BlockingCollection`1[System.Object]|. 1024))                  ;;; java.util.concurrent.ArrayBlockingQueue.
+
+(defonce ^:private tap-loop
+  (delay
+    (doto (System.Threading.Thread.                                                             ;;; Thread.
+            ^System.Threading.ThreadStart
+            (gen-delegate System.Threading.ThreadStart []
+              (let [t (.Take ^|System.Collections.Concurrent.BlockingCollection`1[System.Object]| tapq)   ;;; .take
+                    x (if (identical? ::tap-nil t) nil t)
+                    taps @tapset]
+                (doseq [tap taps]
+                  (try
+                    (tap x)
+                    (catch Exception _e)))                                                       ;;; Throwable
+                (recur))))
+      (.set_Name "clojure.core/tap-loop")                                                        ;;; ctor name arg -> explicit set
+      (.set_IsBackground true)                                                                   ;;; setDaemon
+      (.Start))))                                                                                ;;; .start
+
+(defn add-tap
+  "adds f, a fn of one argument, to the tap set. This function will be called with anything sent via tap>.
+  This function may (briefly) block (e.g. for streams), and will never impede calls to tap>,
+  but blocking indefinitely may cause tap values to be dropped.
+  Remember f in order to remove-tap"
+  {:added "1.10"}
+  [f]
+  (force tap-loop)
+  (swap! tapset conj f)
+  nil)
+
+(defn remove-tap
+  "remove f from the tap set."
+  {:added "1.10"}
+  [f]
+  (swap! tapset disj f)
+  nil)
+
+(defn tap>
+  "sends x to any taps. Will not block. Returns true if there was room in the queue,
+  false if not (dropped)."
+  {:added "1.10"}
+  [x]
+  (force tap-loop)
+  (.TryAdd ^|System.Collections.Concurrent.BlockingCollection`1[System.Object]| tapq (if (nil? x) ::tap-nil x)))   ;;; .offer

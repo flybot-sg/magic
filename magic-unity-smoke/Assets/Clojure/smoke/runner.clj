@@ -8,13 +8,15 @@
             [smoke.letfn-cases  :as letfn-cases]
             [smoke.polymorphism :as polymorphism]
             [smoke.control-flow :as control-flow]
+            [smoke.stdlib-1-10  :as stdlib-1-10]
             [clojure.string :as str]))
 
 (defn- run []
   (let [groups [["value-types"  (value-types/suite)]
                 ["letfn-cases"  (letfn-cases/suite)]
                 ["polymorphism" (polymorphism/suite)]
-                ["control-flow" (control-flow/suite)]]
+                ["control-flow" (control-flow/suite)]
+                ["stdlib-1.10"  (stdlib-1-10/suite)]]
         flat   (for [[group results] groups
                      r results]
                  (assoc r :group group))]
