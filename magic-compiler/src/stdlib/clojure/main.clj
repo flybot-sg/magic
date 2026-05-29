@@ -146,6 +146,20 @@
      (or (Char/IsWhiteSpace (char c)) (= c (int \,))) (recur (.Read s))        ;;; (Character/isWhitespace c)    .read
      :else (do (.Unread s c) :body))))                                  ;;; .unread
 
+(defn renumbering-read
+  "Reads from reader, which must be a LineNumberingPushbackReader, while capturing
+  the read string. If the read is successful, reset the line number and re-read.
+  The line number on re-read is the passed line-number unless :line or
+  :clojure.core/eval-file meta are explicitly set on the read value."
+  {:added "1.10"}
+  ([opts ^LineNumberingTextReader reader line-number]                                                             ;;; LineNumberingPushbackReader
+   (let [pre-line (.LineNumber reader)                                                                            ;;; .getLineNumber
+         [pre-read s] (read+string opts reader)
+         {:keys [clojure.core/eval-file line]} (meta pre-read)
+         re-reader (doto (LineNumberingTextReader. (System.IO.StringReader. s))                                   ;;; LineNumberingPushbackReader. StringReader.
+                     (.set_LineNumber (if (and line (or eval-file (not= pre-line line))) line line-number)))]     ;;; .setLineNumber
+     (read opts re-reader))))
+
 (defn repl-read
   "Default :read hook for repl. Reads from *in* which must either be an
   instance of LineNumberingPushbackReader or duplicate its behavior of both
@@ -160,7 +174,7 @@
   [request-prompt request-exit]
   (or ({:line-start request-prompt :stream-end request-exit}
        (skip-whitespace *in*))
-      (let [input (read {:read-cond :allow} *in*)]
+      (let [input (renumbering-read {:read-cond :allow} *in* 1)]
         (skip-if-eol *in*)
         input)))
 

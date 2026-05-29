@@ -11,7 +11,7 @@
  clojure.datafy {:source "src/stdlib/clojure/datafy.clj", :sha256 "454d0d43ec60601d031bb62a48ece29f41f8c75648d0da34fe972abce72c56ea"}
  clojure.edn {:source "src/stdlib/clojure/edn.clj", :sha256 "e607d34fa4d7c42e7eca67542ad76c3ad66323e93df84e9a697379575b5efa55"}
  clojure.instant {:source "src/stdlib/clojure/instant.clj", :sha256 "708a8367cd0ff7c529bc54e2f032b451607d474533975163e2cd1036fc54e2fa"}
- clojure.main {:source "src/stdlib/clojure/main.clj", :sha256 "a140a234a146c3a7265bbc9dd508bc6d25a48c09694aca192dd5f199653ea02d"}
+ clojure.main {:source "src/stdlib/clojure/main.clj", :sha256 "bb9bafdc567c46f3fb90d21dc8943c3819ff9d77e4707fd212ece989ae985e5a"}
  clojure.pprint {:source "src/stdlib/clojure/pprint.clj", :sha256 "a9ff9b336906ba64943de80038fa1a1ddad9aecedb518c16525c5838473ec90f"}
  clojure.spec.alpha {:source "src/stdlib/clojure/spec/alpha.clj", :sha256 "fc1b9865eebc44a69f67ba6e7392e2aec5698b1e4c78e92a8fb3af758ee304ff"}
  clojure.spec.gen.alpha {:source "src/stdlib/clojure/spec/gen/alpha.clj", :sha256 "7529d23186c7622592fce537e119efb914dc54398bdbef45209a6a24ed54ebc4"}

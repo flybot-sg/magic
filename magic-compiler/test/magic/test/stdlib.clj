@@ -137,6 +137,17 @@
     'user$ok_fn$broken_fn__164 'invoke       'user/ok-fn$broken-fn
     'clojure.lang.Numbers      'divide       'clojure.lang.Numbers/divide))
 
+;;; renumbering-read (1.10): re-read forms get stable :line metadata. The
+;;; passed line-number wins unless the form carries explicit :line (with
+;;; eval-file, or a line differing from the reader's pre-read position).
+
+(deftest test-renumbering-read
+  (clojure.test/are [s line-in line-out]
+    (= line-out (-> (main/renumbering-read nil (lntr s) line-in) meta :line))
+    "(let [x 1] x)"                                       100 100
+    "^{:line 20 :clojure.core/eval-file \"a/b.clj\"} (let [x 1] x)" 100 20
+    "^{:line 20} (let [x 1] x)"                           100 20))
+
 ;;; prepl / io-prepl (1.10). Neither Clojure nor ClojureCLR unit-tests these,
 ;;; so we drive prepl in-process over a string reader and assert the out-fn
 ;;; messages. prepl calls eval, so it runs only under Mono/nostrand, never
