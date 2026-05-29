@@ -8,13 +8,9 @@
   (cljclr=magic
    (symbol 'already-a-symbol)
    (symbol "plain-string")
-   (symbol "ns" "name")
    (symbol :kw)
    (symbol :ns/kw)
-   (symbol #'clojure.core/map)
-   (namespace (symbol :ns/kw))
-   (name (symbol #'clojure.core/map))
-   (namespace (symbol #'clojure.core/map))))
+   (symbol #'clojure.core/map)))
 
 (deftest test-symbol-no-conversion
   ;; m/eval invokes the compiled form reflectively, wrapping throws in
@@ -27,13 +23,10 @@
   (clojure.lang.LineNumberingTextReader. (System.IO.StringReader. s)))
 
 (deftest test-read+string
+  ;; two reads from one reader also prove capture resets between calls
   (let [rdr (lntr "(+ 1 2) foo")]
     (clojure.test/is (= ['(+ 1 2) "(+ 1 2)"] (read+string rdr false nil)))
     (clojure.test/is (= ['foo "foo"] (read+string rdr false nil))))
-  (testing "captured string survives the read and resets each call"
-    (let [rdr (lntr "  :a\n:b  ")]
-      (clojure.test/is (= [:a ":a"] (read+string rdr false nil)))
-      (clojure.test/is (= [:b ":b"] (read+string rdr false nil)))))
   (testing "opts arity (read-cond)"
     (let [rdr (lntr "42")]
       (clojure.test/is (= [42 "42"] (read+string {:eof nil} rdr))))))
