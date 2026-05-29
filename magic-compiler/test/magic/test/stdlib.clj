@@ -1,5 +1,6 @@
 (ns magic.test.stdlib
-  (:require [clojure.test :refer [deftest testing]])
+  (:require [clojure.test :refer [deftest testing]]
+            [clojure.main :as main])
   (:use magic.test.common))
 
 ;;; symbol (1.10): arity-1 works on strings, keywords, and vars
@@ -108,3 +109,29 @@
      (and (= 4 (count frame))
           (symbol? (first frame))
           (not= 'System.Diagnostics.StackFrame (first frame))))))
+
+;;; ex-triage / ex-str (1.10). err->msg and :clojure.error/path are post-1.10
+;;; and intentionally not ported. These mirror clojure.test-clojure.main from
+;;; ClojureCLR: an unthrown exception already has an empty stack trace, which
+;;; makes the whole triage deterministic (no flaky :symbol/:source/:line).
+
+(deftest test-null-stack-error-reporting
+  (let [e       (ArgumentException. "xyz")
+        tr-data (main/ex-triage (Throwable->map e))]
+    (clojure.test/is
+     (= {:clojure.error/phase :execution
+         :clojure.error/class 'System.ArgumentException
+         :clojure.error/cause "xyz"}
+        tr-data))
+    (clojure.test/is
+     (= "Execution error (ArgumentException) at (REPL:1).\nxyz\n"
+        (main/ex-str tr-data)))))
+
+(deftest test-java-loc->source
+  (clojure.test/are [c m out]
+    (= out (#'main/java-loc->source c m))
+    'user$eval1                'invokeStatic 'user/eval1
+    'div$go                    'invokeStatic 'div/go
+    'user$eval186$fn__187      'invoke       'user/eval186$fn
+    'user$ok_fn$broken_fn__164 'invoke       'user/ok-fn$broken-fn
+    'clojure.lang.Numbers      'divide       'clojure.lang.Numbers/divide))

@@ -1,10 +1,13 @@
 (ns smoke.stdlib-1-10
   "Clojure 1.10 stdlib additions: symbol var/keyword conversion,
-  read+string, PrintWriter-on, the tap> system, and Throwable->map.
-  The tap suite exercises a BlockingCollection`1 worker thread driven
-  by a gen-delegate ThreadStart, which is the part most likely to break
-  under IL2CPP AOT. Throwable->map walks the InnerException chain and
-  reads stack frames via System.Diagnostics.StackTrace.")
+  read+string, PrintWriter-on, the tap> system, Throwable->map, and the
+  ex-triage/ex-str error-triage pair. The tap suite exercises a
+  BlockingCollection`1 worker thread driven by a gen-delegate ThreadStart,
+  which is the part most likely to break under IL2CPP AOT. Throwable->map
+  walks the InnerException chain and reads stack frames via
+  System.Diagnostics.StackTrace. ex-triage/ex-str exercise the
+  String.Join array overload and the Printf formatter under AOT."
+  (:require [clojure.main :as cmain]))
 
 (defn- pass [n]        {:name n :pass? true})
 (defn- fail [n detail] {:name n :pass? false :detail detail})
@@ -72,4 +75,13 @@
               (:data m)
               (mapv :message (:via m))
               (:type (first (:via m)))])
-          ["inner" :exec {:a 1} ["outer" "inner"] 'clojure.lang.ExceptionInfo])])
+          ["inner" :exec {:a 1} ["outer" "inner"] 'clojure.lang.ExceptionInfo])
+   (check "ex-triage/ex-str over a thrown ex-info"
+          #(let [ex     (try (throw (ex-info "boom" {})) (catch System.Exception e e))
+                 triage (cmain/ex-triage (Throwable->map ex))
+                 s      (.Replace (cmain/ex-str triage) "\r\n" "\n")]
+             [(:clojure.error/phase triage)
+              (:clojure.error/class triage)
+              (:clojure.error/cause triage)
+              (.StartsWith s "Execution error (ExceptionInfo) at")])
+          [:execution 'clojure.lang.ExceptionInfo "boom" true])])
