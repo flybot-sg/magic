@@ -1,8 +1,10 @@
 (ns smoke.stdlib-1-10
   "Clojure 1.10 stdlib additions: symbol var/keyword conversion,
-  read+string, and the tap> system. The tap suite exercises a
-  BlockingCollection`1 worker thread driven by a gen-delegate
-  ThreadStart, which is the part most likely to break under IL2CPP AOT.")
+  read+string, PrintWriter-on, the tap> system, and Throwable->map.
+  The tap suite exercises a BlockingCollection`1 worker thread driven
+  by a gen-delegate ThreadStart, which is the part most likely to break
+  under IL2CPP AOT. Throwable->map walks the InnerException chain and
+  reads stack frames via System.Diagnostics.StackTrace.")
 
 (defn- pass [n]        {:name n :pass? true})
 (defn- fail [n detail] {:name n :pass? false :detail detail})
@@ -60,4 +62,14 @@
              (System.Threading.Thread/Sleep 500)
              (remove-tap f)
              @seen)
-          [:tapped nil])])
+          [:tapped nil])
+   (check "Throwable->map cause/phase/via/data"
+          #(let [inner (ex-info "inner" {:a 1})
+                 outer (ex-info "outer" {:clojure.error/phase :exec} inner)
+                 m     (Throwable->map outer)]
+             [(:cause m)
+              (:phase m)
+              (:data m)
+              (mapv :message (:via m))
+              (:type (first (:via m)))])
+          ["inner" :exec {:a 1} ["outer" "inner"] 'clojure.lang.ExceptionInfo])])

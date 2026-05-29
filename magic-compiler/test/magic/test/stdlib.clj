@@ -70,3 +70,41 @@
       (tap> :after-remove)
       (System.Threading.Thread/Sleep 200)
       (clojure.test/is (= [] @seen)))))
+
+;;; Throwable->map (1.10 shape): conditional :message/:cause, :phase key,
+;;; declaring-type class symbol. Stack traces differ from ClojureCLR, so we
+;;; assert explicit values on the stable keys instead of cljclr=magic.
+
+(deftest test-throwable->map-shape
+  ;; phase-present chain: one assertion over all the stable keys at once
+  (let [inner (ex-info "inner boom" {:a 1})
+        outer (ex-info "outer boom" {:clojure.error/phase :execution} inner)
+        m     (Throwable->map outer)]
+    (clojure.test/is
+     (= {:cause     "inner boom"                       ; root-cause message
+         :phase     :execution                         ; from the top ex-data
+         :data      {:a 1}                              ; root-cause ex-data
+         :types     ['clojure.lang.ExceptionInfo 'clojure.lang.ExceptionInfo]
+         :messages  ["outer boom" "inner boom"]         ; outermost-first
+         :datas     [{:clojure.error/phase :execution} {:a 1}]}
+        {:cause    (:cause m)
+         :phase    (:phase m)
+         :data     (:data m)
+         :types    (mapv :type (:via m))
+         :messages (mapv :message (:via m))
+         :datas    (mapv :data (:via m))}))))
+
+(deftest test-throwable->map-no-phase
+  ;; the :phase when-let nil branch: key is omitted, not nil
+  (clojure.test/is
+   (false? (contains? (Throwable->map (ex-info "plain" {:k :v})) :phase))))
+
+(deftest test-throwable->map-frame-declaring-type
+  ;; stack frames carry the method's declaring type, never the StackFrame type;
+  ;; the exception must be thrown for the CLR to populate its stack trace
+  (let [ex    (try (throw (ex-info "e" {})) (catch System.Exception e e))
+        frame (first (:trace (Throwable->map ex)))]
+    (clojure.test/is
+     (and (= 4 (count frame))
+          (symbol? (first frame))
+          (not= 'System.Diagnostics.StackFrame (first frame))))))
