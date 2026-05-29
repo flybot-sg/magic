@@ -1,6 +1,7 @@
 (ns magic.test.stdlib
   (:require [clojure.test :refer [deftest testing]]
-            [clojure.main :as main])
+            [clojure.main :as main]
+            [clojure.core.server :as server])
   (:use magic.test.common))
 
 ;;; symbol (1.10): arity-1 works on strings, keywords, and vars
@@ -135,3 +136,34 @@
     'user$eval186$fn__187      'invoke       'user/eval186$fn
     'user$ok_fn$broken_fn__164 'invoke       'user/ok-fn$broken-fn
     'clojure.lang.Numbers      'divide       'clojure.lang.Numbers/divide))
+
+;;; prepl / io-prepl (1.10). Neither Clojure nor ClojureCLR unit-tests these,
+;;; so we drive prepl in-process over a string reader and assert the out-fn
+;;; messages. prepl calls eval, so it runs only under Mono/nostrand, never
+;;; under IL2CPP AOT; hence no smoke regression. remote-prepl is pure socket
+;;; forwarding (a live socket pair) and is not unit-tested here.
+
+(deftest test-prepl-eval
+  (let [out (atom [])]
+    (server/prepl (lntr "(+ 1 2)") #(swap! out conj %))
+    (clojure.test/is
+     (= [{:tag :ret :val 3 :ns "user" :form "(+ 1 2)"}]
+        (mapv #(dissoc % :ms) @out)))))
+
+(deftest test-prepl-exception
+  ;; any eval failure is reported as one error-shaped :ret carrying ex->data
+  (let [out (atom [])]
+    (server/prepl (lntr "(/ 1 0)") #(swap! out conj %))
+    (let [{:keys [tag exception val]} (first @out)]
+      (clojure.test/is
+       (and (= :ret tag)
+            (true? exception)
+            (= :execution (:phase val))
+            (string? (:cause val)))))))
+
+(deftest test-io-prepl
+  ;; default valf is pr-str, so :ret :val 3 is printed as the string "3"
+  (let [sw (System.IO.StringWriter.)]
+    (binding [*in* (lntr "(+ 1 2)") *out* sw]
+      (server/io-prepl))
+    (clojure.test/is (.Contains (str sw) ":val \"3\""))))

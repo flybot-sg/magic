@@ -5,7 +5,7 @@
 {
  clojure.clr.shell {:source "src/stdlib/clojure/clr/shell.clj", :sha256 "22f036ad1d1dc4965324400d8e9d9663984ac13fc6a483539bf19a332633413a"}
  clojure.core.reducers {:source "src/stdlib/clojure/core/reducers.clj", :sha256 "f3f10fef6c91217cf6780c37f358e0f9caecdb106fb5339ac3cdc28b46be950d"}
- clojure.core.server {:source "src/stdlib/clojure/core/server.clj", :sha256 "5d8d4180c47ac967cbcd9a8c7c5ac8fc9091e8634207d3ca508d066c0c2fe501"}
+ clojure.core.server {:source "src/stdlib/clojure/core/server.clj", :sha256 "7ba07179820a71f856dfd4c9e1a2a06dbad06eb6e9aeb9bcddeb268959cf82e2"}
  clojure.core.specs.alpha {:source "src/stdlib/clojure/core/specs/alpha.clj", :sha256 "41d82e6e56c9165e806f931b0598a05def8388d9b7248d7d431d7e822527928b"}
  clojure.data {:source "src/stdlib/clojure/data.clj", :sha256 "e60889339006b57f672c681892710164399ae281d0f37371886b1d9bc73ee8cd"}
  clojure.datafy {:source "src/stdlib/clojure/datafy.clj", :sha256 "454d0d43ec60601d031bb62a48ece29f41f8c75648d0da34fe972abce72c56ea"}
