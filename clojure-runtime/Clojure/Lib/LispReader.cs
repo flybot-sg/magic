@@ -1659,13 +1659,15 @@ namespace clojure.lang
                 if (o is IMeta)
                 {
                     if (startLine != -1 && o is ISeq)
-                        metaAsMap = metaAsMap.assoc(RT.LineKey, startLine)
-                            .assoc(RT.ColumnKey, startCol)
-                            .assoc(RT.SourceSpanKey, RT.map(
+                    {
+                        metaAsMap = metaAsMap.assoc(RT.LineKey, RT.get(metaAsMap, RT.LineKey, startLine));
+                        metaAsMap = metaAsMap.assoc(RT.ColumnKey, RT.get(metaAsMap, RT.ColumnKey, startCol));
+                        metaAsMap = metaAsMap.assoc(RT.SourceSpanKey, RT.get(metaAsMap, RT.SourceSpanKey, RT.map(
                                 RT.StartLineKey, startLine,
                                 RT.StartColumnKey, startCol,
                                 RT.EndLineKey, lntr.LineNumber,
-                                RT.EndColumnKey, lntr.ColumnNumber));
+                                RT.EndColumnKey, lntr.ColumnNumber)));
+                    }
 
                     IReference iref = o as IReference;
                     if (iref != null)
