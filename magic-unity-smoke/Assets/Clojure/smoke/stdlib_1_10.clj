@@ -39,6 +39,18 @@
              (read+string r false nil)
              (read+string r false nil))
           [:b ":b"])
+   (check "PrintWriter-on flush and close"
+          #(let [acc    (atom [])
+                 closed (atom false)
+                 w      (PrintWriter-on (fn [s] (swap! acc conj s))
+                                        (fn [] (reset! closed true)))]
+             (.Write w "ab")
+             (.Write w "c")
+             (.Flush w)
+             (.Write w "d")
+             (.Close w)
+             [@acc @closed])
+          [["abc" "d"] true])
    (check "tap> round trip with nil sentinel"
           #(let [seen (atom [])
                  f    (fn [x] (swap! seen conj x))]

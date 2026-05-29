@@ -602,4 +602,25 @@
   (when (:splicing? o) (.Write w "@"))
   (print-method (:form o) w))
 
+(defn ^System.IO.TextWriter PrintWriter-on
+  "implements a TextWriter given flush-fn, which will be called when
+  .Flush() is called, with a string built up since the last call to
+  .Flush(). if not nil, close-fn will be called with no arguments when
+  .Close is called."
+  {:added "1.10"}
+  [flush-fn close-fn]
+  ;; StringWriter's base Write overloads already accumulate into an internal
+  ;; StringBuilder, so (like real Clojure's java.io.Writer proxy, which
+  ;; overrides only write/flush/close) only Flush/Close need overriding.
+  (proxy [System.IO.StringWriter] []
+    (Flush []
+      (let [^StringBuilder sb (.GetStringBuilder this)]
+        (when (pos? (.Length sb))
+          (flush-fn (.ToString sb)))
+        (.set_Length sb 0)))
+    (Close []
+      (.Flush this)
+      (when close-fn (close-fn))
+      nil)))
+
 (def ^{:private true} print-initialized true)  

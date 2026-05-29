@@ -38,6 +38,29 @@
     (let [rdr (lntr "42")]
       (clojure.test/is (= [42 "42"] (read+string {:eof nil} rdr))))))
 
+;;; PrintWriter-on (1.10)
+
+(deftest test-printwriter-on
+  (let [acc    (atom [])
+        closed (atom false)
+        w      (PrintWriter-on (fn [s] (swap! acc conj s))
+                               (fn [] (reset! closed true)))]
+    (.Write w "hello ")
+    (.Write w "world")
+    (clojure.test/is (= [] @acc) "nothing emitted before flush")
+    (.Flush w)
+    (clojure.test/is (= ["hello world"] @acc))
+    (.Write w "more")
+    (.Close w)
+    (clojure.test/is (= ["hello world" "more"] @acc) "close flushes the buffer")
+    (clojure.test/is (true? @closed) "close-fn called"))
+  (testing "nil close-fn is allowed"
+    (let [acc (atom [])
+          w   (PrintWriter-on (fn [s] (swap! acc conj s)) nil)]
+      (.Write w "x")
+      (.Close w)
+      (clojure.test/is (= ["x"] @acc)))))
+
 ;;; tap> / add-tap / remove-tap (1.10)
 
 (deftest test-tap
