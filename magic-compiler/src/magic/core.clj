@@ -1578,7 +1578,7 @@
                   [{:keys [exception] :as ast} cmplrs]
                   (if-not exception
                     (il/rethrow)
-                    (throw-compiler ast compilers+local)))})]
+                    (throw-compiler ast cmplrs)))})]
     (il/catch
      (-> class :val)
      [(il/stloc catch-local)
