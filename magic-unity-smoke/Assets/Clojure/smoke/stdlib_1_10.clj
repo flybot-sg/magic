@@ -26,6 +26,14 @@
 (defn- lntr [s]
   (clojure.lang.LineNumberingTextReader. (System.IO.StringReader. s)))
 
+(defprotocol SmokeViaMeta
+  :extend-via-metadata true
+  (smoke-via-meta [x]))
+
+(extend-protocol SmokeViaMeta
+  Object
+  (smoke-via-meta [_] :extend-table))
+
 (defn suite []
   [(check "symbol from keyword"
           #(symbol :foo)
@@ -84,4 +92,10 @@
               (:clojure.error/class triage)
               (:clojure.error/cause triage)
               (.StartsWith s "Execution error (ExceptionInfo) at")])
-          [:execution 'clojure.lang.ExceptionInfo "boom" true])])
+          [:execution 'clojure.lang.ExceptionInfo "boom" true])
+   (check "extend-via-metadata dispatches to metadata impl"
+          #(smoke-via-meta (with-meta {} {`smoke-via-meta (fn [_] :from-meta)}))
+          :from-meta)
+   (check "extend-via-metadata falls through to extend table"
+          #(smoke-via-meta {})
+          :extend-table)])

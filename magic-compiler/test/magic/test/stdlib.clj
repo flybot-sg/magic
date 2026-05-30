@@ -178,3 +178,51 @@
     (binding [*in* (lntr "(+ 1 2)") *out* sw]
       (server/io-prepl))
     (clojure.test/is (.Contains (str sw) ":val \"3\""))))
+
+;;; defprotocol :extend-via-metadata (1.10). Dispatch order is direct
+;;; definitions (deftype/reify/defrecord), then metadata under the
+;;; fully-qualified protocol-fn symbol, then the external extend table.
+
+(defprotocol Widget
+  :extend-via-metadata true
+  (widget-name [w]))
+
+(defprotocol Gadget
+  (gadget-name [g]))
+
+(extend-protocol Widget
+  System.String
+  (widget-name [_] :extend-table))
+
+(extend-protocol Gadget
+  Object
+  (gadget-name [_] :extend-table))
+
+(deftype DirectWidget []
+  Widget
+  (widget-name [_] :direct))
+
+(deftest test-extend-via-metadata-uses-metadata
+  (clojure.test/is
+   (= :from-meta
+      (widget-name (with-meta {} {`widget-name (fn [_] :from-meta)})))))
+
+(deftest test-extend-via-metadata-falls-through-to-extend-table
+  ;; no metadata: dispatch continues to the external extension
+  (clojure.test/is (= :extend-table (widget-name "s"))))
+
+(deftest test-extend-via-metadata-direct-def-dispatches
+  (clojure.test/is (= :direct (widget-name (DirectWidget.)))))
+
+(deftest test-metadata-ignored-without-opt
+  ;; Gadget did not opt in, so metadata is not consulted
+  (clojure.test/is
+   (= :extend-table
+      (gadget-name (with-meta {} {`gadget-name (fn [_] :from-meta)})))))
+
+(deftest test-extend-via-metadata-datafiable
+  ;; the shipped Datafiable protocol opts in; mirror the issue repro
+  (clojure.test/is
+   (= :from-meta
+      (clojure.core.protocols/datafy
+       (with-meta {} {`clojure.core.protocols/datafy (fn [_] :from-meta)})))))
