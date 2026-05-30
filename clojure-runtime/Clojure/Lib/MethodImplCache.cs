@@ -72,7 +72,15 @@ namespace clojure.lang
        public Keyword methodk
        {
            get { return _methodk; }
-       } 
+       }
+
+       private readonly Symbol _sym;
+
+       [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "sym")]
+       public Symbol sym
+       {
+           get { return _sym; }
+       }
 
 
 
@@ -119,13 +127,36 @@ namespace clojure.lang
 
        #region C-tors
 
+        // Self-host bootstrap bridge: the checked-in core_deftype.clj.dll that
+        // runs the compiler still emits a newobj against these sym-less ctors,
+        // so they must resolve until the bootstrap DLLs are rebuilt against the
+        // sym-carrying overloads below (which back :extend-via-metadata). Dropped
+        // in the second pass once that rebuild is committed. See
+        // dev-logs/bootstrap-abi-double-pass.md.
+
         public MethodImplCache(IPersistentMap protocol, Keyword methodk)
-            : this(protocol, methodk, 0, 0, RT.EmptyObjectArray)
+            : this(null, protocol, methodk, 0, 0, RT.EmptyObjectArray)
         {
         }
 
         public MethodImplCache(IPersistentMap protocol, Keyword methodk, int shift, int mask, Object[] table)
+            : this(null, protocol, methodk, shift, mask, table)
         {
+        }
+
+        public MethodImplCache(IPersistentMap protocol, Keyword methodk, IDictionary map)
+            : this(null, protocol, methodk, map)
+        {
+        }
+
+        public MethodImplCache(Symbol sym, IPersistentMap protocol, Keyword methodk)
+            : this(sym, protocol, methodk, 0, 0, RT.EmptyObjectArray)
+        {
+        }
+
+        public MethodImplCache(Symbol sym, IPersistentMap protocol, Keyword methodk, int shift, int mask, Object[] table)
+        {
+            _sym = sym;
             _protocol = protocol;
             _methodk = methodk;
             _shift = shift;
@@ -135,8 +166,9 @@ namespace clojure.lang
         }
 
 
-        public MethodImplCache(IPersistentMap protocol, Keyword methodk, IDictionary map)
+        public MethodImplCache(Symbol sym, IPersistentMap protocol, Keyword methodk, IDictionary map)
         {
+            _sym = sym;
             _protocol = protocol;
             _methodk = methodk;
             _shift = 0;
