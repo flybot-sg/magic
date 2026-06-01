@@ -6,9 +6,9 @@
             [magic.util :as u]
             [mage.core :as il]
             magic.intrinsics
-            [magic.spells
-             [lift-vars :refer [lift-vars]]
-             [lift-keywords :refer [lift-keywords]]]
+            ;; loaded so magic.core/active-spells can find-var the default spells
+            magic.spells.lift-vars
+            magic.spells.lift-keywords
             [magic.emission :refer [*module* fresh-module]]
             [clojure.string :as string])
   (:import [clojure.lang RT LineNumberingTextReader]
@@ -19,12 +19,6 @@
 (def empty-args (into-array []))
 (def public-static (enum-or MethodAttributes/Public MethodAttributes/Static))
 (def abstract-sealed (enum-or TypeAttributes/Public TypeAttributes/Abstract TypeAttributes/Sealed))
-
-(defn bind-spells! [spells]
-  (alter-var-root #'magic/*spells* (constantly spells)))
-
-(defn bind-basic-spells! []
-  (bind-spells! [lift-vars lift-keywords]))
 
 (defn trim
   [x l]
@@ -41,7 +35,7 @@
   (when-not (:suppress-print-forms opts)
     (println "[compile-expression]" (-> expr (trim 30)) (str *ns*) (ns-aliases *ns*)))
   (let [ast (ana/analyze expr)
-        il (magic/compile ast) 
+        il (magic/compile ast)
         expr-name (u/gensym (str "<magic>_" (-> *ns* str munge) "_expr"))
         expr-type (.DefineType magic.emission/*module* expr-name abstract-sealed)
         expr-method (if (:compiled-for-eval opts)
@@ -154,7 +148,7 @@
          file (:file data)]
     (if-let [e' (:exception data)]
       (recur (.Message e') (ex-data e') (or (-> (ex-data e') :meta :source-span) source-span) (or (:file (ex-data e') file)))
-      (throw (clojure.lang.ClojureException. 
+      (throw (clojure.lang.ClojureException.
               (str message (:name data) " (compiling " file ":" (:start-line source-span) ":" (:start-column source-span) ")"))))))
 
 (defn eval [expr]
@@ -189,8 +183,4 @@
 (defn runtime-macroexpand-1 [form]
   (ana/macroexpand-1 form))
 
-
 (def version "0.0-alpha")
-
-;; yolo
-(bind-spells! [#'lift-vars #'lift-keywords])

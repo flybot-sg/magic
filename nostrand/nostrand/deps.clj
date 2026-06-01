@@ -3,20 +3,20 @@
 
 ;;; syntax
 ; (depend
-;   [[nasser/tools.analyzer.clr "1.0"]
-;    [:maven nasser/tools.analyzer.clr "1.0"]
+;   [[org/tools.analyzer.clr "1.0"]
+;    [:maven org/tools.analyzer.clr "1.0"]
 ;    [:nuget OpenTK "2.0.0"]
 ;    [:npm express]
-;    [:github nasser/magic "master"]
-;    [:git "https://github.com/nasser/magic.git" "master"]
+;    [:github org/magic "master"]
+;    [:git "https://github.com/org/magic.git" "master"]
 ;    [:gx QmR5FHS9TpLbL9oYY8ZDR3A7UWcHTBawU1FJ6pu9SvTcPa]])
 ; (depend
-;   [[nasser/tools.analyzer.clr "1.0"]
-;    [nasser/tools.analyzer.clr "1.0" :source :maven]
+;   [[org/tools.analyzer.clr "1.0"]
+;    [org/tools.analyzer.clr "1.0" :source :maven]
 ;    [OpenTK "2.0.0" :source :nuget]
 ;    [express :source :npm]
-;    [nasser/magic "master" :source :github]
-;    ["https://github.com/nasser/magic.git" "master" :source :git]
+;    [org/magic "master" :source :github]
+;    ["https://github.com/org/magic.git" "master" :source :git]
 ;    [QmR5FHS9TpLbL9oYY8ZDR3A7UWcHTBawU1FJ6pu9SvTcPa :source :gx]])
 ;;; api
 ;; (acquire! [opts coords]) -> nil (downloads deps)

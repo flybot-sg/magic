@@ -375,3 +375,18 @@
       :piece-of-throw-expr 'throw
       :piece-of-throw-expr '[Exception. "boom"]               ;;; RuntimeException
       :no-match nil)))
+
+(deftest test-ex-message
+  (cljclr=magic
+   (ex-message (ex-info "boom" {}))
+   (ex-message (Exception. "boom"))
+   (ex-message nil)
+   (ex-message "not an exception")
+   (ex-message (ex-cause (ex-info "boom" {} (Exception. "root"))))))
+
+(deftest test-ex-cause
+  (cljclr=magic
+   (nil? (ex-cause (ex-info "boom" {})))
+   (nil? (ex-cause nil))
+   (instance? Exception (ex-cause (ex-info "boom" {} (Exception. "root"))))
+   (ex-message (ex-cause (ex-info "boom" {} (Exception. "root"))))))

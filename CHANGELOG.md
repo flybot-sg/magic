@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.3.0 - 2026-06-01
+
+Completes the Clojure 1.10 stdlib surface and unifies the compiler config behind `magic.flags`.
+
+### Clojure 1.10 stdlib (the marked-1.10 port is now complete)
+- `ex-message` / `ex-cause` added to `clojure.core` - Fix [nasser/magic#238](https://github.com/nasser/magic/issues/238)
+- `symbol` arity-1 now converts a Var (qualified) or Keyword
+- `tap>` / `add-tap` / `remove-tap` (the tap system) ported to `clojure.core`
+- `read+string` ported to `clojure.core`, backed by string capture in `LineNumberingTextReader`
+- `PrintWriter-on` ported to `clojure.core` - Closes [#8](https://github.com/flybot-sg/magic/issues/8)
+- `Throwable->map` brought to the 1.10 shape: conditional `:message`/`:cause` and the `:phase` key; `StackTraceElement->vec` and the StackFrame print-method derive the class from the frame's declaring type - part of [#10](https://github.com/flybot-sg/magic/issues/10)
+- `ex-triage` / `ex-str` ported to `clojure.main`; `repl-caught` rewired to the 1.10 `Throwable->map` -> `ex-triage` -> `ex-str` path - part of [#10](https://github.com/flybot-sg/magic/issues/10)
+- `prepl` / `io-prepl` / `remote-prepl` ported to `clojure.core.server` - Closes [#10](https://github.com/flybot-sg/magic/issues/10)
+- `renumbering-read` ported to `clojure.main`; `repl-read` rewired to it - Closes [#12](https://github.com/flybot-sg/magic/issues/12)
+- `defprotocol :extend-via-metadata` dispatch implemented (direct defs -> fully-qualified-symbol metadata -> extend table) - Closes [#13](https://github.com/flybot-sg/magic/issues/13)
+
+### Compiler
+- `magic.flags` is now the single config surface: every compilation knob is a dynamic var there, and spells (`*lift-vars*`, `*lift-keywords*`, `*sparse-case*`) are flags too. Removed `magic.core/*spells*`, `bind-spells!`, the load-time global mutation, and the dead `magic.spells.protocols` spell; `active-spells` derives the spell fns from the flags - Fix [nasser/magic#233](https://github.com/nasser/magic/issues/233)
+- `throw` of a `let`/`loop`-local introduced inside a `catch` now compiles (the thrown expression was recompiled with a stale captured compilers map) - Closes [#7](https://github.com/flybot-sg/magic/issues/7)
+
+### Runtime
+- `LineNumberingTextReader` captures read text for `read+string`
+- `LispReader` `MetaReader` preserves an explicit `:line`/`:column`/`:source-span` instead of clobbering it with positional values (uses positional only as a default), matching JVM 1.10 and ClojureCLR - part of [#12](https://github.com/flybot-sg/magic/issues/12)
+- `MethodImplCache` carries the protocol fn symbol needed for `:extend-via-metadata` dispatch - part of [#13](https://github.com/flybot-sg/magic/issues/13)
+
+### Tooling
+- `bb prepl-server` / `bb prepl-eval`: live runtime eval against a warm nostrand-hosted MAGIC runtime (a socket io-prepl), the runtime complement to `bb pipeline` - Closes [#11](https://github.com/flybot-sg/magic/issues/11)
+
+### Deps & docs
+- `deps.edn` switched to monorepo paths and `flybot-sg/clr.test.check`
+- Component READMEs refreshed; hardcoded version pins dropped
+- `magic-unity/package.json` metadata fixed and version synced from `version.edn`
+
 ## v0.2.0 - 2026-05-23
 
 Bug-fix release. Three compiler and stdlib fixes.

@@ -1,6 +1,6 @@
 MAGE
 ====
-Symbolic MSIL bytecode generation for ClojureCLR
+Symbolic MSIL bytecode generation for ClojureCLR.
 
 Quick Example
 -------------
@@ -22,10 +22,6 @@ Quick Example
 (.AddIntegers (ExampleType.) 5 6)
 ;; 11
 ```
-
-Status
-------
-Very experimental and pre-alpha. Usage is reserved for the adventurous.
 
 Overview
 --------

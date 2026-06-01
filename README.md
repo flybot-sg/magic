@@ -1,5 +1,12 @@
 # MAGIC
 
+[![Build](https://img.shields.io/github/actions/workflow/status/flybot-sg/magic/ci.yml?label=build&branch=main)](https://github.com/flybot-sg/magic/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/flybot-sg/magic/ci.yml?label=tests&branch=main)](https://github.com/flybot-sg/magic/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/flybot-sg/magic)](https://github.com/flybot-sg/magic/releases/latest)
+[![Clojure](https://img.shields.io/badge/clojure-1.10-blue.svg?logo=clojure&logoColor=white)](https://clojure.org/)
+[![.NET](https://img.shields.io/badge/.NET-Framework%204.7.1%20%2F%20netstandard%202.0-512BD4.svg?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![Unity](https://img.shields.io/badge/unity-2022.3.62f3-000000.svg?logo=unity&logoColor=white)](https://unity.com/)
+
 Morgan And Grand Iron Clojure
 
 A Clojure compiler targeting the Common Language Runtime (.NET). MAGIC compiles Clojure to MSIL bytecode, enabling Clojure to run in Unity (including IL2CPP/iOS builds) without the DLR.
@@ -73,23 +80,23 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
    # Latest, version resolved from main's version.edn:
    curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | sh
 
-   # Or pin a specific release:
-   curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | MAGIC_VERSION=v0.1.0 sh
+   # Or pin a specific release (tag from https://github.com/flybot-sg/magic/releases):
+   curl -fsSL https://raw.githubusercontent.com/flybot-sg/magic/main/install/nos.sh | MAGIC_VERSION=<tag> sh
    ```
 
    Defaults install to `$HOME/.local/nostrand/` with the launcher symlinked to `$HOME/.local/bin/nos`. Override with `INSTALL_DIR=` / `INSTALL_LINK=` env vars if needed.
 
-2. **Add the Unity package** to your `Packages/manifest.json`:
+2. **Add the Unity package** to your `Packages/manifest.json`, pinned to a tag from the [releases page](https://github.com/flybot-sg/magic/releases):
 
    ```json
    {
      "dependencies": {
-       "sg.flybot.magic.unity": "https://github.com/flybot-sg/magic.git?path=magic-unity#v0.1.0"
+       "sg.flybot.magic.unity": "https://github.com/flybot-sg/magic.git?path=magic-unity#<tag>"
      }
    }
    ```
 
-3. **Add `project.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./magic-unity-smoke/) and edit the namespace list to match your Clojure sources. Production-pinned compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`) live in `dotnet.clj` so your build matches what ships.
+3. **Add `project.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./magic-unity-smoke/) and edit the namespace list to match your Clojure sources. Your `dotnet.clj` wraps `compile` in a `binding` so your build matches what ships: pin the optimization vars `magic.flags/*direct-linking*` and `*strongly-typed-invokes*` (and `*elide-meta*`), and bind the same flags in your `run-tests` task so tests and shipped code compile identically. The full set of compiler flags lives in [`magic-compiler/src/magic/flags.clj`](magic-compiler/src/magic/flags.clj).
 
 4. **Compile your Clojure** before opening Unity:
 
@@ -210,6 +217,40 @@ bb pipeline '(let [x 1] x)' :out /tmp/inspect
 bb pipeline '(let [x 1] x)' :sections '#{:ast :il}'           # stdout-only, no files
 bb pipeline '(.Length "hi")' :sections '#{:il-edn}' :out /tmp # just dump the flat IL
 ```
+
+### Evaluating against a live runtime (prepl)
+
+`bb pipeline` shows the *compiled IL* for a form but never runs it. To see what
+a form actually returns at runtime, evaluate it against a warm MAGIC runtime
+over a socket prepl (the MAGIC analogue of a Clojure nREPL). Complementary to
+`bb pipeline`: pipeline answers "how does this compile", prepl answers "what
+does this do".
+
+Start the server in one shell (it blocks, serving connections):
+
+```bash
+bb prepl-server            # listens on 127.0.0.1:5555 (override: bb prepl-server 5560)
+```
+
+Send forms from another shell. Each prints the structured reply map:
+
+```bash
+bb prepl-eval '(+ 1 2)'
+#=> {:tag :ret, :val "3", :ns "user", :ms 1.3, :form "(+ 1 2)"}
+
+bb prepl-eval '(def answer 42)'   # global defs persist across calls
+bb prepl-eval '(* answer 2)'      #=> {:tag :ret, :val "84", ...}
+
+bb prepl-eval '(/ 1 0)'           # errors come back as data, not a text dump
+#=> {:tag :ret, :exception true, :val "{... :cause \"Divide by zero\" :phase :execution}", ...}
+```
+
+Reply tags: `:ret` (eval result + `:ms` timing), `:out`/`:err` (captured
+stdout/stderr during eval), `:tap` (values from `tap>`); an `:exception true`
+`:ret` carries the `Throwable->map` data. The server is MAGIC Clojure
+(`clojure.core.server/io-prepl`); the `bb prepl-eval` client is plain babashka,
+so each call is fast. This runs only under Mono/nostrand: prepl evaluates at
+runtime, so it has no IL2CPP/AOT path.
 
 ### Before opening a PR
 

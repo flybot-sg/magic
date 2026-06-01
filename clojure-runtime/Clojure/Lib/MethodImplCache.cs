@@ -72,7 +72,15 @@ namespace clojure.lang
        public Keyword methodk
        {
            get { return _methodk; }
-       } 
+       }
+
+       private readonly Symbol _sym;
+
+       [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "sym")]
+       public Symbol sym
+       {
+           get { return _sym; }
+       }
 
 
 
@@ -119,13 +127,14 @@ namespace clojure.lang
 
        #region C-tors
 
-        public MethodImplCache(IPersistentMap protocol, Keyword methodk)
-            : this(protocol, methodk, 0, 0, RT.EmptyObjectArray)
+        public MethodImplCache(Symbol sym, IPersistentMap protocol, Keyword methodk)
+            : this(sym, protocol, methodk, 0, 0, RT.EmptyObjectArray)
         {
         }
 
-        public MethodImplCache(IPersistentMap protocol, Keyword methodk, int shift, int mask, Object[] table)
+        public MethodImplCache(Symbol sym, IPersistentMap protocol, Keyword methodk, int shift, int mask, Object[] table)
         {
+            _sym = sym;
             _protocol = protocol;
             _methodk = methodk;
             _shift = shift;
@@ -135,8 +144,9 @@ namespace clojure.lang
         }
 
 
-        public MethodImplCache(IPersistentMap protocol, Keyword methodk, IDictionary map)
+        public MethodImplCache(Symbol sym, IPersistentMap protocol, Keyword methodk, IDictionary map)
         {
+            _sym = sym;
             _protocol = protocol;
             _methodk = methodk;
             _shift = 0;

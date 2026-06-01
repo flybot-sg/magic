@@ -67,7 +67,11 @@
    (type (try 1 (catch Exception e (throw e))))
    (+ 1 (try 1 (catch Exception e 2)))
    (+ 1 (do 2 (try 1 (catch Exception e 2)) 3))
-   (+ 1 (do 2 (try (throw (Exception. "oops")) (catch Exception e 2)) 3))))
+   (+ 1 (do 2 (try (throw (Exception. "oops")) (catch Exception e 2)) 3))
+   (try
+     (try (throw (Exception. "boom"))
+          (catch Exception e (let [pn (.Message e)] (throw (Exception. pn)))))
+     (catch Exception e2 (.Message e2)))))
 
 (deftest set!-expr
   (cljclr=magic

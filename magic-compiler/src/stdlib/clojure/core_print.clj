@@ -511,47 +511,64 @@
 (defmethod print-method clojure.lang.IDeref [o ^System.IO.TextWriter w]
   (print-tagged-object o (deref-as-map o) w))
 
+(defn- stack-frame-info [^System.Diagnostics.StackFrame sf]
+  (if (nil? sf)
+    nil
+    (if-let [m (.GetMethod sf)]
+      [(symbol (if-let [declaring-type (.DeclaringType m)]
+                 (.FullName declaring-type)
+                 "<Unknown type>"))
+       (symbol (.Name m))
+       (or (.GetFileName sf) "NO_FILE")
+       (.GetFileLineNumber sf)]
+      ["UNKNOWN" "NO_METHOD" "NO_FILE" -1])))
+
 (defmethod print-method  System.Diagnostics.StackFrame [^System.Diagnostics.StackFrame o ^System.IO.TextWriter w]                    ;;;  StackTraceElement  ^StackTraceElement
-  (print-method [(symbol (.FullName (.GetType o))) (symbol (.Name (.GetMethod o))) (.GetFileName o) (.GetFileLineNumber o)] w))      ;;; (.getClassName o)  (.getMethodName o) .getFileName .getLineNumber
+  (print-method (stack-frame-info o) w))                                                                                              ;;; (print-method [(symbol (.getClassName o)) (symbol (.getMethodName o)) (.getFileName o) (.getLineNumber o)] w)
 
 (defn StackTraceElement->vec
-  "Constructs a data representation for a StackTraceElement"
+  "Constructs a data representation for a StackTraceElement: [class method file line]"
   {:added "1.9"}
   [^System.Diagnostics.StackFrame o]
   (if (nil? o)
     nil
-    [(symbol (.FullName (.GetType o)))
-     (if-let [m (.GetMethod o)]
-       (symbol (.Name m))
-       "NO_METHOD")
-     (or (.GetFileName o) "NO_FILE")
-     (.GetFileLineNumber o)]))
+    (stack-frame-info o)))
 
 (defn Throwable->map
-  "Constructs a data representation for a Throwable."
+  "Constructs a data representation for a Throwable with keys:
+    :cause - root cause message
+    :phase - error phase
+    :via - cause chain, with cause keys:
+             :type - exception class symbol
+             :message - exception message
+             :data - ex-data
+             :at - top stack element
+    :trace - root cause stack elements"
   {:added "1.7"}
   [^Exception o]                                                                                                 ;;; ^Throwable
   (let [base (fn [^Exception t]                                                                                  ;;; ^Throwable
-               (merge {:type (symbol (.FullName (class t)))                                                      ;;; .getName
-                       :message (.Message t)}                                                                    ;;; .getLocalizedMessage
+               (merge {:type (symbol (.FullName (class t)))}                                                     ;;; .getName
+                 (when-let [msg (.Message t)]                                                                    ;;; .getLocalizedMessage
+                   {:message msg})
                  (when-let [ed (ex-data t)]
                    {:data ed})
                  (let [st (.GetFrames (System.Diagnostics.StackTrace. t true))]                                  ;;; (.getStackTrace t)
-                   (when (and st (pos? (alength st)))                                                            ;;; added the 'and st' because we may get a null back instread of an array.
+                   (when (and st (pos? (alength st)))                                                            ;;; added the 'and st' because we may get a null back instead of an array.
                      {:at (StackTraceElement->vec (aget st 0))}))))                                              ;;; aget
         via (loop [via [], ^Exception t o]                                                                       ;;; ^Throwable
               (if t
                 (recur (conj via t) (.InnerException t))                                                         ;;; .getCause
                 via))
-        ^Exception root (peek via)                                                                               ;;; Throwable
-        m {:cause (.Message root)                                                                                ;;; (.getLocalizedMessage root)
-           :via (vec (map base via))
-          :trace (vec (map StackTraceElement->vec
-		                   (.GetFrames (System.Diagnostics.StackTrace. (or root o) true))))}                     ;;;  .getStackTrace ^Throwable  
-        data (ex-data root)]
-    (if data
-      (assoc m :data data)
-      m)))
+        ^Exception root (peek via)]                                                                              ;;; Throwable
+    (merge {:via (vec (map base via))
+            :trace (vec (map StackTraceElement->vec
+                             (.GetFrames (System.Diagnostics.StackTrace. (or root o) true))))}                   ;;;  .getStackTrace ^Throwable
+      (when-let [root-msg (.Message root)]                                                                       ;;; (.getLocalizedMessage root)
+        {:cause root-msg})
+      (when-let [data (ex-data root)]
+        {:data data})
+      (when-let [phase (-> o ex-data :clojure.error/phase)]
+        {:phase phase}))))
 
 (defn print-throwable [^Exception o ^System.IO.TextWriter w]                                                     ;;; ^Throwable
   (.Write w "#error {\n :cause ")
@@ -601,5 +618,26 @@
   (.Write w "#?")
   (when (:splicing? o) (.Write w "@"))
   (print-method (:form o) w))
+
+(defn ^System.IO.TextWriter PrintWriter-on
+  "implements a TextWriter given flush-fn, which will be called when
+  .Flush() is called, with a string built up since the last call to
+  .Flush(). if not nil, close-fn will be called with no arguments when
+  .Close is called."
+  {:added "1.10"}
+  [flush-fn close-fn]
+  ;; StringWriter's base Write overloads already accumulate into an internal
+  ;; StringBuilder, so (like real Clojure's java.io.Writer proxy, which
+  ;; overrides only write/flush/close) only Flush/Close need overriding.
+  (proxy [System.IO.StringWriter] []
+    (Flush []
+      (let [^StringBuilder sb (.GetStringBuilder this)]
+        (when (pos? (.Length sb))
+          (flush-fn (.ToString sb)))
+        (.set_Length sb 0)))
+    (Close []
+      (.Flush this)
+      (when close-fn (close-fn))
+      nil)))
 
 (def ^{:private true} print-initialized true)  

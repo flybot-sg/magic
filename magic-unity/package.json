@@ -1,13 +1,13 @@
 {
     "name": "sg.flybot.magic.unity",
-    "version": "0.1.0",
+    "version": "0.3.0",
     "displayName": "MAGIC Unity Integration",
     "description": "The integration of the MAGIC Clojure compiler into Unity",
     "unity": "2021.2",
     "unityRelease": "3f1",
-    "documentationUrl": "https://github.com/magic-clojure/magic",
-    "changelogUrl": "https://github.com/magic-clojure/magic",
-    "licensesUrl": "https://github.com/magic-clojure/magic",
+    "documentationUrl": "https://github.com/flybot-sg/magic",
+    "changelogUrl": "https://github.com/flybot-sg/magic/blob/main/CHANGELOG.md",
+    "licensesUrl": "https://github.com/flybot-sg/magic/blob/main/clojure-runtime/epl-v10.html",
     "dependencies": {
         "com.unity.nuget.mono-cecil": "1.11.4"
     },
@@ -18,8 +18,7 @@
         "magic"
     ],
     "author": {
-        "name": "Ramsey Nasser",
-        "email": "ram@nas.sr",
-        "url": "https://nas.sr/"
+        "name": "Flybot (fork of work by Ramsey Nasser)",
+        "url": "https://flybot.sg/"
     }
 }

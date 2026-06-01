@@ -73,9 +73,23 @@
   {:doc "Regenerate magic-runtime .g.cs files from .mustache templates."
    :task (shell {:dir callsites-dir} "dotnet run")}
 
+  sync-upm-version
+  {:doc "Sync magic-unity/package.json :version field with version.edn. UPM manifests are not covered by Directory.Build.props, so this keeps them in lockstep manually."
+   :requires ([clojure.edn :as edn])
+   :task (let [version (:version (edn/read-string (slurp "version.edn")))
+               path    "magic-unity/package.json"
+               content (slurp path)
+               updated (str/replace content
+                                    (re-pattern "\"version\":\\s*\"[^\"]+\"")
+                                    (str "\"version\": \"" version "\""))]
+           (if (= content updated)
+             (println "magic-unity/package.json version already in sync (" version ")")
+             (do (spit path updated)
+                 (println "Updated magic-unity/package.json version to" version))))}
+
   check-drift
-  {:doc "Verify generated files and stdlib bootstrap DLLs are current. Runs regen + refresh-stdlib and fails if the working tree changed. Use in CI and before opening a PR."
-   :depends [regen-callsites refresh-stdlib]
+  {:doc "Verify generated files, stdlib bootstrap DLLs, and UPM version are current. Runs regen + refresh-stdlib + sync-upm-version and fails if the working tree changed. Use in CI and before opening a PR."
+   :depends [regen-callsites refresh-stdlib sync-upm-version]
    ;; Drift signals checked:
    ;;  - magic-runtime/Magic.Runtime/Generated: .g.cs files produced by Mustache
    ;;    templates. Deterministic text output; byte-diffable.
@@ -84,8 +98,11 @@
    ;;    last refresh, the SHA in this file changes; that's our drift signal.
    ;;    We do NOT diff DLL bytes themselves because compilation is
    ;;    non-deterministic (gensyms, hash tokens) and would always fail.
+   ;;  - magic-unity/package.json: UPM manifest version field. Synced from
+   ;;    version.edn by sync-upm-version (above).
    :task (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
-                              "magic-compiler/stdlib-manifest.edn"]
+                              "magic-compiler/stdlib-manifest.edn"
+                              "magic-unity/package.json"]
                {:keys [out]} (apply shell {:continue true :out :string}
                                     "git" "diff" "--" checked-paths)]
            (when-not (str/blank? out)
@@ -93,11 +110,13 @@
                (println)
                (println "Drift detected.")
                (println "Either a .mustache template was edited without regenerating .g.cs,")
-               (println "or a stdlib .clj source was edited without refreshing its .clj.dll.")
+               (println "a stdlib .clj source was edited without refreshing its .clj.dll,")
+               (println "or version.edn was bumped without syncing magic-unity/package.json.")
                (println)
                (println "Fix locally:")
                (println "  bb regen-callsites      # if magic-runtime Generated/ drifted")
                (println "  bb refresh-stdlib       # if stdlib-manifest.edn drifted")
+               (println "  bb sync-upm-version     # if magic-unity/package.json drifted")
                (println "  git add" (str/join " " checked-paths)
                         "nostrand/references magic-unity/Runtime/Infrastructure/Export")
                (println)
@@ -163,6 +182,35 @@
    :override-builtin true
    :depends [-check-nostrand]
    :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "repl")}
+
+  prepl-server
+  {:doc "Start a socket prepl server (io-prepl) on a warm MAGIC runtime, like an nREPL for dev. Blocks. Default port 5555; override: bb prepl-server 5560. Send forms from another shell with `bb prepl-eval`."
+   :depends [-check-nostrand]
+   :task (apply shell {:dir compiler-dir} "mono" (str "../" nostrand-exe)
+                "preplserver/start" *command-line-args*)}
+
+  prepl-eval
+  {:doc "Eval one form against the running prepl server and print the structured reply maps. Usage: bb prepl-eval '(+ 1 2)' or bb prepl-eval :port 5560 '(+ 1 2)'. Global defs persist across calls (Vars are interned in the runtime)."
+   :requires ([clojure.java.io :as io])
+   :task (let [args *command-line-args*
+               [port args] (if (= ":port" (first args))
+                             [(Integer/parseInt (second args)) (drop 2 args)]
+                             [5555 args])
+               form (str/join " " args)]
+           (when (str/blank? form)
+             (binding [*out* *err*] (println "usage: bb prepl-eval '<form>'  (or bb prepl-eval :port N '<form>')"))
+             (throw (ex-info "missing form" {:babashka/exit 1})))
+           (with-open [sock (java.net.Socket. "127.0.0.1" ^long port)]
+             (.setSoTimeout sock 15000)
+             (let [out (io/writer (.getOutputStream sock))
+                   in  (io/reader (.getInputStream sock))]
+               (.write out (str form "\n"))
+               (.flush out)
+               (loop []
+                 (when-let [line (.readLine in)]
+                   (println line)
+                   (when-not (str/includes? line ":tag :ret")
+                     (recur)))))))}
 
   ;; ============================================================
   ;; Hygiene
