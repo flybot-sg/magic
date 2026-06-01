@@ -86,6 +86,20 @@ or updated
 
 Additionally, compilers can change this map *before they pass it to their children* if they need to. This can be used to tersely implement optimizations, and some Clojure semantics depend on it. `magic.core/let-compiler` implements symbol binding using this mechanism.
 
+A *spell* is one such map rewrite packaged as a `(fn [compilers] compilers')`, applied on top of `base-compilers`. The built-in spells live in `src/magic/spells/`.
+
+## Configuration
+
+Every knob that controls compilation is a dynamic var in [`src/magic/flags.clj`](src/magic/flags.clj), the single configuration surface: you `binding` the flags, the compiler reads them.
+
+Clients bind the optimization vars to control the codegen their build ships, chiefly `*direct-linking*` and `*strongly-typed-invokes*`. Compiler developers also bind the build-shaping options when needed: `*sparse-case*` for runtime-stable hashing (the `bb build-magic-portable` bootstrap pass), plus `*legacy-dynamic-callsites*` and `*elide-meta*`. Spells (`*lift-vars*`, `*lift-keywords*`, `*sparse-case*`) are flags too, so toggling one is the same idiom as any other:
+
+```clojure
+(binding [magic.flags/*direct-linking* true
+          magic.flags/*sparse-case*    true]
+  (compile-namespace 'my.app))
+```
+
 ## Rationale and History
 
 During the development of [Arcadia](https://github.com/arcadia-unity/Arcadia), it was found that binaries produced by the ClojureCLR compiler did not survive Unity's AOT compilation process to its more restrictive export targets, particularly iOS, WebGL, and the PlayStation. While it is understood that certain more 'dynamic' features of C# are generally not supported on these platforms, the exact cause of the failures is difficult to pinpoint. Additionally, the byte code the standard compiler generates is not as good as it can be in situations where the JVM and CLR semantics do not match up, namely value types and generics. MAGIC was built primarily to support better control over byte code, and a well reasoned approach to Arcadia export.

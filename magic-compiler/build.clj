@@ -1,6 +1,5 @@
 (ns build
-  (:require [magic.core :refer [*spells*]]
-            [magic.api :refer [compile-namespace]])
+  (:require [magic.api :refer [compile-namespace]])
   (:import [System.IO File Directory Path DirectoryInfo]))
 
 (in-ns 'clojure.core)
@@ -65,20 +64,28 @@
     clojure.clr.io
     clojure.core]) ;; if clojure.core not at the end, prevent other files from being compiled
 
-(defn- resolve-spell [s]
-  (if (symbol? s)
-    (do (require (symbol (namespace s)))
-        @(resolve s))
-    s))
+(defn- spell-flag-bindings
+  "Map of spell flag var -> true for each requested spell (a keyword or a
+  fully-qualified spell fn symbol, matched by name). Loads a symbol spell's
+  namespace so magic.core/active-spells can find-var it, and resolves the flag
+  var at runtime so this loads on a compiler that predates the flags. Extra
+  spells are only used post-transition (e.g. build-magic-portable's sparse-case)."
+  [spells]
+  (into {} (keep (fn [s]
+                   (when (symbol? s) (require (symbol (namespace s))))
+                   (when-let [v (resolve (symbol "magic.flags" (str \* (name s) \*)))]
+                     [v true]))
+                 spells)))
 
 (defn bootstrap [& {:keys [spells]}]
   (binding [clojure.core/*loaded-libs* (ref (sorted-set))
-            *spells*                   (into *spells* (map resolve-spell spells))
             *eval-form-fn*             magic.api/eval
             *compile-file-fn*          magic.api/runtime-compile-file
             *load-file-fn*             magic.api/runtime-load-file
             *warn-on-reflection*       true
             *compile-path*             "bootstrap"]
-    (doseq [lib std-libs-to-compile]
-      (println (str "building " lib))
-      (compile-namespace lib {:write-files true :suppress-print-forms true}))))
+    (with-bindings* (spell-flag-bindings spells)
+      (fn []
+        (doseq [lib std-libs-to-compile]
+          (println (str "building " lib))
+          (compile-namespace lib {:write-files true :suppress-print-forms true}))))))

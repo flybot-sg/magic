@@ -96,7 +96,7 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
    }
    ```
 
-3. **Add `project.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./magic-unity-smoke/) and edit the namespace list to match your Clojure sources. Production-pinned compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`) live in `dotnet.clj` so your build matches what ships.
+3. **Add `project.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./magic-unity-smoke/) and edit the namespace list to match your Clojure sources. Your `dotnet.clj` wraps `compile` in a `binding` so your build matches what ships: pin the optimization vars `magic.flags/*direct-linking*` and `*strongly-typed-invokes*` (and `*elide-meta*`), and bind the same flags in your `run-tests` task so tests and shipped code compile identically. The full set of compiler flags lives in [`magic-compiler/src/magic/flags.clj`](magic-compiler/src/magic/flags.clj).
 
 4. **Compile your Clojure** before opening Unity:
 

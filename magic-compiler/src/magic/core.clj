@@ -6,7 +6,8 @@
             [magic.analyzer.types :as types :refer [tag ast-type ast-type-ignore-tag non-void-ast-type]]
             [magic.analyzer.binder :refer [select-method]]
             [magic.interop :as interop]
-            [magic.flags :refer [*strongly-typed-invokes* *direct-linking* *legacy-dynamic-callsites*]]
+            [magic.flags :refer [*strongly-typed-invokes* *direct-linking* *legacy-dynamic-callsites*
+                                 *lift-vars* *lift-keywords* *sparse-case*]]
             [clojure.string :as string])
   (:import [clojure.lang Var RT IFn Keyword Symbol]
            [System.IO FileInfo Path]
@@ -2305,8 +2306,6 @@
    :tagged              #'tagged-compiler
    :error               #'error-compiler})
 
-(def ^:dynamic *spells* [])
-
 (defn ast->compiler
   "Look up compiler for AST node. Throws exception if not found."
   [ast compilers]
@@ -2314,10 +2313,19 @@
       (throw (Exception. (str "No compiler for " (pr-str (or  (:op ast)
                                                               ast)))))))
 
-;; (merge base-compilers *initial-compilers*) might be better
+(defn active-spells
+  "The spell fns enabled by the current magic.flags spell flags, in order.
+  Resolved by name (find-var) so this namespace needs no static dependency on
+  the spell namespaces; magic.api loads them so the vars exist."
+  []
+  (cond-> []
+    *lift-vars*     (conj (find-var 'magic.spells.lift-vars/lift-vars))
+    *lift-keywords* (conj (find-var 'magic.spells.lift-keywords/lift-keywords))
+    *sparse-case*   (conj (find-var 'magic.spells.sparse-case/sparse-case))))
+
 (defn get-compilers
   ([] (get-compilers base-compilers))
-  ([compilers] (get-compilers compilers *spells*))
+  ([compilers] (get-compilers compilers (active-spells)))
   ([compilers spells]
    (reduce
     (fn [compilers* spell] (spell compilers*))
