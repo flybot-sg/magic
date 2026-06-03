@@ -14,7 +14,7 @@ cd magic-unity-smoke
 nos dotnet/build
 ```
 
-That reads `project.edn` + `dotnet.clj`, wipes `Assets/Plugins/Magic/`, and recompiles `smoke.runner` plus its transitive deps into that directory using the production compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`).
+That reads `deps.edn` + `dotnet.clj`, wipes `Assets/Plugins/Magic/`, and recompiles `smoke.runner` plus its transitive deps into that directory using the production compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`).
 
 Then in Unity:
 

@@ -35,6 +35,3 @@ Assets/Compiled.meta
 # Magic.Unity regenerates this at every IL2CPP build.
 Assets/link.xml
 Assets/link.xml.meta
-
-# Nostrand's local dep cache (populated when project.edn lists deps)
-deps/

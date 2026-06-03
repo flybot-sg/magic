@@ -90,78 +90,62 @@ $ cat tasks.clj
 $ nos tasks/build true
 ```
 
-### `project.edn`
-If a file named `project.edn` is present in the current directory, it will be parsed at startup to configure initialization. It is expected to be an EDN map, and the following keys are recognized:
+### `deps.edn`
+If a `deps.edn` is present in the current directory it is resolved at startup: every dependency is fetched and its source paths, plus the project's own `:paths`, are pushed onto the load path. The recognized keys are a subset of [tools.deps](https://github.com/clojure/tools.deps):
 
-* `:source-paths` A vector of paths to load Clojure namespaces from. The default is the current directory.
-* `:assembly-paths` A vector of paths to load assemblies from.
-* `:references` A vector of assembly names to reference.
-* `:dependencies` A vector of package coordinates your project depends on
+* `:paths` A vector of source paths. Defaults to `["src"]`.
+* `:deps` A map of `lib -> coordinate` (see [Dependencies](#dependencies)).
+* `:aliases` A map of alias keyword -> `{:extra-paths :extra-deps :override-deps}`.
+* `:nos/aliases` A vector of alias keywords to activate at boot, so an aliased project resolves its build basis once at startup instead of re-resolving in every task.
+* `:nos/submodule-paths` Derive `:paths` from `.gitmodules` (see [Submodule paths](#submodule-paths)).
+
+Inspect the resolved basis without compiling with `nos print-basis [:alias ...]`.
 
 ### Dependencies
 
-Nostrand supports packages from Maven Central and Clojars, as well as github and NuGet. `project.edn`'s `:dependencies` key accepts a vector of package coordinates of the form `[source name version]` , where `source` is a keyword that specifies which repository to pull from, `name` is a symbol that specifies the name of the package, and `version` is a string that specifies the verison of the package. `name` and `version` will depend on the `source`.
+Nostrand resolves git and local coordinates. Maven is not resolved natively, and libraries that ship inside `Clojure.dll` (`org.clojure/clojure`, `org.clojure/spec.alpha`, `org.clojure/core.specs.alpha`) are skipped. Resolution is transitive: each dependency's own `deps.edn` `:deps` are followed, with the coordinate closest to the root winning on conflict.
 
-For example, the [MAGIC project's](https://github.com/flybot-sg/magic) [`project.edn`](https://github.com/flybot-sg/magic/blob/main/magic-compiler/project.edn) contains:
+#### Git
 
-```clojure
-:dependencies [[:github flybot-sg/clr.test.check "magic"
-                :sha "a5a2aca27873539fe366c1e0a09bb06e36026bf6"
-                :paths ["src"]]
-               [:maven org.clojure/tools.analyzer "1.0.0"]]
-```
+A git coordinate is cloned over its URL's transport into a content-addressed cache under `~/.nostrand/gitlibs`, checked out at the pinned commit, and verified against the pin. Private repositories authenticate through your git and SSH config, so no tokens live in `deps.edn`.
 
-#### `:github`
-Github sources clone a whole repository as a dependency.
-
-- `name` takes the form `username/repository` and `version` is anything that refers to a commit (sha recommended).
-- You must provide both `branch` and `sha` if you want to download the zip of a specific branch.
-- For private repo, the `token` must be provided and the `sha`.
-- Be careful with GitHub personal token has they cannot be set to read only! (For your private GitHub repo, it is advised to create a dummy account with read-only access on your repos and generate the token from this dummy user.)
+Pin a `:git/sha`: a cache whose checkout does not match the sha is an error, which is what makes a build reproducible. A `:git/tag` may accompany the sha as a readable label (its commit is checked against the sha, warning on a mismatch). A tag on its own is honoured but only warns if the tag later moves, so prefer a sha.
 
 ```clojure
-[;; public repo
- [:github skydread1/my-public-lib "feature-1"
-  :sha "46bb12e33ae4fe118a1aa91d2985f1f2f3192366"
-  :paths ["src"]]
- ;; private repo
- [:github skydread1/my-private-lib "master"
-  :paths ["src"]
-  :sha "46bb12e33ae4fe118a1aa91d2985f1f2f3192367"
-  :token "xxxxxxxxxxxxx"]]
+{:deps {flybot-sg/clr.test.check {:git/url "https://github.com/flybot-sg/clr.test.check"
+                                  :git/sha "a5a2aca27873539fe366c1e0a09bb06e36026bf6"}
+        some/private-lib         {:git/url "git@dev.example.sg:group/private-lib.git"
+                                  :git/tag "v1.2.0"
+                                  :git/sha "1c3decbb9b6f9b2a0e0e6a4f0b1c2d3e4f5a6b7c"}}}
 ```
 
-#### `:gitlab`
-Gitlab sources clone a whole repository as a dependency.
+A coordinate may carry an explicit `:paths` vector, used in place of the dependency's own `deps.edn` `:paths`, for a repo that has no `deps.edn` or a non-`src` layout (e.g. a contrib lib under `src/main/clojure`).
 
-- `name` takes the form `username/repository` and `version` is  anything that refers to a commit (sha recommended).
-- The `branch`, `sha` and the `project-id` must be provided for public and private repository.
-- For private repository, `domain` and access `token` are required as well.
+#### Local
 
 ```clojure
-[;; public repo
- [:gitlab skydread1/my-public-lib "master"
-  :paths ["src"]
-  :sha "46bb12e33ae4fe118a1aa91d2985f1f2f3192366"
-  :project-id "777"]
- ;; private repo
- [:gitlab skydread1/my-private-lib "master"
-  :paths ["src"]
-  :sha "46bb12e33ae4fe118a1aa91d2985f1f2f3192367"
-  :token "xxxxxxxxxxxxx"
-  :domain "dev.hello.sg"
-  :project-id "888"]]
+{:deps {magic/mage {:local/root "../mage"}}}
 ```
 
-The root of the repository is the only directory added to the load path by default, but you can specify subdirectories by adding `:paths` followed by a vector of strings to the coordinate.
+Used in place with no clone. This is also how you live-edit a dependency.
 
-#### `:nuget`
-`name` and `version` are the same as you would pass in to `nuget install name -Version version`.
+#### Aliases
 
-You can pack and push packages easily with the convenient function `tasks/nuget-push`.
+A CLR build typically activates a `:clr` alias carrying the forks the JVM side does not need:
 
-#### `:maven`
-Behaves as in Leiningen. Note that many Clojure packages will not work on ClojurCLR without modification, as they may reference Java classes that are not present on the CLR.
+```clojure
+{:aliases   {:clr {:extra-deps    {clr-only/fork {:git/url "..." :git/sha "..."}}
+                   :override-deps {jvm/lib       {:git/url "..." :git/sha "..."}}}}
+ :nos/aliases [:clr]}
+```
+
+`:override-deps` swaps a lib's coordinate wherever it is encountered in the tree (a JVM to CLR fork swap) without itself seeding a root dependency.
+
+#### Submodule paths
+
+A project that vendors its dependencies as git submodules can treat `.gitmodules` as the single source of truth for its `:paths`. Set `:nos/submodule-paths` to a path prefix (or `true` for every submodule) and boot derives the source paths from the checked-out submodules. Preview the derived list with `nos gitmodules-paths [prefix]`.
+
+NuGet packages can be packed and pushed with the `tasks/nuget-push` task.
 
 ## Name
 [Nostrand Avenue](https://en.wikipedia.org/wiki/Nostrand_Avenue) is a major street and subway stop in Brooklyn near where I was living when I began the project.
