@@ -99,8 +99,14 @@
                    (str/join ", " skipped)))
         out))))
 
-(defn- cache-root []
-  (str (Environment/GetEnvironmentVariable "HOME") "/.nostrand/gitlibs"))
+(defn- cache-root
+  "GITLIBS (the tools.deps cache variable) if set, namespaced under nostrand/
+  so CLR clones stay distinguishable from the JVM entries in a shared dir;
+  else ~/.nostrand/gitlibs."
+  []
+  (if-let [gitlibs (Environment/GetEnvironmentVariable "GITLIBS")]
+    (str gitlibs "/nostrand")
+    (str (Environment/GetEnvironmentVariable "HOME") "/.nostrand/gitlibs")))
 
 (defn create-basis
   "Read deps-file, fold in the selected aliases, resolve transitively,

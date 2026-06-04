@@ -107,7 +107,9 @@ Nostrand resolves git and local coordinates. Maven is not resolved natively, and
 
 #### Git
 
-A git coordinate is cloned over its URL's transport into a content-addressed cache under `~/.nostrand/gitlibs`, checked out at the pinned commit, and verified against the pin. Private repositories authenticate through your git and SSH config, so no tokens live in `deps.edn`.
+A git coordinate is cloned over its URL's transport into a content-addressed cache under `$GITLIBS` if set, else `~/.nostrand/gitlibs`, checked out at the pinned commit, and verified against the pin. Private repositories authenticate through your git and SSH config, so no tokens live in `deps.edn`.
+
+`GITLIBS` is the same variable JVM tools.deps honours, so one setting relocates both caches (useful in CI, where the cache must live inside the checkout). The two tools cannot collide inside a shared directory: tools.deps writes under `_repos/` and `libs/`, nostrand under `nostrand/<host>/<group>/<repo>/<ref>/`. Use an absolute path; a relative one resolves against the directory `nos` runs from.
 
 Pin a `:git/sha`: a cache whose checkout does not match the sha is an error, which is what makes a build reproducible. A `:git/tag` may accompany the sha as a readable label (its commit is checked against the sha, warning on a mismatch). A tag on its own is honoured but only warns if the tag later moves, so prefer a sha.
 
