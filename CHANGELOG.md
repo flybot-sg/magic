@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.5.0 - 2026-06-04
+
+Consumer quality-of-life fixes from the 0.4.0 rollout.
+
+### Nostrand deps
+- The git-dep cache root honours the `GITLIBS` env var (cloning under `$GITLIBS/nostrand/`), so CI can keep the cache inside the checkout and one variable relocates both the JVM and CLR caches; `~/.nostrand/gitlibs` stays the default when unset - [#17](https://github.com/flybot-sg/magic/issues/17).
+
+### Tooling
+- `run-clojure-tests` takes `:re`, a regex scoping the run to the namespaces it fully matches, so a consumer can skip suites loaded by its dependencies - [#19](https://github.com/flybot-sg/magic/issues/19).
+
+### Stdlib
+- Plain 1-arg `slurp` no longer prints the `(slurp f enc) is deprecated` warning on every call; `normalize-slurp-opts` aligned with ClojureCLR's CLJCLR-127 revert - [#18](https://github.com/flybot-sg/magic/issues/18).
+
+### Docs
+- Porting guide: CI caching section with the canonical `GITLIBS` block, `:clean? true` in the drop-in `dotnet.clj`, and `:re` usage with the `re-matches` full-match caveat.
+
 ## v0.4.0 - 2026-06-04
 
 Native `deps.edn` resolution for nostrand, replacing `project.edn`, plus shared `dotnet.clj` build/test helpers - [#15](https://github.com/flybot-sg/magic/issues/15).
