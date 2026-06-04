@@ -1,8 +1,0 @@
-{:name "MAGIC Compiler"
- :description "Morgan And Grand Iron Clojure Compiler"
- :author "Ramsey Nasser"
- :source-paths ["src" "src/stdlib" "test" "../mage/src"]
- :dependencies [[:github flybot-sg/clr.test.check "magic"
-                 :sha "a5a2aca27873539fe366c1e0a09bb06e36026bf6"
-                 :paths ["src"]]
-                [:maven org.clojure/tools.analyzer "1.0.0"]]}

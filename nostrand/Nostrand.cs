@@ -136,10 +136,9 @@ namespace Nostrand
 
 				RT.var("nostrand.core", "load-path").invoke(Directory.GetCurrentDirectory());
 				
-				if (File.Exists("project.edn"))
+				if (File.Exists("deps.edn"))
 				{
-					var projectEdn = EdnReader.readString(File.ReadAllText("project.edn"), PersistentHashMap.EMPTY);
-					RT.var("nostrand.core", "establish-environment").invoke(projectEdn);
+					RT.var("nostrand.core", "establish-deps-edn").invoke();
 				}
 
 				RT.PostBootstrapInit();

@@ -2,12 +2,10 @@
     ^{:author "Ramsey Nasser"
       :doc "Core nostrand API containing load path, assemblies, and dependency functions."}
     nostrand.core
-  (:require [clojure.string :as string]
-            [nostrand.deps :as deps]
-            nostrand.deps.github
-            nostrand.deps.gitlab
-            nostrand.deps.maven
-            nostrand.deps.nuget)
+  (:require [clojure.edn :as edn]
+            [clojure.string :as string]
+            [nostrand.deps.basis :as basis]
+            [nostrand.deps.submodules :as submodules])
   (:import [System.IO Path File]))
 
 (def -assembly-path
@@ -67,27 +65,23 @@
 (defmacro reference [& asms]
   `(reference* ~(mapv str asms)))
 
-(defn depend*
-  [opts coord]
-  (deps/acquire! opts coord)
-  (doseq [path (deps/paths opts coord)]
-    (add-load-path path))
-  (reference* (deps/assemblies opts coord)))
-
-(defmacro depend [coords]
-  `(do
-     ~@(map (fn [coord] `(depend* deps/*options* '~coord))
-            coords)))
-
-(defn establish-environment [{:keys [source-paths assembly-paths dependencies references]
-                              :as config}]
-  (def configuration config)
-  (when source-paths
-    (apply load-path source-paths))
-  (when assembly-paths
-    (apply assembly-path assembly-paths))
-  (when dependencies
-    (doseq [d dependencies]
-      (depend* deps/*options* d)))
-  (when references
-    (reference* references)))
+(defn establish-deps-edn
+  "Resolve a deps.edn (with the given aliases) and put every resolved
+  source path on the load path. Returns the basis. The 0-arity is the
+  boot entry point: it activates the aliases under the :nos/aliases key,
+  and when :nos/submodule-paths is present also adds the source paths of
+  the vendored git submodules (its value is a path prefix to restrict to,
+  or true for every submodule)."
+  ([]
+   (let [deps-edn (edn/read-string (slurp "deps.edn"))
+         b        (establish-deps-edn "deps.edn" (:nos/aliases deps-edn []))]
+     (when-let [root (:nos/submodule-paths deps-edn)]
+       (when (File/Exists ".gitmodules")
+         (apply load-path
+                (submodules/submodule-paths (slurp ".gitmodules")
+                                            (when (string? root) root)))))
+     b))
+  ([deps-file aliases]
+   (let [{:keys [classpath-paths] :as b} (basis/create-basis deps-file aliases)]
+     (apply load-path classpath-paths)
+     b)))

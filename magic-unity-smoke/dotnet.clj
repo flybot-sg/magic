@@ -10,7 +10,7 @@
 
   `run-tests` exercises the smoke suites under Mono before opening Unity, so
   pure-CLR (non-IL2CPP) regressions surface without a Unity round-trip."
-  (:require [magic.flags :as mflags]))
+  (:require [nostrand.tasks :as tasks]))
 
 (def root-namespaces
   "Root namespaces to compile. Everything they `require` is compiled
@@ -25,20 +25,7 @@
   (and its transitive deps) into that folder using the same compiler
   flags as production. Unity sees the new DLLs on next focus."
   []
-  (binding [*compile-path*                  "Assets/Plugins/Magic"
-            *unchecked-math*                true
-            *warn-on-reflection*            true
-            mflags/*strongly-typed-invokes* true
-            mflags/*direct-linking*         true
-            mflags/*elide-meta*             false]
-    (println "Compile into DLL to:" *compile-path*)
-    (when (System.IO.Directory/Exists *compile-path*)
-      (System.IO.Directory/Delete *compile-path* true))
-    (System.IO.Directory/CreateDirectory *compile-path*)
-    (doseq [ns root-namespaces]
-      (println "Compiling" ns)
-      (compile ns))
-    (println "Done.")))
+  (tasks/compile-project :namespaces root-namespaces :out "Assets/Plugins/Magic" :clean? true))
 
 (defn run-tests
   "nos dotnet/run-tests
@@ -50,11 +37,7 @@
   This does not exercise IL2CPP codegen -- only Unity can do that. Use
   it as a fast gate before launching Unity."
   []
-  (binding [*unchecked-math*                true
-            *warn-on-reflection*            true
-            mflags/*strongly-typed-invokes* true
-            mflags/*direct-linking*         true
-            mflags/*elide-meta*             false]
+  (with-bindings tasks/production-flags
     (require 'smoke.runner)
     (let [ok?    ((resolve 'smoke.runner/all-pass?))
           report ((resolve 'smoke.runner/report-text))]

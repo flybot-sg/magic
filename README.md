@@ -96,7 +96,7 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
    }
    ```
 
-3. **Add `project.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./magic-unity-smoke/) and edit the namespace list to match your Clojure sources. Your `dotnet.clj` wraps `compile` in a `binding` so your build matches what ships: pin the optimization vars `magic.flags/*direct-linking*` and `*strongly-typed-invokes*` (and `*elide-meta*`), and bind the same flags in your `run-tests` task so tests and shipped code compile identically. The full set of compiler flags lives in [`magic-compiler/src/magic/flags.clj`](magic-compiler/src/magic/flags.clj).
+3. **Add `deps.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./magic-unity-smoke/): `deps.edn` declares your source `:paths` and any `:deps` (`nos` resolves them at boot, cloning git deps into `~/.nostrand/gitlibs`), and `dotnet.clj` holds the build/test tasks. The `nostrand.tasks` helpers (`compile-project`, `run-clojure-tests`) pin the shipped compiler flags and can derive the namespace set from your `deps.edn` paths, so `dotnet.clj` stays small. See [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) for the `dotnet.clj` patterns and the full option set.
 
 4. **Compile your Clojure** before opening Unity:
 
@@ -110,7 +110,7 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
 
 ### Use `nos` for non-Unity Clojure-on-CLR
 
-Same `install/nos.sh` line, no Unity needed. Drop a `project.edn` + `dotnet.clj` at your library root (see [`magic-unity-smoke/dotnet.clj`](magic-unity-smoke/dotnet.clj) for the shape — the same task definitions work outside Unity), then `nos dotnet/run-tests`. Tests execute under Mono via the `nos` you just installed.
+Same `install/nos.sh` line, no Unity needed. Drop a `deps.edn` + `dotnet.clj` at your library root, then `nos dotnet/run-tests`. Tests execute under Mono via the `nos` you just installed. [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) walks through the whole workflow: reader conditionals, `deps.edn`, and the three `dotnet.clj` shapes (derive from aliases, exclude, or hardcode the namespace list).
 
 ## Prerequisites for working on MAGIC itself
 

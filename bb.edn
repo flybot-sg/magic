@@ -236,7 +236,7 @@
              (println (str "=== " proj " (NuGet) ==="))
              (shell {:continue true} "dotnet" "list" proj "package" "--outdated"))
            (println)
-           (println "Note: Nostrand `project.edn` deps (GitHub/GitLab/Maven via nos) are not checked. Inspect manually if used."))}
+           (println "Note: Nostrand `deps.edn` git deps are pinned by sha and not version-checked by antq. Inspect manually if used."))}
 
   verify-dist
   {:doc "Verify release artifacts are present and `nos version` works. Run before tagging."

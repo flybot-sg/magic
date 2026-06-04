@@ -1,5 +1,0 @@
-{:name         "magic-unity-smoke"
- :version      "0.1.0"
- :description  "Runtime regression suite for MAGIC's IL2CPP output. Doubles as the canonical example of consuming MAGIC in a Unity project via nos dotnet/build."
- :source-paths ["Assets/Clojure"]
- :dependencies []}

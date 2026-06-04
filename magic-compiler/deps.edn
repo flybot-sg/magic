@@ -1,0 +1,8 @@
+{:paths ["src" "src/stdlib" "test"]
+ :deps  {magic/mage                 {:local/root "../mage"}
+         org.clojure/tools.analyzer {:git/url "https://github.com/clojure/tools.analyzer"
+                                     :git/sha "47f18915dd0d2e07fd2493ab7f4de6d281eb8496"
+                                     :paths   ["src/main/clojure"]}
+         flybot-sg/clr.test.check   {:git/url "https://github.com/flybot-sg/clr.test.check"
+                                     :git/sha "a5a2aca27873539fe366c1e0a09bb06e36026bf6"
+                                     :paths   ["src"]}}}

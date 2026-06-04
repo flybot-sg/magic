@@ -5,7 +5,7 @@
 (def sh shell/sh)
 
 (defn require-command [cmd]
-  (when (= (-> (sh "which" cmd) :exit) 1)
+  (when-not (zero? (-> (sh "which" cmd) :exit))
     (throw (Exception. (str cmd " command not found")))))
 
 (def setdir  #(Directory/SetCurrentDirectory %))
