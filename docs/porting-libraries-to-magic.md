@@ -30,8 +30,9 @@ and your existing tests keep passing. The full flag and type-hint surface is in
 ## 2. deps.edn
 
 `nos` resolves `deps.edn` natively (git and local deps; it clones git deps into
-`~/.nostrand/gitlibs` at boot). Declare your source `:paths` and put test
-sources under a `:test` alias so they only load when testing:
+`$GITLIBS` if set, else `~/.nostrand/gitlibs`, at boot). Declare your source
+`:paths` and put test sources under a `:test` alias so they only load when
+testing:
 
 ```clojure
 {:paths ["src"]
@@ -80,7 +81,7 @@ aliases contribute. `build` compiles the base `:paths`; `run-tests` adds the
 (ns dotnet
   (:require [nostrand.tasks :as tasks]))
 
-(defn build     [] (tasks/compile-project))
+(defn build     [] (tasks/compile-project :clean? true))
 (defn run-tests [] (tasks/run-clojure-tests :aliases [:test]))
 ```
 
@@ -173,6 +174,31 @@ nos dotnet/run-tests    # requires the namespaces, runs clojure.test, exits non-
 `run-tests` executes under Mono and does not cover IL2CPP codegen; for Unity,
 an actual IL2CPP build is the only way to catch AOT-only regressions (see
 [`magic-unity-smoke`](../magic-unity-smoke)).
+
+`:clean? true` wipes the output dir before compiling, so the task does not need
+a `rm -rf build` shell step in front of it.
+
+## 5. CI caching
+
+Point `GITLIBS` at a path inside the checkout so the runner can persist git
+deps across pipelines. `nos` honours the same variable JVM tools.deps uses
+(cloning under `$GITLIBS/nostrand/`, which cannot collide with the JVM
+entries), so one setting covers both the JVM and CLR jobs. GitLab example:
+
+```yaml
+variables:
+  GITLIBS: $CI_PROJECT_DIR/.gitlibs
+
+cache:
+  paths:
+    - .m2/
+    - .gitlibs/
+    - .cpcache/
+```
+
+Use an absolute path (`$CI_PROJECT_DIR`-based, not a bare relative one): a
+relative `GITLIBS` resolves against the working directory of whichever process
+reads it.
 
 ## Rich-comment-tests on the CLR
 
