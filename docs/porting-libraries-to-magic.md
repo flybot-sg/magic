@@ -120,12 +120,25 @@ clearer than excluding the rest), pass `:namespaces`:
                     :aliases    [:test]))
 ```
 
+### Scope the run to your own suites
+
+`run-clojure-tests` runs every `clojure.test` suite loaded in the runtime, so
+requiring your test namespaces can pull in suites belonging to your
+dependencies. Pass `:re` to limit the run to namespaces the regex fully
+matches (`run-all-tests` filters with `re-matches`, so match the whole name,
+not a substring):
+
+```clojure
+(defn run-tests [] (tasks/run-clojure-tests :aliases [:test] :re #"my\.lib\..*"))
+```
+
 ### Options
 
 | Option        | `compile-project` | `run-clojure-tests` | Meaning                                                        |
 |---------------|:-----------------:|:-------------------:|----------------------------------------------------------------|
 | `:namespaces` | yes               | yes                 | Explicit namespaces, overrides derivation                      |
 | `:exclude`    | yes               | yes                 | Namespaces to drop from the derived (or explicit) set          |
+| `:re`         | no                | yes                 | Regex a namespace must fully match to be run                   |
 | `:aliases`    | yes               | yes                 | deps.edn aliases to activate, e.g. `[:test]`                   |
 | `:flags`      | yes               | yes                 | `var->value` binding map (default `tasks/production-flags`)    |
 | `:out`        | yes               | no                  | `*compile-path*` (default `"build"`)                           |
