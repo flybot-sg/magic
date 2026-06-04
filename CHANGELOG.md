@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.4.0 - 2026-06-04
+
+Native `deps.edn` resolution for nostrand, replacing `project.edn`, plus shared `dotnet.clj` build/test helpers - [#15](https://github.com/flybot-sg/magic/issues/15).
+
+### Nostrand deps
+- Nostrand resolves `deps.edn` natively at boot (alias merge, transitive git and local coords into `~/.nostrand/gitlibs`, `:override-deps`), so projects no longer need a `project.edn`. Private repos now authenticate through your git/SSH config rather than coordinate-level credentials. The `project.edn`-era providers (github, gitlab, maven, ipfs, nuget acquire) are removed; `mage`, `magic-compiler`, and `magic-unity-smoke` move onto `deps.edn`.
+- `:nos/submodule-paths` derives a project's `:paths` from `.gitmodules`, so a submodule-vendored project no longer hand-maintains the list.
+
+### Tooling
+- `nostrand.tasks` provides shared `dotnet.clj` helpers (`production-flags`, `compile-project`, `run-clojure-tests`), so consumer projects stop restating the flag binding block and namespace lists.
+
+### Docs
+- New [`docs/porting-libraries-to-magic.md`](docs/porting-libraries-to-magic.md): porting an existing Clojure library to MAGIC, including the RCT-on-CLR workflow.
+
 ## v0.3.0 - 2026-06-01
 
 Completes the Clojure 1.10 stdlib surface and unifies the compiler config behind `magic.flags`.
