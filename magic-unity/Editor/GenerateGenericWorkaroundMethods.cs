@@ -45,6 +45,57 @@ namespace Magic.Unity
                 {
                     names.Add(System.IO.Path.GetFileNameWithoutExtension(reference));
                 }
+                foreach (var reference in ResponseFileReferenceNames(assembly))
+                {
+                    names.Add(reference);
+                }
+            }
+            return names;
+        }
+
+        // allReferences never lists references added through compiler
+        // response files (csc.rsp -r:System.Web.dll), but player code
+        // compiles and ships against them, so their signatures deserve
+        // workarounds too.
+        static IEnumerable<string> ResponseFileReferenceNames(UnityEditor.Compilation.Assembly assembly)
+        {
+            var names = new List<string>();
+            foreach (var responseFile in assembly.compilerOptions.ResponseFiles)
+            {
+                string[] lines;
+                try
+                {
+                    lines = System.IO.File.ReadAllLines(responseFile);
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"[Magic.Unity] could not read response file {responseFile}: {e.Message}");
+                    continue;
+                }
+                foreach (var rawLine in lines)
+                {
+                    var line = rawLine.Trim();
+                    string value = null;
+                    if (line.StartsWith("-r:") || line.StartsWith("/r:"))
+                    {
+                        value = line.Substring(3);
+                    }
+                    else if (line.StartsWith("-reference:") || line.StartsWith("/reference:"))
+                    {
+                        value = line.Substring(11);
+                    }
+                    if (value == null)
+                    {
+                        continue;
+                    }
+                    // extern alias form: -r:alias=Assembly.dll
+                    var aliasSeparator = value.IndexOf('=');
+                    if (aliasSeparator >= 0)
+                    {
+                        value = value.Substring(aliasSeparator + 1);
+                    }
+                    names.Add(System.IO.Path.GetFileNameWithoutExtension(value.Trim().Trim('"')));
+                }
             }
             return names;
         }
