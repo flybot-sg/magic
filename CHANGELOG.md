@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.1 - 2026-06-05
+
+Hotfix for Windows IL2CPP builds in the Unity package.
+
+### Magic.Unity
+- IL2CPP workaround generation selects signature assemblies from the player compilation reference set (`CompilationPipeline`) instead of a Unity name-prefix check, so editor-only desktop assemblies (`Mono.WebBrowser`, reached through a `csc.rsp` `System.Web` reference on Windows) no longer leak into emitted signatures and break the build. Keep and skip decisions are logged, and a degenerate reference set fails the build instead of silently emitting no workarounds - [#23](https://github.com/flybot-sg/magic/issues/23).
+
 ## v0.5.0 - 2026-06-04
 
 Consumer quality-of-life fixes from the 0.4.0 rollout.
