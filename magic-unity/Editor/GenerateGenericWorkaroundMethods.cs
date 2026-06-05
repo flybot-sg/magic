@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
 using Mono.Cecil.Cil;
+using UnityEditor.Compilation;
 
 namespace Magic.Unity
 {
@@ -21,10 +22,35 @@ namespace Magic.Unity
         static List<MethodDefinition> AllMethods = new List<MethodDefinition>();
         static TypeDefinition MagicRuntimeDelegateHelpers = null;
 
+        static HashSet<string> PlayerReferenceNames = null;
+
+        // The collected assemblies feed AllMethods, the pool of candidate dynamic
+        // dispatch targets whose GetMethodDelegateFast instantiations get emitted
+        // into the shipped .clj.dlls. A signature referencing an assembly absent
+        // from the player build breaks the IL2CPP build; the type-reference
+        // closure resolves against the editor's full desktop BCL, which on
+        // Windows reaches editor-only assemblies like Mono.WebBrowser. So collect
+        // an assembly only if player scripts compile against it. Desktop-only BCL
+        // assemblies are never player compilation references, while UnityEngine
+        // modules, the player BCL profile, plugins (including .clj.dlls), and
+        // user script assemblies all are.
+        static HashSet<string> CollectPlayerReferenceNames()
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var assembly in CompilationPipeline.GetAssemblies(AssembliesType.PlayerWithoutTestAssemblies))
+            {
+                names.Add(assembly.name);
+                foreach (var reference in assembly.allReferences)
+                {
+                    names.Add(System.IO.Path.GetFileNameWithoutExtension(reference));
+                }
+            }
+            return names;
+        }
+
         static bool ShouldCollectReferencedAssembly(AssemblyDefinition assy)
         {
-            return !assy.FullName.StartsWith("Unity") || assy.FullName.StartsWith("UnityEngine");
-
+            return PlayerReferenceNames.Contains(assy.Name.Name);
         }
 
         static HashSet<AssemblyDefinition> CollectAllReferencedAssemblies(AssemblyDefinition assydef, HashSet<AssemblyDefinition> seen = null)
@@ -51,7 +77,7 @@ namespace Magic.Unity
                         }
                         else
                         {
-                            UnityEngine.Debug.Log($"[CollectAllReferencedAssemblies] Skip {resolved.Module.Assembly}");
+                            UnityEngine.Debug.Log($"[CollectAllReferencedAssemblies] Skip {resolved.Module.Assembly} (not a player compilation reference)");
                         }
                     }
                 }
@@ -66,6 +92,18 @@ namespace Magic.Unity
 
         public static void Init()
         {
+            PlayerReferenceNames = CollectPlayerReferenceNames();
+            // A degenerate reference set would silently turn workaround
+            // generation into a no-op: the build stays green and devices throw
+            // ExecutionEngineException at runtime. Fail the build instead. Any
+            // sane player reference set contains a core library and at least
+            // one UnityEngine module.
+            if (!(PlayerReferenceNames.Contains("mscorlib") || PlayerReferenceNames.Contains("netstandard"))
+                || !PlayerReferenceNames.Any(n => n.StartsWith("UnityEngine")))
+            {
+                throw new InvalidOperationException($"[Magic.Unity] player compilation reference set looks degenerate ({PlayerReferenceNames.Count} entries), refusing to generate IL2CPP workarounds from it");
+            }
+            UnityEngine.Debug.Log($"[CollectAllReferencedAssemblies] player compilation references: {string.Join(",", PlayerReferenceNames.OrderBy(n => n))}");
             var assemblyCSharp = AssemblyDefinition.ReadAssembly("Library/ScriptAssemblies/Assembly-CSharp.dll");
             var referencedAssemblies = CollectAllReferencedAssemblies(assemblyCSharp);
             UnityEngine.Debug.Log($"[CollectAllReferencedAssemblies] {string.Join(",", referencedAssemblies)}");
