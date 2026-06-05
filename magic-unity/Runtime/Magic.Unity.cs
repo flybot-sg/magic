@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using clojure.lang;
 
 namespace Magic.Unity
@@ -23,20 +24,50 @@ namespace Magic.Unity
             if (!_booted)
             {
                 _booted = true;
-#if UNITY_EDITOR
-                RuntimeBootstrapFlag.CodeLoadOrder = new[] {
-                    RuntimeBootstrapFlag.CodeSource.InitType,
-                    RuntimeBootstrapFlag.CodeSource.FileSystem
-                };
-#elif ENABLE_IL2CPP
-                RuntimeBootstrapFlag.CodeLoadOrder = new[] {
-                    RuntimeBootstrapFlag.CodeSource.InitType
-                };
-#endif
-                RT.Initialize(doRuntimePostBoostrap: false);
-                RT.TryLoadInitType("clojure/core");
+                BootMagicRuntime();
                 RequireVar = RT.var("clojure.core", "require");
             }
+        }
+
+        // The bootstrap below uses API that only exists in MAGIC's Clojure
+        // fork: RuntimeBootstrapFlag.CodeLoadOrder, RT.Initialize with the
+        // doRuntimePostBoostrap parameter, and RT.TryLoadInitType. A consumer
+        // may keep a stock ClojureCLR in Assets for in-editor runtime
+        // compilation; Unity dedups managed plugins by file name, so this
+        // file can end up compiled against stock Clojure.dll. Bind the
+        // fork-only members via reflection: when the fork is present this
+        // runs the exact same bootstrap as before, when it is absent (stock)
+        // the bootstrap is skipped and stock self-initializes on first
+        // RT.var.
+        static void BootMagicRuntime()
+        {
+            var clojureAssembly = typeof(RT).Assembly;
+            var bootstrapFlagType = clojureAssembly.GetType("clojure.lang.RuntimeBootstrapFlag");
+            var codeLoadOrderField = bootstrapFlagType?.GetField("CodeLoadOrder", BindingFlags.Public | BindingFlags.Static);
+            var codeSourceType = bootstrapFlagType?.GetNestedType("CodeSource");
+            var initializeMethod = typeof(RT).GetMethod("Initialize", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(bool), typeof(bool) }, null);
+            var tryLoadInitTypeMethod = typeof(RT).GetMethod("TryLoadInitType", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(string) }, null);
+            if (codeLoadOrderField == null || codeSourceType == null || initializeMethod == null || tryLoadInitTypeMethod == null)
+            {
+                return;
+            }
+#if UNITY_EDITOR
+            SetCodeLoadOrder(codeLoadOrderField, codeSourceType, new[] { "InitType", "FileSystem" });
+#elif ENABLE_IL2CPP
+            SetCodeLoadOrder(codeLoadOrderField, codeSourceType, new[] { "InitType" });
+#endif
+            initializeMethod.Invoke(null, new object[] { true, false });
+            tryLoadInitTypeMethod.Invoke(null, new object[] { "clojure/core" });
+        }
+
+        static void SetCodeLoadOrder(FieldInfo codeLoadOrderField, Type codeSourceType, string[] sourceNames)
+        {
+            var codeLoadOrder = Array.CreateInstance(codeSourceType, sourceNames.Length);
+            for (var i = 0; i < sourceNames.Length; i++)
+            {
+                codeLoadOrder.SetValue(Enum.Parse(codeSourceType, sourceNames[i]), i);
+            }
+            codeLoadOrderField.SetValue(null, codeLoadOrder);
         }
 
         /// <summary>

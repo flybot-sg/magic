@@ -8,7 +8,6 @@ using Mono.Cecil.Rocks;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEngine;
-using System.Reflection;
 
 namespace Magic.Unity
 {
@@ -40,7 +39,7 @@ namespace Magic.Unity
 
         static void RewriteAssembly(string file)
         {
-            var runtimeLocation = Path.GetDirectoryName(Assembly.Load("Magic.Runtime").Location);
+            var runtimeLocation = PackageExportPath.ExportDirectory;
             Debug.LogFormat($"[Magic.Unity] runtime location {runtimeLocation}");
 
             var resolver = new DefaultAssemblyResolver();

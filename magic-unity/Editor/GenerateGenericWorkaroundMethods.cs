@@ -60,7 +60,7 @@ namespace Magic.Unity
             seen.Add(assydef);
             var resolver = assydef.MainModule.AssemblyResolver as DefaultAssemblyResolver;
             resolver.AddSearchDirectory("Library/ScriptAssemblies");
-            resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(clojure.lang.RT).Assembly.Location));
+            resolver.AddSearchDirectory(PackageExportPath.ExportDirectory);
             resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(string).Assembly.Location));
             resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(UnityEngine.GameObject).Assembly.Location));
             
@@ -115,7 +115,7 @@ namespace Magic.Unity
                          .ToList();
 
             MagicRuntimeDelegateHelpers = AssemblyDefinition
-                                            .ReadAssembly(typeof(Magic.Runtime).Assembly.Location)
+                                            .ReadAssembly(PackageExportPath.MagicRuntimeDll)
                                             .MainModule
                                             .Types
                                             .Where(t => t.FullName == "Magic.DelegateHelpers").Single();
