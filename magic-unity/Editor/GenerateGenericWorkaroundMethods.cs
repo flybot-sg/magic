@@ -23,6 +23,7 @@ namespace Magic.Unity
         static TypeDefinition MagicRuntimeDelegateHelpers = null;
 
         static HashSet<string> PlayerReferenceNames = null;
+        static HashSet<string> PlayerReferenceDirectories = null;
 
         // The collected assemblies feed AllMethods, the pool of candidate dynamic
         // dispatch targets whose GetMethodDelegateFast instantiations get emitted
@@ -48,6 +49,33 @@ namespace Magic.Unity
             return names;
         }
 
+        // Player assemblies live in more places than the four directories
+        // below: UPM packages resolve under Library/PackageCache and
+        // precompiled plugins sit anywhere in Assets. Without their
+        // directories the resolver silently drops those assemblies from the
+        // reference walk and their signatures get no workarounds. Editor
+        // install paths stay excluded on purpose: searching the BCL profile
+        // directories makes the netstandard facade resolve, which expands
+        // the workaround closure into desktop BCL assemblies (System.Data
+        // and friends) and forces them into every player build.
+        static HashSet<string> CollectPlayerReferenceDirectories()
+        {
+            var editorInstall = System.IO.Path.GetDirectoryName(UnityEditor.EditorApplication.applicationPath);
+            var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var assembly in CompilationPipeline.GetAssemblies(AssembliesType.PlayerWithoutTestAssemblies))
+            {
+                foreach (var reference in assembly.allReferences)
+                {
+                    var physical = System.IO.Path.GetFullPath(PackageExportPath.PhysicalPath(reference));
+                    if (!physical.StartsWith(editorInstall, StringComparison.OrdinalIgnoreCase))
+                    {
+                        directories.Add(System.IO.Path.GetDirectoryName(physical));
+                    }
+                }
+            }
+            return directories;
+        }
+
         static bool ShouldCollectReferencedAssembly(AssemblyDefinition assy)
         {
             return PlayerReferenceNames.Contains(assy.Name.Name);
@@ -63,7 +91,11 @@ namespace Magic.Unity
             resolver.AddSearchDirectory(PackageExportPath.ExportDirectory);
             resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(string).Assembly.Location));
             resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(UnityEngine.GameObject).Assembly.Location));
-            
+            foreach (var directory in PlayerReferenceDirectories)
+            {
+                resolver.AddSearchDirectory(directory);
+            }
+
             foreach (var tr in assydef.MainModule.GetTypeReferences())
             {
                 try
@@ -93,6 +125,7 @@ namespace Magic.Unity
         public static void Init()
         {
             PlayerReferenceNames = CollectPlayerReferenceNames();
+            PlayerReferenceDirectories = CollectPlayerReferenceDirectories();
             // A degenerate reference set would silently turn workaround
             // generation into a no-op: the build stays green and devices throw
             // ExecutionEngineException at runtime. Fail the build instead. Any
