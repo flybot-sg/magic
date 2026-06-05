@@ -21,17 +21,15 @@ namespace Magic.Unity
 
         public static void RewriteAssemblies()
         {
-            var cljAssemblies = AppDomain.CurrentDomain
-                            .GetAssemblies()
-                            .Where(a => a.FullName.Contains(".clj"))
-                            .Select(a => a.Location);
-            RewriteAssemblies(cljAssemblies);
+            RewriteAssemblies(PlayerCljAssemblies.Paths());
         }
 
         public static void RewriteAssemblies(IEnumerable<string> files)
         {
+            var fileList = files.ToList();
+            Debug.LogFormat("[Magic.Unity] rewriting {0} clj assemblies", fileList.Count);
             GenerateGenericWorkaroundMethods.Init();
-            foreach (var file in files)
+            foreach (var file in fileList)
             {
                 RewriteAssembly(file);
             }

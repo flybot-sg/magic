@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using UnityEditor.PackageManager;
 
@@ -11,15 +12,29 @@ namespace Magic.Unity
     // the physical location for git, registry, local and embedded packages.
     internal static class PackageExportPath
     {
-        internal static string ExportDirectory
-        {
-            get
-            {
-                var package = PackageInfo.FindForAssembly(typeof(PackageExportPath).Assembly);
-                return Path.Combine(package.resolvedPath, "Runtime", "Infrastructure", "Export");
-            }
-        }
+        static PackageInfo Package => PackageInfo.FindForAssembly(typeof(PackageExportPath).Assembly);
+
+        internal static string ExportDirectory => Path.Combine(Package.resolvedPath, "Runtime", "Infrastructure", "Export");
 
         internal static string MagicRuntimeDll => Path.Combine(ExportDirectory, "Magic.Runtime.dll");
+
+        internal static string ExportAssetPath => Package.assetPath + "/Runtime/Infrastructure/Export";
+
+        // Asset paths under Packages/ are virtual; map them to the physical
+        // location before any File or Cecil access. Assets/ paths and
+        // absolute paths pass through.
+        internal static string PhysicalPath(string assetPath)
+        {
+            if (assetPath.StartsWith("Packages/", StringComparison.Ordinal))
+            {
+                var package = PackageInfo.FindForAssetPath(assetPath);
+                if (package != null)
+                {
+                    var relative = assetPath.Substring(package.assetPath.Length + 1);
+                    return Path.Combine(package.resolvedPath, relative);
+                }
+            }
+            return assetPath;
+        }
     }
 }

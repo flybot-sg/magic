@@ -12,10 +12,8 @@ namespace Magic.Unity
     {
         public static void BuildLinkXml()
         {
-            var cljAssemblies = AppDomain.CurrentDomain
-                                        .GetAssemblies()
-                                        .Where(a => a.FullName.Contains(".clj"))
-                                        .Select(a => a.FullName)
+            var cljAssemblies = PlayerCljAssemblies.Paths()
+                                        .Select(Path.GetFileNameWithoutExtension)
                                         .Concat(new[] { "Clojure", "Magic.Runtime" });
             BuildLinkXml(cljAssemblies);
 
