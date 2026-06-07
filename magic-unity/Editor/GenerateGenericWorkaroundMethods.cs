@@ -38,6 +38,7 @@ namespace Magic.Unity
         static HashSet<string> CollectPlayerReferenceNames()
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var responseFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var assembly in CompilationPipeline.GetAssemblies(AssembliesType.PlayerWithoutTestAssemblies))
             {
                 names.Add(assembly.name);
@@ -48,8 +49,12 @@ namespace Magic.Unity
                 foreach (var reference in ResponseFileReferenceNames(assembly))
                 {
                     names.Add(reference);
+                    responseFileNames.Add(reference);
                 }
             }
+            // The full reference list below can exceed Unity's log line limit,
+            // so the response file contribution gets its own observable line.
+            UnityEngine.Debug.Log($"[Magic.Unity] response file references: {(responseFileNames.Count == 0 ? "(none)" : string.Join(",", responseFileNames.OrderBy(n => n)))}");
             return names;
         }
 
