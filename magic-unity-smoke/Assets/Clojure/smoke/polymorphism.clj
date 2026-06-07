@@ -1,9 +1,12 @@
 (ns smoke.polymorphism
   "Polymorphism mechanisms: protocols, reify, deftype, defrecord,
   and multimethods. Exercises protocol dispatch, generic sharing,
-  and the protocol method-cache under IL2CPP. No develop-branch
-  fix is bound specifically to one of these checks; the suite is
-  broad construct coverage to catch dispatch-related regressions.")
+  and the protocol method-cache under IL2CPP. The mutable-field
+  set! check is bound to the deftype set! castclass fix: stfld of
+  an invoke return into a type-hinted mutable field used to emit
+  without castclass, unverifiable IL that Mono accepts and IL2CPP
+  rejects at C++ compile time. The rest of the suite is broad
+  construct coverage to catch dispatch-related regressions.")
 
 (defn- pass [n]       {:name n :pass? true})
 (defn- fail [n detail] {:name n :pass? false :detail detail})
@@ -31,6 +34,15 @@
   (area  [_] (* w h))
   (label [_] "box"))
 
+(defprotocol IAccum
+  (add-item [a x])
+  (item-vec [a]))
+
+(deftype Accum [^:unsynchronized-mutable ^clojure.lang.PersistentVector items]
+  IAccum
+  (add-item [this x] (set! items (conj items x)) this)
+  (item-vec [_] items))
+
 (defmulti animal-sound :kind)
 (defmethod animal-sound :dog  [_] "woof")
 (defmethod animal-sound :cat  [_] "meow")
@@ -57,6 +69,9 @@
                      (ToString [] "i-am-proxy"))]
              (.ToString o))
           "i-am-proxy")
+   (check "deftype set! hinted mutable field from invoke return"
+          #(item-vec (-> (->Accum []) (add-item 1) (add-item 2)))
+          [1 2])
    (check "multimethod :dog"
           #(animal-sound {:kind :dog}) "woof")
    (check "multimethod default"
