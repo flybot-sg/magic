@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
 using Mono.Cecil.Cil;
+using UnityEditor.Compilation;
 
 namespace Magic.Unity
 {
@@ -21,10 +22,119 @@ namespace Magic.Unity
         static List<MethodDefinition> AllMethods = new List<MethodDefinition>();
         static TypeDefinition MagicRuntimeDelegateHelpers = null;
 
+        static HashSet<string> PlayerReferenceNames = null;
+        static HashSet<string> PlayerReferenceDirectories = null;
+
+        // The collected assemblies feed AllMethods, the pool of candidate dynamic
+        // dispatch targets whose GetMethodDelegateFast instantiations get emitted
+        // into the shipped .clj.dlls. A signature referencing an assembly absent
+        // from the player build breaks the IL2CPP build; the type-reference
+        // closure resolves against the editor's full desktop BCL, which on
+        // Windows reaches editor-only assemblies like Mono.WebBrowser. So collect
+        // an assembly only if player scripts compile against it. Desktop-only BCL
+        // assemblies are never player compilation references, while UnityEngine
+        // modules, the player BCL profile, plugins (including .clj.dlls), and
+        // user script assemblies all are.
+        static HashSet<string> CollectPlayerReferenceNames()
+        {
+            var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var responseFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var assembly in CompilationPipeline.GetAssemblies(AssembliesType.PlayerWithoutTestAssemblies))
+            {
+                names.Add(assembly.name);
+                foreach (var reference in assembly.allReferences)
+                {
+                    names.Add(System.IO.Path.GetFileNameWithoutExtension(reference));
+                }
+                foreach (var reference in ResponseFileReferenceNames(assembly))
+                {
+                    names.Add(reference);
+                    responseFileNames.Add(reference);
+                }
+            }
+            // The full reference list below can exceed Unity's log line limit,
+            // so the response file contribution gets its own observable line.
+            UnityEngine.Debug.Log($"[Magic.Unity] response file references: {(responseFileNames.Count == 0 ? "(none)" : string.Join(",", responseFileNames.OrderBy(n => n)))}");
+            return names;
+        }
+
+        // allReferences never lists references added through compiler
+        // response files (csc.rsp -r:System.Web.dll), but player code
+        // compiles and ships against them, so their signatures deserve
+        // workarounds too.
+        static IEnumerable<string> ResponseFileReferenceNames(UnityEditor.Compilation.Assembly assembly)
+        {
+            var names = new List<string>();
+            foreach (var responseFile in assembly.compilerOptions.ResponseFiles)
+            {
+                string[] lines;
+                try
+                {
+                    lines = System.IO.File.ReadAllLines(responseFile);
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"[Magic.Unity] could not read response file {responseFile}: {e.Message}");
+                    continue;
+                }
+                foreach (var rawLine in lines)
+                {
+                    var line = rawLine.Trim();
+                    string value = null;
+                    if (line.StartsWith("-r:") || line.StartsWith("/r:"))
+                    {
+                        value = line.Substring(3);
+                    }
+                    else if (line.StartsWith("-reference:") || line.StartsWith("/reference:"))
+                    {
+                        value = line.Substring(11);
+                    }
+                    if (value == null)
+                    {
+                        continue;
+                    }
+                    // extern alias form: -r:alias=Assembly.dll
+                    var aliasSeparator = value.IndexOf('=');
+                    if (aliasSeparator >= 0)
+                    {
+                        value = value.Substring(aliasSeparator + 1);
+                    }
+                    names.Add(System.IO.Path.GetFileNameWithoutExtension(value.Trim().Trim('"')));
+                }
+            }
+            return names;
+        }
+
+        // Player assemblies live in more places than the four directories
+        // below: UPM packages resolve under Library/PackageCache and
+        // precompiled plugins sit anywhere in Assets. Without their
+        // directories the resolver silently drops those assemblies from the
+        // reference walk and their signatures get no workarounds. Editor
+        // install paths stay excluded on purpose: searching the BCL profile
+        // directories makes the netstandard facade resolve, which expands
+        // the workaround closure into desktop BCL assemblies (System.Data
+        // and friends) and forces them into every player build.
+        static HashSet<string> CollectPlayerReferenceDirectories()
+        {
+            var editorInstall = System.IO.Path.GetDirectoryName(UnityEditor.EditorApplication.applicationPath);
+            var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var assembly in CompilationPipeline.GetAssemblies(AssembliesType.PlayerWithoutTestAssemblies))
+            {
+                foreach (var reference in assembly.allReferences)
+                {
+                    var physical = System.IO.Path.GetFullPath(PackageExportPath.PhysicalPath(reference));
+                    if (!physical.StartsWith(editorInstall, StringComparison.OrdinalIgnoreCase))
+                    {
+                        directories.Add(System.IO.Path.GetDirectoryName(physical));
+                    }
+                }
+            }
+            return directories;
+        }
+
         static bool ShouldCollectReferencedAssembly(AssemblyDefinition assy)
         {
-            return !assy.FullName.StartsWith("Unity") || assy.FullName.StartsWith("UnityEngine");
-
+            return PlayerReferenceNames.Contains(assy.Name.Name);
         }
 
         static HashSet<AssemblyDefinition> CollectAllReferencedAssemblies(AssemblyDefinition assydef, HashSet<AssemblyDefinition> seen = null)
@@ -34,10 +144,14 @@ namespace Magic.Unity
             seen.Add(assydef);
             var resolver = assydef.MainModule.AssemblyResolver as DefaultAssemblyResolver;
             resolver.AddSearchDirectory("Library/ScriptAssemblies");
-            resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(clojure.lang.RT).Assembly.Location));
+            resolver.AddSearchDirectory(PackageExportPath.ExportDirectory);
             resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(string).Assembly.Location));
             resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(UnityEngine.GameObject).Assembly.Location));
-            
+            foreach (var directory in PlayerReferenceDirectories)
+            {
+                resolver.AddSearchDirectory(directory);
+            }
+
             foreach (var tr in assydef.MainModule.GetTypeReferences())
             {
                 try
@@ -51,7 +165,7 @@ namespace Magic.Unity
                         }
                         else
                         {
-                            UnityEngine.Debug.Log($"[CollectAllReferencedAssemblies] Skip {resolved.Module.Assembly}");
+                            UnityEngine.Debug.Log($"[CollectAllReferencedAssemblies] Skip {resolved.Module.Assembly} (not a player compilation reference)");
                         }
                     }
                 }
@@ -66,6 +180,19 @@ namespace Magic.Unity
 
         public static void Init()
         {
+            PlayerReferenceNames = CollectPlayerReferenceNames();
+            PlayerReferenceDirectories = CollectPlayerReferenceDirectories();
+            // A degenerate reference set would silently turn workaround
+            // generation into a no-op: the build stays green and devices throw
+            // ExecutionEngineException at runtime. Fail the build instead. Any
+            // sane player reference set contains a core library and at least
+            // one UnityEngine module.
+            if (!(PlayerReferenceNames.Contains("mscorlib") || PlayerReferenceNames.Contains("netstandard"))
+                || !PlayerReferenceNames.Any(n => n.StartsWith("UnityEngine")))
+            {
+                throw new InvalidOperationException($"[Magic.Unity] player compilation reference set looks degenerate ({PlayerReferenceNames.Count} entries), refusing to generate IL2CPP workarounds from it");
+            }
+            UnityEngine.Debug.Log($"[CollectAllReferencedAssemblies] player compilation references: {string.Join(",", PlayerReferenceNames.OrderBy(n => n))}");
             var assemblyCSharp = AssemblyDefinition.ReadAssembly("Library/ScriptAssemblies/Assembly-CSharp.dll");
             var referencedAssemblies = CollectAllReferencedAssemblies(assemblyCSharp);
             UnityEngine.Debug.Log($"[CollectAllReferencedAssemblies] {string.Join(",", referencedAssemblies)}");
@@ -77,7 +204,7 @@ namespace Magic.Unity
                          .ToList();
 
             MagicRuntimeDelegateHelpers = AssemblyDefinition
-                                            .ReadAssembly(typeof(Magic.Runtime).Assembly.Location)
+                                            .ReadAssembly(PackageExportPath.MagicRuntimeDll)
                                             .MainModule
                                             .Types
                                             .Where(t => t.FullName == "Magic.DelegateHelpers").Single();

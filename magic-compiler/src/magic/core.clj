@@ -2161,6 +2161,11 @@
                          (when value-used?
                            [(il/stloc val-local)
                             (il/ldloc val-local)])
+                         ;; without this the stack value keeps its static type
+                         ;; (often Object from an invoke return) and stfld into
+                         ;; a hinted field emits unverifiable IL: Mono accepts
+                         ;; it, IL2CPP rejects the generated C++.
+                         (convert val (.FieldType field))
                          (when (volatile? field)
                            (il/volatile))
                          (il/stfld field)

@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.6.0 - 2026-06-07
+
+Stock-ClojureCLR coexistence for Unity consumers that keep ClojureCLR as the editor runtime, plus IL2CPP workaround-selection fixes.
+
+### Compiler
+- `set!` on a hinted mutable deftype field emits a `castclass`, fixing unverifiable IL that IL2CPP's transpiler rejects - [#27](https://github.com/flybot-sg/magic/issues/27).
+
+### Magic.Unity
+- Coexistence: while a strong-named `Clojure.dll` is under `Assets`, fork `.clj.dll` plugins are excluded from the editor (and restored when it leaves), keeping stock RT's `clojure.core.clj` probe away from fork assemblies - [#25](https://github.com/flybot-sg/magic/issues/25). Editor scripts compile against the stock assembly in that state - [#24](https://github.com/flybot-sg/magic/issues/24).
+- IL2CPP workaround signatures come from player compilation references instead of an editor AppDomain scan, keeping editor-only assemblies (e.g. `Mono.WebBrowser` on Windows) out of the signature pool - [#23](https://github.com/flybot-sg/magic/issues/23).
+- The workaround resolver searches project-local player reference directories - [#26](https://github.com/flybot-sg/magic/issues/26).
+- `csc.rsp` `-r:` references count as player references and are logged for build-log verification.
+- README documents the benign coexistence console lines (`Assembly is incompatible with the editor`).
+
 ## v0.5.0 - 2026-06-04
 
 Consumer quality-of-life fixes from the 0.4.0 rollout.
