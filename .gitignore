@@ -15,6 +15,8 @@ obj/
 *.sln
 !nostrand/references/*.dll
 !magic-unity/Runtime/Infrastructure/Export/*.dll
+!magic-unity-dual/Runtime/Infrastructure/Export/*.dll
+!unity-examples/magic-unity-coexist/Assets/Plugins/clojure-clr/**/*.dll
 
 # macOS
 .DS_Store

@@ -1,0 +1,40 @@
+# Unity-generated, machine-local
+Library/
+Temp/
+Logs/
+Obj/
+Build/
+Builds/
+MemoryCaptures/
+UserSettings/
+
+# Unity-generated IDE project files
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# The immutable package tarball: a build artifact repacked from magic-unity by
+# `bb coexist-noise`. The PackageCache install of this tgz is what reproduces
+# the noise (a mutable file: install writes the editor-off flip back and the
+# narration never appears).
+/magic-unity.tgz
+
+# Resolved against the repacked tgz hash; regenerated every run.
+Packages/packages-lock.json
+
+# Would only appear if someone runs a build; not part of the editor repro.
+Assets/Plugins/Magic/
+Assets/Plugins/Magic.meta
+Assets/link.xml
+Assets/link.xml.meta

@@ -33,7 +33,7 @@ MAGIC is a monorepo. Every issue should carry one or more `comp:` labels naming 
 - `comp:magic-compiler`
 - `comp:nostrand`
 - `comp:magic-unity`
-- `comp:magic-unity-smoke`
+- `comp:unity-examples`
 
 ## Pull requests
 

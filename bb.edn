@@ -2,6 +2,7 @@
 ;; Run `bb tasks` for the public list.
 
 {:min-bb-version "1.3.0"
+ :paths ["bb"]
  :tasks
  {:requires ([babashka.fs :as fs]
              [clojure.string :as str])
@@ -89,6 +90,7 @@
 
   check-drift
   {:doc "Verify generated files, stdlib bootstrap DLLs, and UPM version are current. Runs regen + refresh-stdlib + sync-upm-version and fails if the working tree changed. Use in CI and before opening a PR."
+   :requires ([magic.unity :as unity])
    :depends [regen-callsites refresh-stdlib sync-upm-version]
    ;; Drift signals checked:
    ;;  - magic-runtime/Magic.Runtime/Generated: .g.cs files produced by Mustache
@@ -100,9 +102,21 @@
    ;;    non-deterministic (gensyms, hash tokens) and would always fail.
    ;;  - magic-unity/package.json: UPM manifest version field. Synced from
    ;;    version.edn by sync-upm-version (above).
+   ;;  - magic-unity-dual: the generated coexistence variant. gen-unity-dual
+   ;;    copies magic-unity verbatim, then constrains the 46 runtime metas and
+   ;;    renames the package. refresh-stdlib (above) redeploys freshly-compiled,
+   ;;    non-deterministic DLLs into magic-unity/Runtime/Infrastructure/Export,
+   ;;    so we revert that byproduct first; the dual is then a copy of the
+   ;;    committed binaries and the diff isolates the deterministic transforms
+   ;;    (the meta constraints, the package rename) plus any DLL the maintainer
+   ;;    refreshed in magic-unity without regenerating the dual.
    :task (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
                               "magic-compiler/stdlib-manifest.edn"
-                              "magic-unity/package.json"]
+                              "magic-unity/package.json"
+                              "magic-unity-dual"]
+               _ (shell "git" "checkout" "--"
+                        "magic-unity/Runtime/Infrastructure/Export/")
+               _ (unity/gen-dual!)
                {:keys [out]} (apply shell {:continue true :out :string}
                                     "git" "diff" "--" checked-paths)]
            (when-not (str/blank? out)
@@ -111,12 +125,14 @@
                (println "Drift detected.")
                (println "Either a .mustache template was edited without regenerating .g.cs,")
                (println "a stdlib .clj source was edited without refreshing its .clj.dll,")
-               (println "or version.edn was bumped without syncing magic-unity/package.json.")
+               (println "version.edn was bumped without syncing magic-unity/package.json,")
+               (println "or magic-unity changed without regenerating magic-unity-dual.")
                (println)
                (println "Fix locally:")
                (println "  bb regen-callsites      # if magic-runtime Generated/ drifted")
                (println "  bb refresh-stdlib       # if stdlib-manifest.edn drifted")
                (println "  bb sync-upm-version     # if magic-unity/package.json drifted")
+               (println "  bb gen-unity-dual       # if magic-unity-dual drifted from magic-unity")
                (println "  git add" (str/join " " checked-paths)
                         "nostrand/references magic-unity/Runtime/Infrastructure/Export")
                (println)
@@ -211,6 +227,22 @@
                    (println line)
                    (when-not (str/includes? line ":tag :ret")
                      (recur)))))))}
+
+  ;; ============================================================
+  ;; Unity packaging (two variants) + coexistence repro
+  ;; ============================================================
+
+  gen-unity-dual
+  {:doc "Generate the magic-unity-dual UPM package from magic-unity. Byte-identical except the 46 runtime *.clj.dll plugins carry defineConstraints ['!UNITY_EDITOR'] so Unity leaves them out of the editor (a project running stock ClojureCLR in the editor then sees no 'incompatible with the editor' narration), and package.json is renamed sg.flybot.magic.unity.dual. The default sg.flybot.magic.unity stays editor-loadable so MAGIC also runs in the editor's Play mode. Output is committed and drift-checked; regenerate after any magic-unity change."
+   :requires ([magic.unity :as unity])
+   :task (println "Generated magic-unity-dual -" (unity/gen-dual!)
+                  "runtime plugins constrained to !UNITY_EDITOR")}
+
+  coexist-noise
+  {:doc "Reproduce / regression-check the coexistence editor noise in-repo (the #25 'Assembly is incompatible with the editor' narration). Packs a magic-unity variant into an immutable tarball, points the magic-unity-coexist project (which vendors stock ClojureCLR) at it via a fresh PackageCache resolve (the only state that shows the noise: a mutable file: install writes the editor-off flip back and it never appears), launches Unity 2022.3.62f3 headless twice, and reports the narration-line count plus CoexistenceProbe state. 'bb coexist-noise' tests the dual variant (expect 0 lines, the shipped fix); 'bb coexist-noise magic-only' tests the default variant (expect 46 lines, the problem the dual variant solves). Quit any GUI Unity holding magic-unity-coexist first (batchmode exits 134)."
+   :requires ([magic.unity :as unity])
+   :depends [gen-unity-dual]
+   :task (unity/coexist-noise! (or (first *command-line-args*) "dual"))}
 
   ;; ============================================================
   ;; Hygiene

@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "sg.flybot.magic.unity.dual": "file:../magic-unity.tgz"
+  }
+}
