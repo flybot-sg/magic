@@ -1,0 +1,24 @@
+{
+    "name": "sg.flybot.magic.unity.dual",
+    "version": "0.6.0",
+    "displayName": "MAGIC Unity Integration (dual: stock editor + MAGIC players)",
+    "description": "The integration of the MAGIC Clojure compiler into Unity",
+    "unity": "2021.2",
+    "unityRelease": "3f1",
+    "documentationUrl": "https://github.com/flybot-sg/magic",
+    "changelogUrl": "https://github.com/flybot-sg/magic/blob/main/CHANGELOG.md",
+    "licensesUrl": "https://github.com/flybot-sg/magic/blob/main/clojure-runtime/epl-v10.html",
+    "dependencies": {
+        "com.unity.nuget.mono-cecil": "1.11.4"
+    },
+    "keywords": [
+        "lisp",
+        "clojure",
+        "compiler",
+        "magic"
+    ],
+    "author": {
+        "name": "Flybot (fork of work by Ramsey Nasser)",
+        "url": "https://flybot.sg/"
+    }
+}

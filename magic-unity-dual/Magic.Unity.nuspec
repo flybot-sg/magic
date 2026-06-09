@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package>
+    <metadata>
+        <id>Magic.Unity</id>
+        <version>2.0.0</version>
+        <title>Magic.Unity</title>
+        <authors>skydread1</authors>
+        <description>Contains the MAGIC, Clojure, Clojure.Runtime and Magic.Runtime dlls.</description>
+        <repository type="git" url="https://github.com/skydread1/Magic.Unity" />
+        <dependencies>
+          <group targetFramework="netstandard2.0"></group>
+        </dependencies>
+    </metadata>
+    <files>
+      <!-- runtime dlls -->
+      <file src="Infrastructure\Export\*" target="lib\netstandard2.0\MagicUnity" />
+      <!-- Magic.Unity cs -->
+      <file src="Magic.Unity.cs" target="content"/>
+      <file src="Magic.Unity.cs.meta" target="content"/>
+      <file src="Editor\*" target="content\Editor"/>
+    </files>
+</package>

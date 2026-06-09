@@ -15,6 +15,7 @@ obj/
 *.sln
 !nostrand/references/*.dll
 !magic-unity/Runtime/Infrastructure/Export/*.dll
+!magic-unity-dual/Runtime/Infrastructure/Export/*.dll
 
 # macOS
 .DS_Store
