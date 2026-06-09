@@ -9,7 +9,7 @@
 
 (def ^:private default-pkg "magic-unity")
 (def ^:private dual-pkg "magic-unity-dual")
-(def ^:private coexist-proj "magic-unity-coexist")
+(def ^:private coexist-proj "unity-examples/magic-unity-coexist")
 (def ^:private unity
   "/Applications/Unity/Hub/Editor/2022.3.62f3/Unity.app/Contents/MacOS/Unity")
 

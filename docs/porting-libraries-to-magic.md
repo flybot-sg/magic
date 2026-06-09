@@ -173,7 +173,7 @@ nos dotnet/run-tests    # requires the namespaces, runs clojure.test, exits non-
 
 `run-tests` executes under Mono and does not cover IL2CPP codegen; for Unity,
 an actual IL2CPP build is the only way to catch AOT-only regressions (see
-[`magic-unity-smoke`](../magic-unity-smoke)).
+[`magic-unity-smoke`](../unity-examples/magic-unity-smoke)).
 
 `:clean? true` wipes the output dir before compiling, so the task does not need
 a `rm -rf build` shell step in front of it.

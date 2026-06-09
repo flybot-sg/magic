@@ -10,7 +10,7 @@ Runtime regression suite for MAGIC's IL2CPP output. Catches bugs that only repro
 ## Run
 
 ```bash
-cd magic-unity-smoke
+cd unity-examples/magic-unity-smoke
 nos dotnet/build
 ```
 

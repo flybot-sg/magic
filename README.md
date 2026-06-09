@@ -35,7 +35,7 @@ MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself t
 | [magic-compiler](./magic-compiler) | The compiler (s-expressions to MSIL) | Clojure |
 | [nostrand](./nostrand) | Task runner, dependency manager, REPL | C# + Clojure |
 | [magic-unity](./magic-unity) | Unity integration package (IL2CPP support) | C# |
-| [magic-unity-smoke](./magic-unity-smoke) | Standalone Unity project that exercises MAGIC under IL2CPP. Regression suite for AOT-only bugs, runs by hand on the verified Unity version (`2022.3.62f3`). | Clojure + C# |
+| [magic-unity-smoke](./unity-examples/magic-unity-smoke) | Standalone Unity project that exercises MAGIC under IL2CPP. Regression suite for AOT-only bugs, runs by hand on the verified Unity version (`2022.3.62f3`). | Clojure + C# |
 
 Each component has its own README with detailed documentation.
 
@@ -96,7 +96,7 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
    }
    ```
 
-3. **Add `deps.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./magic-unity-smoke/): `deps.edn` declares your source `:paths` and any `:deps` (`nos` resolves them at boot, cloning git deps into `~/.nostrand/gitlibs`), and `dotnet.clj` holds the build/test tasks. The `nostrand.tasks` helpers (`compile-project`, `run-clojure-tests`) pin the shipped compiler flags and can derive the namespace set from your `deps.edn` paths, so `dotnet.clj` stays small. See [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) for the `dotnet.clj` patterns and the full option set.
+3. **Add `deps.edn` and `dotnet.clj`** at your Unity project root. Copy the templates from [`magic-unity-smoke/`](./unity-examples/magic-unity-smoke/): `deps.edn` declares your source `:paths` and any `:deps` (`nos` resolves them at boot, cloning git deps into `~/.nostrand/gitlibs`), and `dotnet.clj` holds the build/test tasks. The `nostrand.tasks` helpers (`compile-project`, `run-clojure-tests`) pin the shipped compiler flags and can derive the namespace set from your `deps.edn` paths, so `dotnet.clj` stays small. See [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) for the `dotnet.clj` patterns and the full option set.
 
 4. **Compile your Clojure** before opening Unity:
 
@@ -106,7 +106,7 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
 
    Drops your `.clj.dll` files into `Assets/Plugins/Magic/` where Unity will load them.
 
-5. **Open Unity, hit Play.** For CI, define a `nos dotnet/run-tests` task in your `dotnet.clj` to run Mono-side tests independent of Unity (see [`magic-unity-smoke/dotnet.clj`](magic-unity-smoke/dotnet.clj)). IL2CPP-only regressions need an actual Unity build; [`magic-unity-smoke`](./magic-unity-smoke) is the reference pattern.
+5. **Open Unity, hit Play.** For CI, define a `nos dotnet/run-tests` task in your `dotnet.clj` to run Mono-side tests independent of Unity (see [`magic-unity-smoke/dotnet.clj`](unity-examples/magic-unity-smoke/dotnet.clj)). IL2CPP-only regressions need an actual Unity build; [`magic-unity-smoke`](./unity-examples/magic-unity-smoke) is the reference pattern.
 
 ### Use `nos` for non-Unity Clojure-on-CLR
 
@@ -284,7 +284,7 @@ cd magic-compiler && mono ../nostrand/bin/Release/net471/NostrandMain.exe test/a
 
 The MAGIC compiler itself uses the `test/all` entrypoint in [magic-compiler/test.clj](magic-compiler/test.clj). Downstream projects use their own `nos dotnet/run-tests` (see the Getting Started section above for the pattern).
 
-For IL2CPP-specific regressions (AOT-only bugs that the Mono editor cannot catch), [magic-unity-smoke](./magic-unity-smoke) drives MAGIC's compile output through Unity's IL2CPP pipeline and reports pass/fail in the built player. Run by hand on the verified Unity version after touching the compiler, the runtimes, or `magic-unity` itself.
+For IL2CPP-specific regressions (AOT-only bugs that the Mono editor cannot catch), [magic-unity-smoke](./unity-examples/magic-unity-smoke) drives MAGIC's compile output through Unity's IL2CPP pipeline and reports pass/fail in the built player. Run by hand on the verified Unity version after touching the compiler, the runtimes, or `magic-unity` itself.
 
 ## Git History
 

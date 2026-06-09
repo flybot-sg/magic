@@ -22,7 +22,7 @@ Consume as a UPM package via git URL in `Packages/manifest.json`, pinned to a ta
 "sg.flybot.magic.unity.dual": "https://github.com/flybot-sg/magic.git?path=magic-unity-dual#<tag>"
 ```
 
-Install exactly one variant. See [magic-unity-smoke](../magic-unity-smoke) for a working IL2CPP regression project that uses this integration.
+Install exactly one variant. See [magic-unity-smoke](../unity-examples/magic-unity-smoke) for a working IL2CPP regression project that uses this integration.
 
 ## What the package ships
 
@@ -34,7 +34,7 @@ Install exactly one variant. See [magic-unity-smoke](../magic-unity-smoke) for a
 
 ## How it works
 
-1. You compile your own Clojure namespaces to `.clj.dll` outside Unity via `nos dotnet/build`, writing them into `Assets/Plugins/Magic/` (see [magic-unity-smoke/dotnet.clj](../magic-unity-smoke/dotnet.clj) for the canonical task definition). The package does not include a compiler.
+1. You compile your own Clojure namespaces to `.clj.dll` outside Unity via `nos dotnet/build`, writing them into `Assets/Plugins/Magic/` (see [magic-unity-smoke/dotnet.clj](../unity-examples/magic-unity-smoke/dotnet.clj) for the canonical task definition). The package does not include a compiler.
 2. Unity opens the project. The prebuilt runtime + stdlib from `Runtime/Infrastructure/Export/` and your own `.clj.dll`s are both loaded as plain .NET assemblies. `Magic.Unity.Clojure.Boot()` initialises the runtime; `Require` / `GetVar` let C# scripts call into Clojure.
 3. On every build, `MagicPreprocessor` runs first. When the build target uses IL2CPP, it rewrites the `.clj.dll` bodies in place so the IL2CPP transpiler can consume them (and writes `link.xml` entries); on a Mono build the preprocessor only sweeps any leftover IL2CPP-only workarounds from a previous build. The runtime DLLs are loaded the same way under either backend.
 4. Coexistence with stock ClojureCLR: if a strong-named `Clojure.dll` is found under `Assets` (projects that keep ClojureCLR for Editor work and MAGIC for shipped builds), every MAGIC-compiled `.clj.dll` is imported with Editor loading off, because the stock runtime probe-loads `clojure.core.clj` at init and a MAGIC DLL answering that probe fails to load. With this default variant the runtime ships Editor-loadable, so on an immutable (PackageCache) install the Editor logs `Assembly '...clj.dll' will not be loaded due to errors: Assembly is incompatible with the editor` for the package's `Export` DLLs on every domain reload. These lines are benign (Unity reporting the intended exclusion, not a failure), and player builds are unaffected. To silence them, use the [`.dual` variant](#package-variants), which ships the runtime excluded from the Editor by construction.

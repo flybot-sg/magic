@@ -17,7 +17,7 @@
       }
     },
     "sg.flybot.magic.unity": {
-      "version": "file:../../magic-unity",
+      "version": "file:../../../magic-unity",
       "depth": 0,
       "source": "local",
       "dependencies": {
