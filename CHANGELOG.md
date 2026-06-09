@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.7.0 - 2026-06-09
+
+A second Unity package variant for projects that keep stock ClojureCLR as the editor runtime.
+
+### Magic.Unity
+- New `sg.flybot.magic.unity.dual` variant: the runtime `*.clj.dll` carry a `!UNITY_EDITOR` define constraint, so Unity excludes them from the editor and a coexistence project no longer logs the `Assembly is incompatible with the editor` lines on every domain reload. The default `sg.flybot.magic.unity` is unchanged and still runs MAGIC in editor Play mode - [#30](https://github.com/flybot-sg/magic/issues/30).
+- New `docs/unity-integration.md` covers the consumer workflow and how to choose a variant.
+
+### Tooling
+- `bb gen-unity-dual` generates the dual variant from `magic-unity` (drift-checked by `bb check-drift`); `bb coexist-noise` reproduces the console noise in-repo via `unity-examples/magic-unity-coexist`. Example Unity projects moved under `unity-examples/`.
+
 ## v0.6.0 - 2026-06-07
 
 Stock-ClojureCLR coexistence for Unity consumers that keep ClojureCLR as the editor runtime, plus IL2CPP workaround-selection fixes.
