@@ -6,7 +6,7 @@ A functional Clojure compiler library and the start of a standalone Clojure impl
 
 ## Status
 
-The compiler is feature complete and can be considered beta quality software.
+The compiler is feature-complete against Clojure 1.10 and used in production (Flybot ships it on Unity, including iOS via IL2CPP). It is still maturing, not yet as battle-tested as JVM Clojure.
 
 ## Overview
 

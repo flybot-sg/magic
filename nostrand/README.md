@@ -31,16 +31,13 @@ Functions are Clojure functions. Without a namespace, they resolve to the `nostr
 
 ```
 $ nos version
-Nostrand 0.0.1.6940 (master/a1e4260* Mon Nov 28 03:51:20 EST 2016)
-Mono 4.8.0 (mono-4.8.0-branch/f5fbc32 Mon Nov 14 14:18:03 EST 2016)
-Clojure 1.7.0-master-SNAPSHOT
+Nostrand <version>
+Clojure.Runtime <version>
+Magic.Runtime <version>
+Clojure 1.10.0-master-SNAPSHOT
 
 $ nos repl
-Nostrand 0.0.1.6940 (master/a1e4260* Mon Nov 28 03:51:20 EST 2016)
-Mono 4.8.0 (mono-4.8.0-branch/f5fbc32 Mon Nov 14 14:18:03 EST 2016)
-Clojure 1.7.0-master-SNAPSHOT
-REPL 0.0.0.0:11217
-user>
+user=>
 ```
 
 With a namespace they are searched for using Clojure's normal namespace resolution machinery. The current directory is on the load path by default.
@@ -147,7 +144,15 @@ A CLR build typically activates a `:clr` alias carrying the forks the JVM side d
 
 A project that vendors its dependencies as git submodules can treat `.gitmodules` as the single source of truth for its `:paths`. Set `:nos/submodule-paths` to a path prefix (or `true` for every submodule) and boot derives the source paths from the checked-out submodules. Preview the derived list with `nos gitmodules-paths [prefix]`.
 
-NuGet packages can be packed and pushed with the `tasks/nuget-push` task.
+### Build and test tasks
+
+The built-in `nostrand.tasks` namespace ships shared `dotnet.clj` helpers so a project does not restate its build:
+
+* `compile-project` compiles the namespaces on the (alias-activated) source paths.
+* `run-clojure-tests` requires and runs `clojure.test` suites; `:re` scopes the run to matching namespaces.
+* `production-flags` is the `var->value` flag map shipped projects compile under (`*direct-linking*`, `*strongly-typed-invokes*`, ...).
+
+A project's own `dotnet.clj` calls these. See [Porting a Clojure library to MAGIC](../docs/porting-libraries-to-magic.md) for the full `dotnet.clj` shapes and the option reference.
 
 ## Name
 [Nostrand Avenue](https://en.wikipedia.org/wiki/Nostrand_Avenue) is a major street and subway stop in Brooklyn near where I was living when I began the project.

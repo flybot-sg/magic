@@ -58,6 +58,19 @@ Keep it to one line.
 
 Reference the issue with `Closes #<n>` in the description so GitHub closes it when the change reaches `main`. Keep bullets short; the issue carries the full context.
 
+### Before opening one
+
+Run the local gate first; CI runs the same drift check and tests:
+
+```bash
+bb clean
+bb build
+bb check-drift   # fails on codegen, stdlib, dual-variant, or version drift
+bb test
+```
+
+See [Development](./README.md#development) for what each task does.
+
 ## Commits
 
 We follow [Conventional Commits](https://www.conventionalcommits.org/):

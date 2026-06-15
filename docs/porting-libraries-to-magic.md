@@ -1,18 +1,12 @@
 # Porting a Clojure library to MAGIC
 
-How to take an existing Clojure library and compile and test it on the CLR
-with MAGIC. Assumes `nos` is installed (see the [Install](../README.md#install)
-section).
+How to take an existing Clojure library and compile and test it on the CLR with MAGIC. Assumes `nos` is installed (see the [Install](../README.md#install) section).
 
-The work is in three parts: make the source cross-platform, declare paths and
-deps in `deps.edn`, and add a `dotnet.clj` with build and test tasks.
+The work is in three parts: make the source cross-platform, declare paths and deps in `deps.edn`, and add a `dotnet.clj` with build and test tasks.
 
 ## 1. Make the source cross-platform
 
-MAGIC runs the same source the JVM does, through Clojure
-[reader conditionals](https://clojure.org/guides/reader_conditionals). Rename
-`.clj` files to `.cljc` and gate the platform-specific parts (interop,
-`require`/`import`, type hints) behind `:cljr`:
+MAGIC runs the same source the JVM does, through Clojure [reader conditionals](https://clojure.org/guides/reader_conditionals). Rename `.clj` files to `.cljc` and gate the platform-specific parts (interop, `require`/`import`, type hints) behind `:cljr`:
 
 ```clojure
 (defn round
@@ -22,17 +16,13 @@ MAGIC runs the same source the JVM does, through Clojure
      :cljr (Math/Round n)))
 ```
 
-Only `:clj` and `:cljr` branches are needed; there is no third platform to
-default to. Keep type hints inside `:cljr` so the JVM stays dynamically typed
-and your existing tests keep passing. The full flag and type-hint surface is in
-[`magic-compiler/src/magic/flags.clj`](../magic-compiler/src/magic/flags.clj).
+Only `:clj` and `:cljr` branches are needed; there is no third platform to default to. Keep type hints inside `:cljr` so the JVM stays dynamically typed and your existing tests keep passing. The full flag and type-hint surface is in [`magic-compiler/src/magic/flags.clj`](../magic-compiler/src/magic/flags.clj).
+
+For the source patterns in depth (value-type and reference-type hints, records and protocols, the host APIs that genuinely differ, and the Clojure 1.10 stdlib surface) see [Writing cross-platform Clojure](./writing-cross-platform-clojure.md).
 
 ## 2. deps.edn
 
-`nos` resolves `deps.edn` natively (git and local deps; it clones git deps into
-`$GITLIBS` if set, else `~/.nostrand/gitlibs`, at boot). Declare your source
-`:paths` and put test sources under a `:test` alias so they only load when
-testing:
+`nos` resolves `deps.edn` natively (git and local deps; it clones git deps into `$GITLIBS` if set, else `~/.nostrand/gitlibs`, at boot). Declare your source `:paths` and put test sources under a `:test` alias so they only load when testing:
 
 ```clojure
 {:paths ["src"]
@@ -42,11 +32,7 @@ testing:
 
 ### Swap JVM dependencies for CLR forks
 
-A dependency (yours or one pulled transitively) may be JVM-only on Maven, while
-a CLR fork of it exists as a git repo. `nos` skips Maven coords, so the JVM one
-never resolves; point at the fork with `:override-deps` under a `:clr` alias.
-`:override-deps` swaps a lib's coord wherever it appears in the tree, including
-transitive sightings, without adding it as a root dependency:
+A dependency (yours or one pulled transitively) may be JVM-only on Maven, while a CLR fork of it exists as a git repo. `nos` skips Maven coords, so the JVM one never resolves; point at the fork with `:override-deps` under a `:clr` alias. `:override-deps` swaps a lib's coord wherever it appears in the tree, including transitive sightings, without adding it as a root dependency:
 
 ```clojure
 {:paths ["src"]
@@ -62,20 +48,15 @@ transitive sightings, without adding it as a root dependency:
                                  :git/sha "..."}}}}}
 ```
 
-Activate it with `nos` either by listing it in `:nos/aliases [:clr]` (applied at
-boot) or by passing `:aliases [:clr ...]` from your `dotnet.clj` task.
+The `:clr` alias does nothing until activated. Add `:nos/aliases [:clr]` at the top level of `deps.edn`; `nos` applies it at boot, so the override is in effect for every task.
 
 ## 3. dotnet.clj
 
-Put a `dotnet.clj` at the project root. `nostrand.tasks` provides the build and
-test tasks, so a project only states what is specific to it. Pick one of the
-three shapes below.
+Put a `dotnet.clj` at the project root. `nostrand.tasks` provides the build and test tasks, so a project only states what is specific to it. Pick one of the three shapes below.
 
 ### Derive namespaces from deps.edn (recommended)
 
-With no explicit list, the namespaces are read off the source paths the given
-aliases contribute. `build` compiles the base `:paths`; `run-tests` adds the
-`:test` alias paths:
+With no explicit list, the namespaces are read off the source paths the given aliases contribute. `build` compiles the base `:paths`; `run-tests` adds the `:test` alias paths:
 
 ```clojure
 (ns dotnet
@@ -87,9 +68,7 @@ aliases contribute. `build` compiles the base `:paths`; `run-tests` adds the
 
 ### Exclude namespaces that must not load on the CLR
 
-A source tree often carries namespaces that cannot load under MAGIC (a
-ClojureScript-only namespace, JVM-only test tooling). Keep deriving and drop
-them with `:exclude`:
+A source tree often carries namespaces that cannot load under MAGIC (a ClojureScript-only namespace, JVM-only test tooling). Keep deriving and drop them with `:exclude`:
 
 ```clojure
 (ns dotnet
@@ -104,9 +83,7 @@ them with `:exclude`:
 
 ### Hardcode the namespace list
 
-When you want exact control (a single compile root, a vendored namespace not
-reachable by `require`, or a test dir where naming the few real suites is
-clearer than excluding the rest), pass `:namespaces`:
+When you want exact control (a single compile root, a vendored namespace not reachable by `require`, or a test dir where naming the few real suites is clearer than excluding the rest), pass `:namespaces`:
 
 ```clojure
 (ns dotnet
@@ -123,11 +100,7 @@ clearer than excluding the rest), pass `:namespaces`:
 
 ### Scope the run to your own suites
 
-`run-clojure-tests` runs every `clojure.test` suite loaded in the runtime, so
-requiring your test namespaces can pull in suites belonging to your
-dependencies. Pass `:re` to limit the run to namespaces the regex fully
-matches (`run-all-tests` filters with `re-matches`, so match the whole name,
-not a substring):
+`run-clojure-tests` runs every `clojure.test` suite loaded in the runtime, so requiring your test namespaces can pull in suites belonging to your dependencies. Pass `:re` to limit the run to namespaces the regex fully matches (`run-all-tests` filters with `re-matches`, so match the whole name, not a substring):
 
 ```clojure
 (defn run-tests [] (tasks/run-clojure-tests :aliases [:test] :re #"my\.lib\..*"))
@@ -146,10 +119,7 @@ not a substring):
 | `:clean?`     | yes               | no                  | Wipe `:out` first (Unity dirs that must not keep stale DLLs)   |
 | `:exit?`      | no                | yes                 | `Environment/Exit 1` on any failure or error (default true)    |
 
-`tasks/production-flags` is the flag set shipped projects compile under
-(`*direct-linking*`, `*strongly-typed-invokes*`, `*elide-meta*`,
-`*unchecked-math*`, `*warn-on-reflection*`). It is a plain map, so a test run
-that needs redefinable vars overrides it:
+`tasks/production-flags` is the flag set shipped projects compile under (`*direct-linking*`, `*strongly-typed-invokes*`, `*elide-meta*`, `*unchecked-math*`, `*warn-on-reflection*`). It is a plain map, so a test run that needs redefinable vars overrides it:
 
 ```clojure
 (ns dotnet
@@ -171,19 +141,17 @@ nos dotnet/build        # compiles to ./build (or :out)
 nos dotnet/run-tests    # requires the namespaces, runs clojure.test, exits non-zero on failure
 ```
 
-`run-tests` executes under Mono and does not cover IL2CPP codegen; for Unity,
-an actual IL2CPP build is the only way to catch AOT-only regressions (see
-[`magic-unity-smoke`](../unity-examples/magic-unity-smoke)).
+`run-tests` executes under Mono and does not cover IL2CPP codegen; for Unity, an actual IL2CPP build is the only way to catch AOT-only regressions (see [`magic-unity-smoke`](../unity-examples/magic-unity-smoke)).
 
-`:clean? true` wipes the output dir before compiling, so the task does not need
-a `rm -rf build` shell step in front of it.
+`:clean? true` wipes the output dir before compiling, so the task does not need a `rm -rf build` shell step in front of it.
 
-## 5. CI caching
+## 5. CI
 
-Point `GITLIBS` at a path inside the checkout so the runner can persist git
-deps across pipelines. `nos` honours the same variable JVM tools.deps uses
-(cloning under `$GITLIBS/nostrand/`, which cannot collide with the JVM
-entries), so one setting covers both the JVM and CLR jobs. GitLab example:
+A CI job needs `mono` and `nos` (see [Install](../README.md#install)). Flybot publishes a prebuilt image for this, [`ghcr.io/flybot-sg/ci-clj-clr`](https://github.com/flybot-sg/ci-clj-clr) (JDK, Clojure CLI, Babashka, Mono, and a pinned `nos`), so one container runs both JVM and CLR test jobs; pin the tag that ships the MAGIC version you build against. [flybot-sg/clr.test.check](https://github.com/flybot-sg/clr.test.check) (the `magic` branch) is a worked example, adding this CI on top of David Miller's upstream port. Any image with `mono` plus the `nos` installer works just as well if you would rather not depend on it.
+
+### Caching
+
+Point `GITLIBS` at a path inside the checkout so the runner can persist git deps across pipelines. `nos` honours the same variable JVM tools.deps uses (cloning under `$GITLIBS/nostrand/`, which cannot collide with the JVM entries), so one setting covers both the JVM and CLR jobs. GitLab example:
 
 ```yaml
 variables:
@@ -196,24 +164,13 @@ cache:
     - .cpcache/
 ```
 
-Use an absolute path (`$CI_PROJECT_DIR`-based, not a bare relative one): a
-relative `GITLIBS` resolves against the working directory of whichever process
-reads it.
+Use an absolute path (`$CI_PROJECT_DIR`-based, not a bare relative one): a relative `GITLIBS` resolves against the working directory of whichever process reads it.
 
 ## Rich-comment-tests on the CLR
 
-If a library's tests are written as
-[rich comment tests](https://github.com/robertluo/rich-comment-tests) (RCT),
-they cannot run on the CLR as-is: RCT extracts assertions at runtime using
-`rewrite-clj` and other JVM-only machinery.
-[flybot-sg/rct-clr](https://github.com/flybot-sg/rct-clr) bridges this: on the
-JVM it reads the rich comments and emits a plain `.cljc` test file of ordinary
-`deftest` forms that assert with [matcho](https://github.com/flybot-sg/matcho).
-MAGIC then runs that generated file with just `clojure.test` and `matcho.core`.
+If a library's tests are written as [rich comment tests](https://github.com/robertluo/rich-comment-tests) (RCT), they cannot run on the CLR as-is: RCT extracts assertions at runtime using `rewrite-clj` and other JVM-only machinery. [flybot-sg/rct-clr](https://github.com/flybot-sg/rct-clr) bridges this: on the JVM it reads the rich comments and emits a plain `.cljc` test file of ordinary `deftest` forms that assert with [matcho](https://github.com/flybot-sg/matcho). MAGIC then runs that generated file with just `clojure.test` and `matcho.core`.
 
-The split shows up in `dotnet.clj`: test only the generated namespace and leave
-the RCT source out, since it would drag the JVM-only tooling in. `matcho` is the
-one extra runtime dependency, supplied by the `:clr` override above:
+The split shows up in `dotnet.clj`: test only the generated namespace and leave the RCT source out, since it would drag the JVM-only tooling in. `matcho` is the one extra runtime dependency, supplied by the `:clr` override above:
 
 ```clojure
 (def test-namespaces
@@ -226,13 +183,8 @@ one extra runtime dependency, supplied by the `:clr` override above:
    :aliases    [:clr :test]))
 ```
 
-The `clojure.test` assertion count on the CLR will not be one-for-one with a JVM
-run that executes the rich comments directly: RCT and the generated `deftest`s
-tally assertions differently (one `=>` expectation can expand to several matcho
-checks). The count differs; the same expectations are all verified.
+The `clojure.test` assertion count on the CLR will not be one-for-one with a JVM run that executes the rich comments directly: RCT and the generated `deftest`s tally assertions differently (one `=>` expectation can expand to several matcho checks). The count differs; the same expectations are all verified.
 
 ## Reference
 
-[flybot-sg/clr.test.check](https://github.com/flybot-sg/clr.test.check) is a fork
-of `clojure/test.check` ported with this workflow: reader conditionals
-throughout, and a `dotnet.clj` that derives its namespaces from `deps.edn`.
+[flybot-sg/clr.test.check](https://github.com/flybot-sg/clr.test.check) is a fork of `clojure/test.check` ported with this workflow: reader conditionals throughout, and a `dotnet.clj` that derives its namespaces from `deps.edn`.
