@@ -22,6 +22,14 @@
                   (get-all-methods base))))))
   ([t name] (->> t get-all-methods (filter #(= name (.Name %))))))
 
+(defn get-all-properties
+  ([t binding-flags]
+   (when t
+     (concat (.GetProperties t binding-flags)
+             (mapcat #(.GetProperties % binding-flags) (.GetInterfaces t)))))
+  ([t name binding-flags]
+   (->> (get-all-properties t binding-flags) (filter #(= name (.Name %))))))
+
 (def public-instance (enum-or BindingFlags/Instance BindingFlags/Public))
 (def public-static (enum-or BindingFlags/Static BindingFlags/Public))
 (def public-instance-static (enum-or BindingFlags/Instance BindingFlags/Static BindingFlags/Public))
@@ -74,7 +82,7 @@
             ;; TypeBuilders. target-type might be a TypeBuilder so we have to do
             ;; our own filtering/lookup 
             fields (.GetFields target-type binding-flags)
-            properties (.GetProperties target-type binding-flags)
+            properties (get-all-properties target-type binding-flags)
             ast* (merge (dissoc ast :field)
                         (when-let [field-info (->> fields (filter #(= (.Name %) field-name)) first)]
                           {:op (if static? :static-field :instance-field)
@@ -166,7 +174,7 @@
                         (when-let [field (.GetField target-type m-or-f binding-flags)]
                           {:op (if static? :static-field :instance-field)
                            :field field})
-                        (when-let [property (first (filter #(= (.Name %) m-or-f) (.GetProperties target-type)))]
+                        (when-let [property (first (get-all-properties target-type m-or-f binding-flags))]
                           {:op (if static? :static-property :instance-property)
                            :property property}))
             matched? (not= :host-interop (:op ast*))]

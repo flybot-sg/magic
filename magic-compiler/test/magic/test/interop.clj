@@ -63,3 +63,20 @@
 (deftest resolvable-array-type-hint-still-works
   (cljclr=magic
    (System.Guid. ^|System.Byte[]| (byte-array 16))))
+
+(deftest inherited-interface-property
+  (clojure.test/is
+   (= 2 (m/eval '(let [d (System.Collections.Hashtable.)]
+                   (.Add d "a" 1)
+                   (.Add d "b" 2)
+                   (.Count ^System.Collections.IDictionary d)))))
+  (clojure.test/is
+   (= 2 (m/eval '(let [d (System.Collections.Hashtable.)]
+                   (.Add d "a" 1)
+                   (.Add d "b" 2)
+                   (.-Count ^System.Collections.IDictionary d))))))
+
+(deftest inherited-class-property-still-resolves
+  (clojure.test/is
+   (= "boom" (m/eval '(.Message ^System.ArgumentException
+                                (System.ArgumentException. "boom"))))))
