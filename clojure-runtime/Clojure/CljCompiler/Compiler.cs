@@ -1760,14 +1760,28 @@ namespace clojure.lang
             InvokeInitType(assy, initType);
         }
 
+        // Run each init type's Initialize at most once; re-running it re-executes
+        // every top-level form. Recorded before the call so a re-entrant init
+        // short-circuits, and dropped on failure so a retry can run.
+        private static readonly HashSet<Type> _initializedInitTypes = new HashSet<Type>();
+
         private static void InvokeInitType(Assembly assy, Type initType)
         {
+            lock (_initializedInitTypes)
+            {
+                if (!_initializedInitTypes.Add(initType))
+                    return;
+            }
             try
             {
                 initType.InvokeMember("Initialize", BindingFlags.InvokeMethod | BindingFlags.Static | BindingFlags.Public, Type.DefaultBinder, null, new object[0]);
             }
             catch (Exception e)
             {
+                lock (_initializedInitTypes)
+                {
+                    _initializedInitTypes.Remove(initType);
+                }
                 throw new AssemblyInitializationException(String.Format("Error initializing {0}: {1}", assy.FullName, e.Message),e);
             }
         }
