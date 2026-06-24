@@ -34,10 +34,11 @@ One namespace per edge-case family. Each exports `(suite)` returning a vector of
 |-----------|-------:|-------|
 | `smoke.value-types`  | 9  | Zero-arity instance members on `Int64` / `Double` / `String`. Regression set for the constrained.callvirt fix. |
 | `smoke.letfn-cases`  | 3  | Mutually-recursive `letfn` and a closure case. Regression set for letfn closed-over field init. |
-| `smoke.polymorphism` | 8  | Protocols on `defrecord`/`deftype`, reify-against-protocol, reify and proxy against `System.Object`, multimethods. |
+| `smoke.polymorphism` | 19 | Protocols on `defrecord`/`deftype`, the auto-generated record collection surface (equiv/count/conj/assoc, incl. a zero-field record), reify-against-protocol, reify and proxy against `System.Object`, `proxy-super` (incl. the shadowed type-hinted `this` idiom), multimethods. |
 | `smoke.control-flow` | 10 | `loop`/`recur`, `try`/`catch`/`finally` (incl. nested try-finally with side-effecting finally + deref-in-catch), `lazy-seq`, basic numerics. |
+| `smoke.stdlib-1-10`  | 11 | Clojure 1.10 stdlib surface: `symbol`, `read+string`, `PrintWriter-on`, `tap>`, `Throwable->map`, ex-triage, extend-via-metadata. |
 
-30 checks total. All green under Mono and Standalone Mac IL2CPP.
+52 checks total. All green under Mono and Standalone Mac IL2CPP.
 
 ## Adding a new edge case
 
