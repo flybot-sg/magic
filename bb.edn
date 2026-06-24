@@ -21,10 +21,11 @@
            (throw (ex-info "nostrand not built" {:babashka/exit 1})))}
 
   -revert-byproducts
-  {:doc "Revert build-byproduct DLLs so iteration commits stay clean. The nostrand/references/ and magic-unity/Runtime/Infrastructure/Export/ binaries are intentionally tracked but only updated via dedicated commits, not as side effects of every iteration."
+  {:doc "Revert build-byproduct DLLs so iteration commits stay clean. The nostrand/references/ and magic-unity/Runtime/Infrastructure/Export/ binaries (and bootstrap-manifest.edn, which tracks them) are intentionally tracked but only updated via dedicated commits, not as side effects of every iteration."
    :task (shell "git" "checkout" "--"
                 "nostrand/references/"
-                "magic-unity/Runtime/Infrastructure/Export/")}
+                "magic-unity/Runtime/Infrastructure/Export/"
+                "magic-compiler/bootstrap-manifest.edn")}
 
   ;; ============================================================
   ;; Build
@@ -58,13 +59,20 @@
                   ":spells" "[magic.spells.sparse-case/sparse-case]"))}
 
   build-bootstrap
-  {:doc "After build-magic, deploy bootstrap DLLs into nostrand/references (rebuilds nostrand) and into magic-unity Runtime/Infrastructure/Export."
-   :task (shell "dotnet build -t:Bootstrap;MagicUnity")}
+  {:doc "After build-magic, deploy bootstrap DLLs into nostrand/references (rebuilds nostrand) and into magic-unity Runtime/Infrastructure/Export, then re-record bootstrap-manifest.edn from the refreshed sources."
+   :requires ([magic.drift :as drift])
+   :task (do (shell "dotnet build -t:Bootstrap;MagicUnity")
+             (drift/refresh-bootstrap-manifest!))}
 
   refresh-stdlib
   {:doc "Recompile every committed stdlib clojure.*.clj.dll from source and redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity/Runtime/Infrastructure/Export/. Use after editing any magic-compiler/src/stdlib/**/*.clj. Bootstrap namespaces (clojure.core etc.) are skipped; use bb build-magic + bb build-bootstrap for those."
    :depends [-check-nostrand]
    :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "refresh/stdlib")}
+
+  refresh-bootstrap-manifest
+  {:doc "Recompute magic-compiler/bootstrap-manifest.edn: the SHA256 of every committed bootstrap/compiler .clj source (clojure.core, the core_* helpers, magic.*, mage, and the bootstrap stdlib refresh-stdlib skips). Pure source hashing, no compiler run. Folded into bb build-bootstrap; run standalone only to re-baseline."
+   :requires ([magic.drift :as drift])
+   :task (drift/refresh-bootstrap-manifest!)}
 
   ;; ============================================================
   ;; Codegen
@@ -89,9 +97,9 @@
                  (println "Updated magic-unity/package.json version to" version))))}
 
   check-drift
-  {:doc "Verify generated files, stdlib bootstrap DLLs, and UPM version are current. Runs regen + refresh-stdlib + sync-upm-version and fails if the working tree changed. Use in CI and before opening a PR."
+  {:doc "Verify generated files, stdlib + bootstrap DLL manifests, and UPM version are current. Runs regen + refresh-stdlib + refresh-bootstrap-manifest + sync-upm-version and fails if the working tree changed. Use in CI and before opening a PR."
    :requires ([magic.unity :as unity])
-   :depends [regen-callsites refresh-stdlib sync-upm-version]
+   :depends [regen-callsites refresh-stdlib refresh-bootstrap-manifest sync-upm-version]
    ;; Drift signals checked:
    ;;  - magic-runtime/Magic.Runtime/Generated: .g.cs files produced by Mustache
    ;;    templates. Deterministic text output; byte-diffable.
@@ -100,6 +108,11 @@
    ;;    last refresh, the SHA in this file changes; that's our drift signal.
    ;;    We do NOT diff DLL bytes themselves because compilation is
    ;;    non-deterministic (gensyms, hash tokens) and would always fail.
+   ;;  - magic-compiler/bootstrap-manifest.edn: the same source-SHA tripwire for
+   ;;    the bootstrap set refresh-stdlib skips (clojure.core, the core_* helpers,
+   ;;    magic.*, mage). Updated by refresh-bootstrap-manifest / build-bootstrap.
+   ;;    Catches editing a compiler/core source without rerunning build-magic +
+   ;;    build-bootstrap to refresh its committed .clj.dll.
    ;;  - magic-unity/package.json: UPM manifest version field. Synced from
    ;;    version.edn by sync-upm-version (above).
    ;;  - magic-unity-dual: the generated coexistence variant. gen-unity-dual
@@ -112,6 +125,7 @@
    ;;    refreshed in magic-unity without regenerating the dual.
    :task (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
                               "magic-compiler/stdlib-manifest.edn"
+                              "magic-compiler/bootstrap-manifest.edn"
                               "magic-unity/package.json"
                               "magic-unity-dual"]
                _ (shell "git" "checkout" "--"
@@ -125,12 +139,14 @@
                (println "Drift detected.")
                (println "Either a .mustache template was edited without regenerating .g.cs,")
                (println "a stdlib .clj source was edited without refreshing its .clj.dll,")
+               (println "a compiler/core source was edited without rerunning build-magic + build-bootstrap,")
                (println "version.edn was bumped without syncing magic-unity/package.json,")
                (println "or magic-unity changed without regenerating magic-unity-dual.")
                (println)
                (println "Fix locally:")
                (println "  bb regen-callsites      # if magic-runtime Generated/ drifted")
                (println "  bb refresh-stdlib       # if stdlib-manifest.edn drifted")
+               (println "  bb build-magic + bb build-bootstrap   # if bootstrap-manifest.edn drifted")
                (println "  bb sync-upm-version     # if magic-unity/package.json drifted")
                (println "  bb gen-unity-dual       # if magic-unity-dual drifted from magic-unity")
                (println "  git add" (str/join " " checked-paths)
