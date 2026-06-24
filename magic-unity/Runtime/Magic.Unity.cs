@@ -49,6 +49,16 @@ namespace Magic.Unity
             var tryLoadInitTypeMethod = typeof(RT).GetMethod("TryLoadInitType", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(string) }, null);
             if (codeLoadOrderField == null || codeSourceType == null || initializeMethod == null || tryLoadInitTypeMethod == null)
             {
+                // Silent skip is correct for stock ClojureCLR (no RuntimeBootstrapFlag).
+                // A non-null bootstrapFlagType means the fork is loaded but a member
+                // moved, so warn rather than let the player die later with no pointer here.
+                if (bootstrapFlagType != null)
+                    UnityEngine.Debug.LogWarning(
+                        "MAGIC runtime bootstrap skipped: the Magic.Unity scripts and the loaded "
+                        + "Clojure.dll are from different MAGIC versions (missing fork member "
+                        + "RuntimeBootstrapFlag.CodeLoadOrder, RT.Initialize(bool,bool), or "
+                        + "RT.TryLoadInitType). Reimport the MAGIC Unity package so its scripts "
+                        + "and Clojure.dll come from the same version.");
                 return;
             }
 #if UNITY_EDITOR
