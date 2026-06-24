@@ -41,3 +41,14 @@
    (.Next
     (proxy [Random] [(int 0)]
       (Next [] (int (+ 1 (try (proxy-super Next) (catch Exception e 0)))))))))
+
+(deftest proxy-super-shadowed-this
+  (cljclr=magic
+   (.Next
+    (proxy [Random] [(int 0)]
+      (Next [] (let [^Random this this] (int (proxy-super Next))))))
+   (let [x 90]
+     (.Next
+      (proxy [Random] [x]
+        (Next [] (let [^Random this this]
+                   (int (* (.NextDouble this) (proxy-super Next))))))))))
