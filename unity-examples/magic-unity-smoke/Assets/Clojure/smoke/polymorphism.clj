@@ -29,6 +29,8 @@
   (area  [_] (* side side))
   (label [_] "square"))
 
+(defrecord Empty [])
+
 (deftype Box [^long w ^long h]
   IShape
   (area  [_] (* w h))
@@ -53,6 +55,22 @@
           #(area (->Square 4)) 16)
    (check "protocol on defrecord (label)"
           #(label (->Square 4)) "square")
+   (check "defrecord equiv true"
+          #(= (->Square 4) (->Square 4)) true)
+   (check "defrecord equiv false"
+          #(= (->Square 4) (->Square 5)) false)
+   (check "defrecord count"
+          #(count (->Square 4)) 1)
+   (check "defrecord conj + lookup"
+          #(:b (conj (->Square 4) {:b 2})) 2)
+   (check "empty defrecord equiv true"
+          #(= (->Empty) (->Empty)) true)
+   (check "empty defrecord count"
+          #(count (->Empty)) 0)
+   (check "empty defrecord seq is nil"
+          #(seq (->Empty)) nil)
+   (check "empty defrecord assoc + lookup"
+          #(:b (assoc (->Empty) :b 2)) 2)
    (check "protocol on deftype (area)"
           #(area (Box. 3 5)) 15)
    (check "reify implementing protocol"
@@ -69,6 +87,19 @@
                      (ToString [] "i-am-proxy"))]
              (.ToString o))
           "i-am-proxy")
+   (check "proxy-super reaches base method"
+          #(let [w (proxy [System.IO.StringWriter] []
+                     (ToString [] (str "<" (proxy-super ToString) ">")))]
+             (.Write w "hi")
+             (.ToString w))
+          "<hi>")
+   (check "proxy-super with shadowed type-hinted this"
+          #(let [w (proxy [System.IO.StringWriter] []
+                     (ToString [] (let [^System.IO.StringWriter this this]
+                                    (str "<" (proxy-super ToString) ">"))))]
+             (.Write w "hi")
+             (.ToString w))
+          "<hi>")
    (check "deftype set! hinted mutable field from invoke return"
           #(item-vec (-> (->Accum []) (add-item 1) (add-item 2)))
           [1 2])

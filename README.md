@@ -11,6 +11,15 @@ Morgan And Grand Iron Clojure
 
 A Clojure compiler targeting the Common Language Runtime (.NET). MAGIC compiles Clojure to MSIL bytecode, enabling Clojure to run in Unity (including IL2CPP/iOS builds) without the DLR.
 
+## Status
+
+Flybot uses MAGIC in production to ship Clojure game logic on Unity, including iOS via IL2CPP. The compiler is feature-complete against the Clojure 1.10 language and standard library, and still maturing (not yet as battle-tested as JVM Clojure). Concretely:
+
+- **Clojure 1.10 stdlib parity.** The marked-1.10 surface runs on the CLR (`ex-message`, `tap>`, `read+string`, `Throwable->map`, the `prepl` family, ...). MAGIC targets 1.10; the later releases (1.11 and the current 1.12) are not ported ([details](./docs/writing-cross-platform-clojure.md)).
+- **Runs in Unity, including IL2CPP and iOS.** MAGIC emits fully static MSIL, so it survives AOT compilation where the DLR-based ClojureCLR cannot ([why and how](./docs/why-magic.md)). Ships as a UPM package in two variants (see [Install](#install)).
+- **Same source on JVM and CLR.** A clean `.cljc` library within the 1.10 stdlib compiles unchanged on both MAGIC and ClojureCLR, with no MAGIC-specific patches.
+- **IL2CPP-tested.** A standalone Unity smoke project exercises AOT-only regressions on the verified Unity version; green on Mono and Standalone IL2CPP ([smoke suite](./unity-examples/magic-unity-smoke)).
+
 ## About this version
 
 This monorepo bundles the six MAGIC repositories ([magic](https://github.com/nasser/magic), [mage](https://github.com/nasser/mage), [Clojure.Runtime](https://github.com/nasser/Clojure.Runtime), [Magic.Runtime](https://github.com/nasser/Magic.Runtime), [nostrand](https://github.com/nasser/nostrand), [Magic.Unity](https://github.com/nasser/Magic.Unity)) originally created by [Ramsey Nasser](https://nas.sr) and contributors (2014-2023).
@@ -24,6 +33,15 @@ This is not a replacement of Ramsey's MAGIC. It's the version Flybot maintains.
 The JVM Clojure compiler targets the Java Virtual Machine. MAGIC targets .NET instead, taking full advantage of the CLR's features to produce better bytecode. This enables Clojure in environments where the JVM cannot run, notably Unity game engine (including iOS via IL2CPP).
 
 MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself through Nostrand, its task runner.
+
+## Documentation
+
+- [Why MAGIC](./docs/why-magic.md): why a static CLR compiler is needed (iOS forbids the runtime code generation ClojureCLR's DLR relies on; IL2CPP only AOT-compiles IL that already exists).
+- [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md): `.cljc` source patterns for code that runs on both the JVM and the CLR.
+- [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md): `deps.edn`, `dotnet.clj`, and CI for a CLR build.
+- [Unity integration](./docs/unity-integration.md): compile `.clj.dll` and load them in a Unity project.
+
+Per-component reference lives in each component's own README, linked from [Components](#components) below. To contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Components
 
@@ -66,10 +84,18 @@ Packaging
 
 Two shippable artifacts; pick the one(s) your project needs.
 
-| Artifact | What it is | Built from | Ships via | Consumer pulls via |
-|---|---|---|---|---|
-| **`nos` CLI** | Build-time task runner that compiles Clojure to MSIL. Used by Unity projects (at build time, before opening Unity) and by non-Unity Clojure libs that want CLR test runs | `nostrand/` + `clojure-runtime/` + `magic-runtime/` + `magic-compiler/` | GitHub Releases tarball, cut on every `v*` tag by [`.github/workflows/release.yml`](.github/workflows/release.yml) | `install/nos.sh` (one-line curl; requires `mono` runtime, no .NET SDK) |
-| **`magic-unity` UPM package** | Play-time Clojure runtime + IL2CPP build pre-processor. Loaded by Unity inside a Unity project; not a standalone artifact | `magic-unity/` subdir of this repo (source + tracked playtime DLLs under `magic-unity/Runtime/Infrastructure/Export/`) | This repo, pinned by git tag | Unity's `Packages/manifest.json` UPM git URL with `?path=magic-unity#<tag>` |
+**`nos` CLI**: a build-time task runner that compiles Clojure to MSIL. Used by Unity projects (before opening Unity) and by non-Unity Clojure libs that want CLR test runs.
+
+- Built from `nostrand/` + `clojure-runtime/` + `magic-runtime/` + `magic-compiler/`.
+- Ships as a GitHub Releases tarball, cut on every `v*` tag by [`release.yml`](.github/workflows/release.yml).
+- Consumers install it with `install/nos.sh` (one-line curl; needs `mono`, no .NET SDK).
+
+**`magic-unity` UPM package**: the play-time Clojure runtime plus the IL2CPP build pre-processor, loaded by Unity inside a project. It ships in **two variants**, and picking one is the first decision:
+
+- **`sg.flybot.magic.unity`** (default): MAGIC runs everywhere, including the Editor's Play mode. Pin `?path=magic-unity#<tag>`. Use this unless your Editor already runs stock ClojureCLR.
+- **`sg.flybot.magic.unity.dual`**: the runtime is excluded from the Editor (`!UNITY_EDITOR`), so the Editor keeps stock ClojureCLR (REPL / hot-reload) and MAGIC ships only in player builds. Pin `?path=magic-unity-dual#<tag>`.
+
+Player builds are identical either way. Both are pinned by git tag and added as a UPM git URL in `Packages/manifest.json`; full comparison in [Unity integration](./docs/unity-integration.md).
 
 ### Use MAGIC in a Unity project
 
@@ -91,7 +117,7 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
 
 ### Use `nos` for non-Unity Clojure-on-CLR
 
-Same `install/nos.sh` line, no Unity needed. Drop a `deps.edn` + `dotnet.clj` at your library root, then `nos dotnet/run-tests`. Tests execute under Mono via the `nos` you just installed. [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) walks through the whole workflow: reader conditionals, `deps.edn`, and the three `dotnet.clj` shapes (derive from aliases, exclude, or hardcode the namespace list).
+Same `install/nos.sh` line, no Unity needed. Drop a `deps.edn` + `dotnet.clj` at your library root, then `nos dotnet/run-tests`. Tests execute under Mono via the `nos` you just installed. [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) walks through the whole workflow: reader conditionals, `deps.edn`, and the three `dotnet.clj` shapes (derive from aliases, exclude, or hardcode the namespace list). [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md) covers the `.cljc` source patterns themselves: type hints, host interop, records and protocols, and the Clojure 1.10 stdlib surface.
 
 ## Prerequisites for working on MAGIC itself
 
@@ -233,15 +259,6 @@ stdout/stderr during eval), `:tap` (values from `tap>`); an `:exception true`
 so each call is fast. This runs only under Mono/nostrand: prepl evaluates at
 runtime, so it has no IL2CPP/AOT path.
 
-### Before opening a PR
-
-```bash
-bb clean
-bb build
-bb check-drift   # catches forgotten regen after .mustache edits
-bb test
-```
-
 ### MSBuild targets (underlying)
 
 The actual build is orchestrated by `Magic.csproj`. The `bb` tasks call into these; invoke them directly if you'd rather not install bb.
@@ -266,6 +283,10 @@ cd magic-compiler && mono ../nostrand/bin/Release/net471/NostrandMain.exe test/a
 The MAGIC compiler itself uses the `test/all` entrypoint in [magic-compiler/test.clj](magic-compiler/test.clj). Downstream projects use their own `nos dotnet/run-tests` (see the Getting Started section above for the pattern).
 
 For IL2CPP-specific regressions (AOT-only bugs that the Mono editor cannot catch), [magic-unity-smoke](./unity-examples/magic-unity-smoke) drives MAGIC's compile output through Unity's IL2CPP pipeline and reports pass/fail in the built player. Run by hand on the verified Unity version after touching the compiler, the runtimes, or `magic-unity` itself.
+
+## Contributing
+
+Issue, PR, and commit conventions (including component labels and the paired bootstrap-refresh rule) are in [CONTRIBUTING.md](./CONTRIBUTING.md), along with the local checks to run before opening a PR.
 
 ## Git History
 

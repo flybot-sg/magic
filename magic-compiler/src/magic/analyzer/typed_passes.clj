@@ -329,6 +329,10 @@
 
 (def ^:dynamic *recur-expr-types* (atom []))
 
+;; Enclosing proxy Type for :proxy-super. Not read from the `this` local, which
+;; a let can shadow while proxy-super still targets the enclosing proxy.
+(def ^:dynamic *proxy-type* nil)
+
 ;; this whole thing should be rethought
 (defn typed-passes [ast]
   (letfn [(update-closed-overs
@@ -366,10 +370,7 @@
       (let [args (:args ast)
             env (:env ast)
             method-name (str (:method ast))
-            proxy-this-binding (-> ast :env :locals (get 'this))
-            this-name (:name proxy-this-binding)
-            proxy-type (*typed-pass-locals* this-name)
-            super-type (.BaseType proxy-type)
+            super-type (.BaseType *proxy-type*)
             candidate-methods
             (->> (when super-type (.GetMethods super-type))
                  (filter #(= (.Name %) method-name)))
@@ -389,7 +390,8 @@
       (let [ast* (analyze-proxy ast)
             this-name (-> ast* :this-binding :name)
             proxy-type (:proxy-type ast*)]
-        (binding [*typed-pass-locals* (assoc *typed-pass-locals* this-name proxy-type)]
+        (binding [*typed-pass-locals* (assoc *typed-pass-locals* this-name proxy-type)
+                  *proxy-type* proxy-type]
           (let [ast** (update-children ast* typed-passes)
               ;; maybe move ths closed overs part into compiler
                 closed-overs (reduce (fn [co ast] (merge co (:closed-overs ast))) {} (:fns ast**))

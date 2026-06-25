@@ -1,6 +1,6 @@
 {
     "name": "sg.flybot.magic.unity",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "displayName": "MAGIC Unity Integration",
     "description": "The integration of the MAGIC Clojure compiler into Unity",
     "unity": "2021.2",

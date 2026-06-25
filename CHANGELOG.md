@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.8.0 - 2026-06-24
+
+Compiler and runtime correctness fixes, plus CI coverage for the committed bootstrap binaries.
+
+### Compiler
+- Inherited interface properties resolve on an interface type hint: property resolution now walks `.GetInterfaces` like method resolution already did, so e.g. `(.Count ^System.Collections.IDictionary d)` compiles instead of failing to resolve - [#32](https://github.com/flybot-sg/magic/issues/32).
+- `proxy-super` resolves its base type from the enclosing proxy when `this` is shadowed by a type-hinted local, instead of crashing the analyzer - [#9](https://github.com/flybot-sg/magic/issues/9).
+
+### Runtime
+- `Compiler.InvokeInitType` initializes each assembly's init type at most once. A stray re-init of an already-loaded namespace no longer re-runs its top-level forms (which reset `*load-paths*` and cascaded into sub-namespace reloads). Reloading an already-initialized, DLL-backed namespace via `:reload` is now a no-op; source reload and freshly recompiled DLLs are unaffected - [#3](https://github.com/flybot-sg/magic/issues/3).
+
+### Magic.Unity
+- `BootMagicRuntime` warns when a fork `Clojure.dll` is loaded but an expected bootstrap member is missing (the package scripts and `Clojure.dll` are mismatched MAGIC versions), instead of silently skipping the runtime bootstrap. It stays silent under stock ClojureCLR, so coexistence editors and hot-reload setups see nothing.
+- Dropped the obsolete NuGet packaging from the package.
+
+### Tooling
+- `bb check-drift` now guards the bootstrap and compiler `.clj.dll` set that `refresh-stdlib` skips (`clojure.core`, the `core_*` helpers, `magic.*`, `mage`) via `magic-compiler/bootstrap-manifest.edn` source SHA256s. Editing a compiler or core source without rerunning `bb build-magic` + `bb build-bootstrap` now fails CI instead of shipping a stale committed binary.
+
+### Docs
+- Project documentation restructured and CLR porting/interop guides added.
+
 ## v0.7.0 - 2026-06-09
 
 A second Unity package variant for projects that keep stock ClojureCLR as the editor runtime.
