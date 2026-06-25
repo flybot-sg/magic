@@ -1762,7 +1762,8 @@ namespace clojure.lang
 
         // Run each init type's Initialize at most once; re-running it re-executes
         // every top-level form. Recorded before the call so a re-entrant init
-        // short-circuits, and dropped on failure so a retry can run.
+        // short-circuits; cleared on failure so a later attempt re-runs Initialize
+        // from the top (it does not resume a partially-applied init).
         private static readonly HashSet<Type> _initializedInitTypes = new HashSet<Type>();
 
         private static void InvokeInitType(Assembly assy, Type initType)
