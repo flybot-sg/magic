@@ -2,6 +2,7 @@
  ^{:author "Ramsey Nasser"
    :doc    "Built in nostrand tasks, available from the command line as unqualified functions"}
  nostrand.tasks
+  (:refer-clojure :exclude [test])
   (:import
    [Nostrand Nostrand]
    [System.IO Directory File]
@@ -13,10 +14,11 @@
             [nostrand.deps.basis :as basis]
             [nostrand.deps.submodules :as submodules]
             [magic.flags :as mflags]
+            [clojure.edn :as edn]
             [clojure.string :as string]
             [clojure.pprint :as pprint]
             [clojure.core.server :as clj-server]
-            [clojure.test :as test]
+            [clojure.test :as ct]
             clojure.repl))
 
 (defn- msg
@@ -130,15 +132,21 @@
 (def production-flags
   "The compilation flags shipped MAGIC projects build under, as a var->value
   map ready for `clojure.core/with-bindings` or the `:flags` option of
-  `compile-project` / `run-clojure-tests`. Kept open on purpose: a task that
-  needs to deviate assoc's onto it (test runs that rely on redefinable vars
-  set :direct-linking and :strongly-typed-invokes false), or passes its own
-  map. Shared so consumer dotnet.clj tasks do not each restate the set."
+  `compile-project` / `run-clojure-tests`. A plain map, so a task that needs
+  to deviate assoc's onto it or passes its own (see `test-flags`). Shared so
+  consumer dotnet.clj tasks do not each restate the set."
   {#'*unchecked-math*                true
    #'*warn-on-reflection*            true
    #'mflags/*strongly-typed-invokes* true
    #'mflags/*direct-linking*         true
    #'mflags/*elide-meta*             false})
+
+(def test-flags
+  "production-flags with direct-linking and strongly-typed-invokes off, so
+  with-redefs can rebind calls in tests."
+  (assoc production-flags
+         #'mflags/*direct-linking*         false
+         #'mflags/*strongly-typed-invokes* false))
 
 (defn- file-namespace
   "The namespace a Clojure source file declares, or nil if its first form is
@@ -219,8 +227,9 @@
     :namespaces  explicit namespaces to require (overrides derivation)
     :exclude     namespaces to drop from the set
     :re          regex limiting the run to namespaces it fully matches
-                 (`run-all-tests` uses `re-matches`), e.g. #\"flybot\\..*\"
-                 (default: every loaded suite)
+                 (`run-all-tests` uses `re-matches`), e.g. #\"flybot\\..*\".
+                 Without it the run is scoped to the derived namespaces, so a
+                 project's own suites run and its dependencies' do not.
     :aliases     deps.edn aliases to activate, e.g. [:clr :test] (so the test
                  source paths land on the load path before `require`)
     :flags       var->value binding map (default `production-flags`)
@@ -236,9 +245,52 @@
     (with-bindings flags
       (doseq [ns nses]
         (require ns))
-      (let [{:keys [fail error] :as summary} (if re
-                                               (test/run-all-tests re)
-                                               (test/run-all-tests))]
+      (let [{:keys [fail error] :as summary} (cond
+                                               re         (ct/run-all-tests re)
+                                               (seq nses) (apply ct/run-tests nses)
+                                               :else      (ct/run-all-tests))]
         (when (and exit? (or (pos? fail) (pos? error)))
           (Environment/Exit 1))
         summary))))
+
+(defn- read-magic-edn
+  "The project's magic.edn as a map, or nil when the file is absent."
+  []
+  (when (File/Exists "magic.edn")
+    (edn/read-string (slurp "magic.edn"))))
+
+(defn- resolve-flags
+  "Fold a {fully-qualified-symbol value} flag map over `base`, resolving each
+  symbol to its var (its namespace is required first)."
+  [base flags]
+  (reduce-kv (fn [m sym v]
+               (require (symbol (namespace sym)))
+               (assoc m (resolve sym) v))
+             base
+             flags))
+
+(defn build
+  "Compile the project under MAGIC, per magic.edn :build. Run as `nos build`."
+  []
+  (let [{:keys [aliases namespaces exclude out clean? flags]
+         :or   {out "build" clean? true}}
+        (:build (read-magic-edn))]
+    (compile-project :aliases    (vec aliases)
+                     :namespaces namespaces
+                     :exclude    exclude
+                     :out        out
+                     :clean?     clean?
+                     :flags      (resolve-flags production-flags flags))))
+
+(defn test
+  "Run the project's clojure.test suites under MAGIC, per magic.edn :test.
+  Run as `nos test`."
+  []
+  (let [{:keys [aliases namespaces exclude re flags]
+         :or   {aliases [:test]}}
+        (:test (read-magic-edn))]
+    (run-clojure-tests :aliases    (vec aliases)
+                       :namespaces namespaces
+                       :exclude    exclude
+                       :re         (some-> re re-pattern)
+                       :flags      (resolve-flags test-flags flags))))
