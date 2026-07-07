@@ -73,8 +73,9 @@
   the vendored git submodules (its value is a path prefix to restrict to,
   or true for every submodule)."
   ([]
-   (let [deps-edn (edn/read-string (slurp "deps.edn"))
-         b        (establish-deps-edn "deps.edn" (:nos/aliases deps-edn []))]
+   (let [deps-file (basis/project-deps-file)
+         deps-edn  (edn/read-string (slurp deps-file))
+         b         (establish-deps-edn deps-file (:nos/aliases deps-edn []))]
      (when-let [root (:nos/submodule-paths deps-edn)]
        (when (File/Exists ".gitmodules")
          (apply load-path
