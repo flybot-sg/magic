@@ -250,13 +250,16 @@
   [{:keys [op fn args] :as ast}]
   (if (and (= :invoke op)
            (= #'by-ref (:var fn)))
-    (cond (not= 1 (count args))
-          (error ::errors/by-ref-bad-arity ast)
-          (not= :local (-> args first :op))
-          (error ::errors/by-ref-not-local ast)
-          :else
-          (assoc
-           (first args)
-           :by-ref? true
-           :load-address? true))
+    (let [arg     (first args)
+          tagged? (= :tagged (:op arg))
+          local   (if tagged? (:expr arg) arg)]
+      (cond (not= 1 (count args))
+            (error ::errors/by-ref-bad-arity ast)
+            (not= :local (:op local))
+            (error ::errors/by-ref-not-local ast)
+            :else
+            (cond-> (assoc local
+                           :by-ref? true
+                           :load-address? true)
+              tagged? (assoc :by-ref-tag (:tag arg)))))
     ast))
