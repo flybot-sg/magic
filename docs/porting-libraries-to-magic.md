@@ -30,25 +30,7 @@ For the source patterns in depth (value-type and reference-type hints, records a
  :aliases {:test {:extra-paths ["test"]}}}
 ```
 
-### Swap JVM dependencies for CLR forks
-
-A dependency (yours or one pulled transitively) may be JVM-only on Maven, while a CLR fork of it exists as a git repo. `nos` skips Maven coords, so the JVM one never resolves; point at the fork with `:override-deps` under a `:clr` alias. `:override-deps` swaps a lib's coord wherever it appears in the tree, including transitive sightings, without adding it as a root dependency:
-
-```clojure
-{:paths ["src"]
- :deps  {org.clojure/test.check {:mvn/version "1.1.1"}}
- :aliases
- {:clr {:override-deps
-        {;; direct dep: use the MAGIC fork of test.check on the CLR
-         org.clojure/test.check {:git/url "https://github.com/flybot-sg/clr.test.check"
-                                 :git/sha "..."}
-         ;; transitive dep: a generated test asserts with matcho, whose JVM
-         ;; build is Maven-only; the flybot-sg fork is git
-         healthsamurai/matcho   {:git/url "https://github.com/flybot-sg/matcho"
-                                 :git/sha "..."}}}}}
-```
-
-The `:clr` alias does nothing until activated. Add `:nos/aliases [:clr]` at the top level of `deps.edn`; `nos` applies it at boot, so the override is in effect for every task.
+When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them in a `deps-clr.edn`. See [Declaring CLR dependencies](./clr-dependency-files.md).
 
 ## 3. dotnet.clj
 
