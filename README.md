@@ -38,7 +38,8 @@ MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself t
 
 - [Why MAGIC](./docs/why-magic.md): why a static CLR compiler is needed (iOS forbids the runtime code generation ClojureCLR's DLR relies on; IL2CPP only AOT-compiles IL that already exists).
 - [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md): `.cljc` source patterns for code that runs on both the JVM and the CLR.
-- [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md): `deps.edn`, `dotnet.clj`, and CI for a CLR build.
+- [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md): `deps.edn`, `magic.edn`, and CI for a CLR build.
+- [Declaring CLR dependencies](./docs/clr-dependency-files.md): `deps-clr.edn` vs a `:clr` alias, when the CLR needs different deps than the JVM.
 - [Unity integration](./docs/unity-integration.md): compile `.clj.dll` and load them in a Unity project.
 
 Per-component reference lives in each component's own README, linked from [Components](#components) below. To contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
@@ -99,7 +100,7 @@ Player builds are identical either way. Both are pinned by git tag and added as 
 
 ### Use MAGIC in a Unity project
 
-You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package (Unity loads it at play time), and a small `dotnet.clj` in your Unity project root that tells `nos` what to compile.
+You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package (Unity loads it at play time), and a small `magic.edn` in your Unity project root that tells `nos` what to compile (or a hand-written `dotnet.clj` for custom build/test tasks).
 
 1. **Install `nos`.** Requires `mono` runtime (macOS: `brew install mono`; Debian/Ubuntu: `sudo apt-get install -y mono-runtime`). No .NET SDK needed.
 
@@ -113,11 +114,11 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
 
    Defaults install to `$HOME/.local/nostrand/` with the launcher symlinked to `$HOME/.local/bin/nos`. Override with `INSTALL_DIR=` / `INSTALL_LINK=` env vars if needed.
 
-2. **Add the package, compile, open Unity.** The [Unity integration guide](./docs/unity-integration.md) covers the `Packages/manifest.json` pin (and which of the two variants to pick: default, or `.dual` for projects that keep stock ClojureCLR in the Editor), the `deps.edn` / `dotnet.clj` templates, `nos dotnet/build`, and IL2CPP.
+2. **Add the package, compile, open Unity.** The [Unity integration guide](./docs/unity-integration.md) covers the `Packages/manifest.json` pin (and which of the two variants to pick: default, or `.dual` for projects that keep stock ClojureCLR in the Editor), the `deps.edn` / `magic.edn` setup, `nos build`, and IL2CPP.
 
 ### Use `nos` for non-Unity Clojure-on-CLR
 
-Same `install/nos.sh` line, no Unity needed. Drop a `deps.edn` + `dotnet.clj` at your library root, then `nos dotnet/run-tests`. Tests execute under Mono via the `nos` you just installed. [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) walks through the whole workflow: reader conditionals, `deps.edn`, and the three `dotnet.clj` shapes (derive from aliases, exclude, or hardcode the namespace list). [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md) covers the `.cljc` source patterns themselves: type hints, host interop, records and protocols, and the Clojure 1.10 stdlib surface.
+Same `install/nos.sh` line, no Unity needed. Drop a `deps.edn` at your library root (CLR-specific deps go in a `deps-clr.edn` or a `:clr` alias, see [Declaring CLR dependencies](./docs/clr-dependency-files.md)), add an optional `magic.edn`, then `nos build` and `nos test`. Tests execute under Mono via the `nos` you just installed. [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) walks through the whole workflow: reader conditionals, `deps.edn` / `deps-clr.edn`, and the `magic.edn` build/test configuration. [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md) covers the `.cljc` source patterns themselves: type hints, host interop, records and protocols, and the Clojure 1.10 stdlib surface.
 
 ## Prerequisites for working on MAGIC itself
 
@@ -280,7 +281,7 @@ bb test
 cd magic-compiler && mono ../nostrand/bin/Release/net471/NostrandMain.exe test/all
 ```
 
-The MAGIC compiler itself uses the `test/all` entrypoint in [magic-compiler/test.clj](magic-compiler/test.clj). Downstream projects use their own `nos dotnet/run-tests` (see the Getting Started section above for the pattern).
+The MAGIC compiler itself uses the `test/all` entrypoint in [magic-compiler/test.clj](magic-compiler/test.clj). Downstream projects run `nos test` (see the Getting Started section above for the pattern).
 
 For IL2CPP-specific regressions (AOT-only bugs that the Mono editor cannot catch), [magic-unity-smoke](./unity-examples/magic-unity-smoke) drives MAGIC's compile output through Unity's IL2CPP pipeline and reports pass/fail in the built player. Run by hand on the verified Unity version after touching the compiler, the runtimes, or `magic-unity` itself.
 

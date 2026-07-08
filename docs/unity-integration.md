@@ -2,7 +2,7 @@
 
 How to use MAGIC in a Unity project: compile your Clojure to `.clj.dll` with the `nos` CLI outside Unity, then load it at play time through the `magic-unity` UPM package. The package also rewrites MAGIC's IL during IL2CPP builds (iOS, Android, consoles).
 
-This is the consumer-side guide. For what the package contains and how its internals work, see [magic-unity](../magic-unity). For the `deps.edn` / `dotnet.clj` compile workflow in depth, see [Porting a Clojure library to MAGIC](./porting-libraries-to-magic.md).
+This is the consumer-side guide. For what the package contains and how its internals work, see [magic-unity](../magic-unity). For the `deps.edn` / `magic.edn` compile workflow in depth, see [Porting a Clojure library to MAGIC](./porting-libraries-to-magic.md).
 
 ## Steps
 
@@ -18,17 +18,24 @@ This is the consumer-side guide. For what the package contains and how its inter
    }
    ```
 
-3. **Add `deps.edn` and `dotnet.clj`** at your project root. Copy the templates from [`unity-examples/magic-unity-smoke/`](../unity-examples/magic-unity-smoke/): `deps.edn` declares your source `:paths` and any `:deps`; `dotnet.clj` holds the build/test tasks. The `nostrand.tasks` helpers pin the shipped compiler flags and derive the namespace set from your paths, so `dotnet.clj` stays small.
+3. **Add `deps.edn` and `magic.edn`** at your project root. `deps.edn` declares your source `:paths` and any `:deps`; `magic.edn` points the build at Unity's plugins folder:
+
+   ```clojure
+   ;; magic.edn
+   {:build {:namespaces [my.game.core] :out "Assets/Plugins/Magic"}}
+   ```
+
+   A project with custom build/test steps can still hand-write a `dotnet.clj` instead (see [the porting guide](./porting-libraries-to-magic.md)); `unity-examples/magic-unity-smoke` does, because its test runner is not `clojure.test`.
 
 4. **Compile before opening Unity:**
 
    ```bash
-   nos dotnet/build
+   nos build
    ```
 
    This drops your `.clj.dll` into `Assets/Plugins/Magic/`, where Unity loads them.
 
-5. **Open Unity and hit Play.** For CI, add a `nos dotnet/run-tests` task to run the Mono-side tests without Unity (see [`magic-unity-smoke/dotnet.clj`](../unity-examples/magic-unity-smoke/dotnet.clj)). IL2CPP-only regressions need a real Unity build.
+5. **Open Unity and hit Play.** For CI, `nos test` runs the Mono-side `clojure.test` suites without Unity. IL2CPP-only regressions need a real Unity build.
 
 ## Choosing a variant
 
@@ -54,5 +61,5 @@ The in-repo reproduction is [`unity-examples/magic-unity-coexist`](../unity-exam
 
 ## Examples
 
-- [`unity-examples/magic-unity-smoke`](../unity-examples/magic-unity-smoke): standalone IL2CPP regression suite. The reference pattern for `deps.edn` / `dotnet.clj`, with a `MAGIC -> Smoke -> Build & Run IL2CPP` menu. Run by hand on Unity 2022.3.62f3.
+- [`unity-examples/magic-unity-smoke`](../unity-examples/magic-unity-smoke): standalone IL2CPP regression suite. The reference pattern for `deps.edn` and a custom `dotnet.clj`, with a `MAGIC -> Smoke -> Build & Run IL2CPP` menu. Run by hand on Unity 2022.3.62f3.
 - [`unity-examples/magic-unity-coexist`](../unity-examples/magic-unity-coexist): coexistence repro that vendors stock ClojureCLR, driven by `bb coexist-noise`.

@@ -30,7 +30,7 @@ For the source patterns in depth (value-type and reference-type hints, records a
  :aliases {:test {:extra-paths ["test"]}}}
 ```
 
-When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them in a `deps-clr.edn`. See [Declaring CLR dependencies](./clr-dependency-files.md).
+When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them either in a `deps-clr.edn` or a `:clr` alias. See [Declaring CLR dependencies](./clr-dependency-files.md) for which one fits.
 
 ## 3. magic.edn
 
@@ -49,12 +49,15 @@ When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for
 | `:aliases`    | yes | yes | deps aliases to activate | none (test: `[:test]`) |
 | `:namespaces` | yes | yes | explicit namespaces, overrides derivation | derived from paths |
 | `:exclude`    | yes | yes | namespaces to drop from the set | none |
-| `:re`         |     | yes | regex scoping the run (`re-matches`) | the project's own namespaces |
+| `:re`         |     | yes | regex string scoping the run (`re-matches`) | the project's own namespaces |
 | `:flags`      | yes | yes | flag overrides (see below) | build: production, test: test-friendly |
 | `:out`        | yes |     | compile output dir | `"build"` |
 | `:clean?`     | yes |     | wipe `:out` first | `true` |
 
-With no `:namespaces`, the set is derived from the source paths the aliases contribute (the base `:paths` for build, plus the test alias's `:extra-paths` for test). With no `:re`, a test run is scoped to the project's own namespaces, so its suites run and its dependencies' bundled suites do not.
+Defaults when a key is omitted:
+
+- `:namespaces`: derived from the paths the aliases contribute (base `:paths` for build; plus the test alias's `:extra-paths` for test).
+- `:re`: the test run is scoped to the project's own namespaces (its suites run, its dependencies' bundled suites do not). Write it as a string, e.g. `"my\\.lib\\..*"`; EDN has no regex literal.
 
 ### Flags
 
@@ -130,7 +133,7 @@ Use an absolute path (`$CI_PROJECT_DIR`-based, not a bare relative one): a relat
 
 If a library's tests are written as [rich comment tests](https://github.com/robertluo/rich-comment-tests) (RCT), they cannot run on the CLR as-is: RCT extracts assertions at runtime using `rewrite-clj` and other JVM-only machinery. [flybot-sg/rct-clr](https://github.com/flybot-sg/rct-clr) bridges this: on the JVM it reads the rich comments and emits a plain `.cljc` test file of ordinary `deftest` forms that assert with [matcho](https://github.com/flybot-sg/matcho). MAGIC then runs that generated file with just `clojure.test` and `matcho.core`.
 
-The split shows up in `magic.edn`: `:exclude` the RCT source namespace (the rich comments plus the JVM-only extraction tooling), leaving the generated `deftest` namespace to run like any other suite. `matcho` is the one extra runtime dependency, from `deps-clr.edn`:
+The split shows up in `magic.edn`: `:exclude` the RCT source namespace (the rich comments plus the JVM-only extraction tooling), leaving the generated `deftest` namespace to run like any other suite. `matcho` is the one extra CLR dependency (see [Declaring CLR dependencies](./clr-dependency-files.md)); this example activates it through a `:clr` alias:
 
 ```clojure
 {:test {:aliases [:clr :test]
