@@ -15,6 +15,7 @@
             [nostrand.deps.submodules :as submodules]
             [magic.flags :as mflags]
             [clojure.edn :as edn]
+            [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clojure.pprint :as pprint]
             [clojure.core.server :as clj-server]
@@ -253,11 +254,28 @@
           (Environment/Exit 1))
         summary))))
 
+(s/def ::aliases    (s/coll-of keyword? :kind vector?))
+(s/def ::namespaces (s/coll-of symbol?  :kind vector?))
+(s/def ::exclude    (s/coll-of symbol?  :kind vector?))
+(s/def ::re         string?)
+(s/def ::out        string?)
+(s/def ::clean?     boolean?)
+(s/def ::flags      (s/map-of qualified-symbol? any?))
+
+(s/def ::build (s/keys :opt-un [::aliases ::namespaces ::exclude ::out ::clean? ::flags]))
+(s/def ::test  (s/keys :opt-un [::aliases ::namespaces ::exclude ::re ::flags]))
+(s/def ::magic-edn (s/keys :opt-un [::build ::test]))
+
 (defn- read-magic-edn
-  "The project's magic.edn as a map, or nil when the file is absent."
+  "The project's magic.edn as a map, or nil when the file is absent. Throws a
+  spec explanation when the file is present but does not conform."
   []
   (when (File/Exists "magic.edn")
-    (edn/read-string (slurp "magic.edn"))))
+    (let [config (edn/read-string (slurp "magic.edn"))]
+      (when-not (s/valid? ::magic-edn config)
+        (throw (ex-info (str "Invalid magic.edn:\n" (s/explain-str ::magic-edn config))
+                        {:config config})))
+      config)))
 
 (defn- resolve-flags
   "Fold a {fully-qualified-symbol value} flag map over `base`, resolving each
