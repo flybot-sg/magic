@@ -9,6 +9,7 @@
             [smoke.polymorphism :as polymorphism]
             [smoke.control-flow :as control-flow]
             [smoke.stdlib-1-10  :as stdlib-1-10]
+            [smoke.interop      :as interop]
             [clojure.string :as str]))
 
 (defn- run []
@@ -16,7 +17,8 @@
                 ["letfn-cases"  (letfn-cases/suite)]
                 ["polymorphism" (polymorphism/suite)]
                 ["control-flow" (control-flow/suite)]
-                ["stdlib-1.10"  (stdlib-1-10/suite)]]
+                ["stdlib-1.10"  (stdlib-1-10/suite)]
+                ["interop"      (interop/suite)]]
         flat   (for [[group results] groups
                      r results]
                  (assoc r :group group))]
