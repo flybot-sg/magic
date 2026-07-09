@@ -80,3 +80,13 @@
   (clojure.test/is
    (= "boom" (m/eval '(.Message ^System.ArgumentException
                                 (System.ArgumentException. "boom"))))))
+
+(deftest by-ref-local
+  (clojure.test/is
+   (= [true 42] (m/eval '(let [r (long 0)]
+                           [(Int64/TryParse "42" (by-ref r)) r])))))
+
+(deftest by-ref-type-hinted-local
+  (clojure.test/is
+   (= [true 42] (m/eval '(let [r (long 0)]
+                           [(Int64/TryParse "42" (by-ref ^long r)) r])))))

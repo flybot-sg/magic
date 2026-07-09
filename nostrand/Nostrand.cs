@@ -136,7 +136,7 @@ namespace Nostrand
 
 				RT.var("nostrand.core", "load-path").invoke(Directory.GetCurrentDirectory());
 				
-				if (File.Exists("deps.edn"))
+				if (File.Exists("deps.edn") || File.Exists("deps-clr.edn"))
 				{
 					RT.var("nostrand.core", "establish-deps-edn").invoke();
 				}

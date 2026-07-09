@@ -2,7 +2,7 @@
 
 How to take an existing Clojure library and compile and test it on the CLR with MAGIC. Assumes `nos` is installed (see the [Install](../README.md#install) section).
 
-The work is in three parts: make the source cross-platform, declare paths and deps in `deps.edn`, and add a `dotnet.clj` with build and test tasks.
+The work is in three parts: make the source cross-platform, declare paths and deps in `deps.edn`, and configure build and test in `magic.edn`.
 
 ## 1. Make the source cross-platform
 
@@ -30,120 +30,83 @@ For the source patterns in depth (value-type and reference-type hints, records a
  :aliases {:test {:extra-paths ["test"]}}}
 ```
 
-### Swap JVM dependencies for CLR forks
+When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them either in a `deps-clr.edn` or a `:clr` alias. See [Declaring CLR dependencies](./clr-dependency-files.md) for which one fits.
 
-A dependency (yours or one pulled transitively) may be JVM-only on Maven, while a CLR fork of it exists as a git repo. `nos` skips Maven coords, so the JVM one never resolves; point at the fork with `:override-deps` under a `:clr` alias. `:override-deps` swaps a lib's coord wherever it appears in the tree, including transitive sightings, without adding it as a root dependency:
+## 3. magic.edn
 
-```clojure
-{:paths ["src"]
- :deps  {org.clojure/test.check {:mvn/version "1.1.1"}}
- :aliases
- {:clr {:override-deps
-        {;; direct dep: use the MAGIC fork of test.check on the CLR
-         org.clojure/test.check {:git/url "https://github.com/flybot-sg/clr.test.check"
-                                 :git/sha "..."}
-         ;; transitive dep: a generated test asserts with matcho, whose JVM
-         ;; build is Maven-only; the flybot-sg fork is git
-         healthsamurai/matcho   {:git/url "https://github.com/flybot-sg/matcho"
-                                 :git/sha "..."}}}}}
-```
-
-The `:clr` alias does nothing until activated. Add `:nos/aliases [:clr]` at the top level of `deps.edn`; `nos` applies it at boot, so the override is in effect for every task.
-
-## 3. dotnet.clj
-
-Put a `dotnet.clj` at the project root. `nostrand.tasks` provides the build and test tasks, so a project only states what is specific to it. Pick one of the three shapes below.
-
-### Derive namespaces from deps.edn (recommended)
-
-With no explicit list, the namespaces are read off the source paths the given aliases contribute. `build` compiles the base `:paths`; `run-tests` adds the `:test` alias paths:
+`nos` has built-in `build` and `test` tasks. They read an optional `magic.edn` at the project root: a map with `:build` and `:test` option sub-maps. A project states only what differs from the defaults, so most `magic.edn` files are a few lines, and a project that needs no tweaks can omit the file entirely.
 
 ```clojure
-(ns dotnet
-  (:require [nostrand.tasks :as tasks]))
-
-(defn build     [] (tasks/compile-project :clean? true))
-(defn run-tests [] (tasks/run-clojure-tests :aliases [:test]))
-```
-
-### Exclude namespaces that must not load on the CLR
-
-A source tree often carries namespaces that cannot load under MAGIC (a ClojureScript-only namespace, JVM-only test tooling). Keep deriving and drop them with `:exclude`:
-
-```clojure
-(ns dotnet
-  (:require [nostrand.tasks :as tasks]))
-
-(def cljs-only
-  '[my.lib.frontend.cljs])
-
-(defn build     [] (tasks/compile-project :exclude cljs-only))
-(defn run-tests [] (tasks/run-clojure-tests :aliases [:test] :exclude cljs-only))
-```
-
-### Hardcode the namespace list
-
-When you want exact control (a single compile root, a vendored namespace not reachable by `require`, or a test dir where naming the few real suites is clearer than excluding the rest), pass `:namespaces`:
-
-```clojure
-(ns dotnet
-  (:require [nostrand.tasks :as tasks]))
-
-(def prod-namespaces '[my.lib.core my.lib.api])
-(def test-namespaces '[my.lib.core-test my.lib.api-test])
-
-(defn build     [] (tasks/compile-project :namespaces prod-namespaces))
-(defn run-tests [] (tasks/run-clojure-tests
-                    :namespaces (concat prod-namespaces test-namespaces)
-                    :aliases    [:test]))
-```
-
-### Scope the run to your own suites
-
-`run-clojure-tests` runs every `clojure.test` suite loaded in the runtime, so requiring your test namespaces can pull in suites belonging to your dependencies. Pass `:re` to limit the run to namespaces the regex fully matches (`run-all-tests` filters with `re-matches`, so match the whole name, not a substring):
-
-```clojure
-(defn run-tests [] (tasks/run-clojure-tests :aliases [:test] :re #"my\.lib\..*"))
+;; magic.edn
+{:build {:aliases [:clr]}
+ :test  {:aliases [:clr :test]}}
 ```
 
 ### Options
 
-| Option        | `compile-project` | `run-clojure-tests` | Meaning                                                        |
-|---------------|:-----------------:|:-------------------:|----------------------------------------------------------------|
-| `:namespaces` | yes               | yes                 | Explicit namespaces, overrides derivation                      |
-| `:exclude`    | yes               | yes                 | Namespaces to drop from the derived (or explicit) set          |
-| `:re`         | no                | yes                 | Regex a namespace must fully match to be run                   |
-| `:aliases`    | yes               | yes                 | deps.edn aliases to activate, e.g. `[:test]`                   |
-| `:flags`      | yes               | yes                 | `var->value` binding map (default `tasks/production-flags`)    |
-| `:out`        | yes               | no                  | `*compile-path*` (default `"build"`)                           |
-| `:clean?`     | yes               | no                  | Wipe `:out` first (Unity dirs that must not keep stale DLLs)   |
-| `:exit?`      | no                | yes                 | `Environment/Exit 1` on any failure or error (default true)    |
+| Key | build | test | Meaning | Default |
+|-----|:-:|:-:|---|---|
+| `:aliases`    | yes | yes | deps aliases to activate | none (test: `[:test]`) |
+| `:namespaces` | yes | yes | explicit namespaces, overrides derivation | derived from paths |
+| `:exclude`    | yes | yes | namespaces to drop from the set | none |
+| `:re`         |     | yes | regex string scoping the run (`re-matches`) | the project's own namespaces |
+| `:flags`      | yes | yes | flag overrides (see below) | build: production, test: test-friendly |
+| `:out`        | yes |     | compile output dir | `"build"` |
+| `:clean?`     | yes |     | wipe `:out` first | `true` |
 
-`tasks/production-flags` is the flag set shipped projects compile under (`*direct-linking*`, `*strongly-typed-invokes*`, `*elide-meta*`, `*unchecked-math*`, `*warn-on-reflection*`). It is a plain map, so a test run that needs redefinable vars overrides it:
+Defaults when a key is omitted:
+
+- `:namespaces`: derived from the paths the aliases contribute (base `:paths` for build; plus the test alias's `:extra-paths` for test).
+- `:re`: the test run is scoped to the project's own namespaces (its suites run, its dependencies' bundled suites do not). Write it as a string, e.g. `"my\\.lib\\..*"`; EDN has no regex literal.
+
+### Flags
+
+`:flags` overrides the compilation flags for the run. EDN cannot hold a var, so name each flag as a fully-qualified symbol:
+
+```clojure
+{:build {:flags {magic.flags/*elide-meta* true}}}
+```
+
+`build` starts from the production flag set (`*direct-linking*`, `*strongly-typed-invokes*`, `*elide-meta*`, `*unchecked-math*`, `*warn-on-reflection*`). `test` starts from the same set with `*direct-linking*` and `*strongly-typed-invokes*` off, since `with-redefs` cannot rebind a direct-linked or strongly-typed call. Your `:flags` merge over that base, so state only what you change.
+
+### More examples
+
+Exclude a namespace that must not compile on the CLR (a ClojureScript-only or JVM-only one):
+
+```clojure
+{:build {:exclude [my.lib.frontend.cljs]}
+ :test  {:exclude [my.lib.frontend.cljs]}}
+```
+
+State the compile roots and output directory explicitly (a Unity plugins build, or a vendored namespace not reachable by `require`):
+
+```clojure
+{:build {:namespaces [my.lib.core my.lib.api]
+         :out        "Assets/Plugins/Magic"}}
+```
+
+### The old way: dotnet.clj
+
+Before the built-in tasks, each project wrote a `dotnet.clj` defining `build`/`run-tests` by hand over `nostrand.tasks`. It stays backward compatible: existing `dotnet.clj` files still work unchanged, and `nos dotnet/build` and `nos build` coexist.
 
 ```clojure
 (ns dotnet
-  (:require [magic.flags :as mflags]
-            [nostrand.tasks :as tasks]))
+  (:require [nostrand.tasks :as tasks]))
 
-(defn run-tests []
-  (tasks/run-clojure-tests
-   :aliases [:test]
-   :flags   (assoc tasks/production-flags
-                   #'mflags/*direct-linking*         false
-                   #'mflags/*strongly-typed-invokes* false)))
+(defn build     [] (tasks/compile-project :aliases [:clr] :clean? true))
+(defn run-tests [] (tasks/run-clojure-tests :aliases [:clr :test]))
 ```
+
+`magic.edn` exposes the full option set of both tasks, so a ported library needs no `dotnet.clj`; write one only for a project that also defines its own unrelated `nos` tasks.
 
 ## 4. Build and test
 
 ```bash
-nos dotnet/build        # compiles to ./build (or :out)
-nos dotnet/run-tests    # requires the namespaces, runs clojure.test, exits non-zero on failure
+nos build    # compiles to ./build (or :out)
+nos test     # runs the project's clojure.test suites, exits non-zero on failure
 ```
 
-`run-tests` executes under Mono and does not cover IL2CPP codegen; for Unity, an actual IL2CPP build is the only way to catch AOT-only regressions (see [`magic-unity-smoke`](../unity-examples/magic-unity-smoke)).
-
-`:clean? true` wipes the output dir before compiling, so the task does not need a `rm -rf build` shell step in front of it.
+`nos test` runs under Mono and does not cover IL2CPP codegen; for Unity, an actual IL2CPP build is the only way to catch AOT-only regressions (see [`magic-unity-smoke`](../unity-examples/magic-unity-smoke)).
 
 ## 5. CI
 
@@ -170,21 +133,15 @@ Use an absolute path (`$CI_PROJECT_DIR`-based, not a bare relative one): a relat
 
 If a library's tests are written as [rich comment tests](https://github.com/robertluo/rich-comment-tests) (RCT), they cannot run on the CLR as-is: RCT extracts assertions at runtime using `rewrite-clj` and other JVM-only machinery. [flybot-sg/rct-clr](https://github.com/flybot-sg/rct-clr) bridges this: on the JVM it reads the rich comments and emits a plain `.cljc` test file of ordinary `deftest` forms that assert with [matcho](https://github.com/flybot-sg/matcho). MAGIC then runs that generated file with just `clojure.test` and `matcho.core`.
 
-The split shows up in `dotnet.clj`: test only the generated namespace and leave the RCT source out, since it would drag the JVM-only tooling in. `matcho` is the one extra runtime dependency, supplied by the `:clr` override above:
+The split shows up in `magic.edn`: `:exclude` the RCT source namespace (the rich comments plus the JVM-only extraction tooling), leaving the generated `deftest` namespace to run like any other suite. `matcho` is the one extra CLR dependency (see [Declaring CLR dependencies](./clr-dependency-files.md)); this example activates it through a `:clr` alias:
 
 ```clojure
-(def test-namespaces
-  ;; the generated deftests; the RCT source ns (rich comments) stays JVM-only
-  '[my.lib.generated-test])
-
-(defn run-tests []
-  (tasks/run-clojure-tests
-   :namespaces (concat prod-namespaces test-namespaces)
-   :aliases    [:clr :test]))
+{:test {:aliases [:clr :test]
+        :exclude [my.lib.rct-test]}}
 ```
 
 The `clojure.test` assertion count on the CLR will not be one-for-one with a JVM run that executes the rich comments directly: RCT and the generated `deftest`s tally assertions differently (one `=>` expectation can expand to several matcho checks). The count differs; the same expectations are all verified.
 
 ## Reference
 
-[flybot-sg/clr.test.check](https://github.com/flybot-sg/clr.test.check) is a fork of `clojure/test.check` ported with this workflow: reader conditionals throughout, and a `dotnet.clj` that derives its namespaces from `deps.edn`.
+[flybot-sg/clr.test.check](https://github.com/flybot-sg/clr.test.check) is a fork of `clojure/test.check` ported with this workflow: reader conditionals throughout, cross-platform `deps.edn`, and CLR tests run under `nos`.

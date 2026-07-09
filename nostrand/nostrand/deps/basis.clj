@@ -108,10 +108,17 @@
     (str gitlibs "/nostrand")
     (str (Environment/GetEnvironmentVariable "HOME") "/.nostrand/gitlibs")))
 
+(defn project-deps-file
+  "deps-clr.edn if present, else deps.edn. Matches cljr, which reads
+  deps-clr.edn in place of deps.edn. Project root only; transitive deps keep
+  their own deps.edn."
+  []
+  (if (File/Exists "deps-clr.edn") "deps-clr.edn" "deps.edn"))
+
 (defn create-basis
   "Read deps-file, fold in the selected aliases, resolve transitively,
   and return {:paths :libs :classpath-paths}."
-  ([] (create-basis "deps.edn" []))
+  ([] (create-basis (project-deps-file) []))
   ([deps-file aliases]
    (let [{:keys [paths deps overrides]} (merge-aliases (edn/read-string (slurp deps-file)) aliases)
          libs (resolve-deps (cache-root) deps overrides)]

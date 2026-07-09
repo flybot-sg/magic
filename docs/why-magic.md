@@ -38,7 +38,7 @@ In practice IL2CPP is the production backend on every shipping platform; Mono JI
 
 ```mermaid
 flowchart TD
-    A["Clojure source (.cljc)"] -->|nos dotnet/build| ASM["assemblies (MSIL):<br/>.clj.dll + .dll"]
+    A["Clojure source (.cljc)"] -->|nos build| ASM["assemblies (MSIL):<br/>.clj.dll + .dll"]
     B["C# source (.cs)"] -->|Unity compile| ASM
     ASM --> MONO["Mono runtime<br/>(JIT at runtime)"]
     ASM --> IL2CPP["IL2CPP<br/>(AOT at build time)"]

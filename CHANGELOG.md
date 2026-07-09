@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.9.0 - 2026-07-08
+
+Aligns MAGIC's tooling with the ClojureCLR ecosystem: `nos` reads `deps-clr.edn` like `cljr` does, and a ported library builds and tests from a small `magic.edn` instead of a hand-written `dotnet.clj`. Plus a compiler fix for hinted by-ref locals.
+
+### Nostrand
+- `nos` reads `deps-clr.edn` in place of `deps.edn` when present, matching `cljr`, so a repo can carry CLR-specific deps without touching the JVM `deps.edn`. Project-root only - [#35](https://github.com/flybot-sg/magic/issues/35).
+- Built-in `nos build` / `nos test` tasks read an optional `magic.edn` (`:build` / `:test` option maps), so a ported library no longer needs a hand-written `dotnet.clj`. It states only what differs from the defaults and is validated against a spec; existing `dotnet.clj` projects keep working - [#36](https://github.com/flybot-sg/magic/issues/36).
+
+### Compiler
+- `by-ref` on a type-hinted local now compiles instead of erroring in analysis: `analyze-byref` looks through the `:tagged` hint node and carries the tag onto the local - [#34](https://github.com/flybot-sg/magic/issues/34).
+
+### Docs
+- New `docs/clr-dependency-files.md`: choosing between `deps-clr.edn` and a `:clr` alias for CLR deps.
+- The porting guide, README, and Unity guide cover the `magic.edn` and `nos build` / `nos test` workflow.
+
 ## v0.8.0 - 2026-06-24
 
 Compiler and runtime correctness fixes, plus CI coverage for the committed bootstrap binaries.

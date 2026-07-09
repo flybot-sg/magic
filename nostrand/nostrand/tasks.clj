@@ -2,6 +2,7 @@
  ^{:author "Ramsey Nasser"
    :doc    "Built in nostrand tasks, available from the command line as unqualified functions"}
  nostrand.tasks
+  (:refer-clojure :exclude [test])
   (:import
    [Nostrand Nostrand]
    [System.IO Directory File]
@@ -13,10 +14,12 @@
             [nostrand.deps.basis :as basis]
             [nostrand.deps.submodules :as submodules]
             [magic.flags :as mflags]
+            [clojure.edn :as edn]
+            [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clojure.pprint :as pprint]
             [clojure.core.server :as clj-server]
-            [clojure.test :as test]
+            [clojure.test :as ct]
             clojure.repl))
 
 (defn- msg
@@ -86,7 +89,7 @@
   Usage: nos print-basis            ; base :deps only
          nos print-basis :clr :test ; with aliases"
   [& aliases]
-  (let [{:keys [paths libs classpath-paths]} (basis/create-basis "deps.edn" (vec aliases))]
+  (let [{:keys [paths libs classpath-paths]} (basis/create-basis (basis/project-deps-file) (vec aliases))]
     (pprint/pprint
      {:aliases         (vec aliases)
       :paths           paths
@@ -130,15 +133,21 @@
 (def production-flags
   "The compilation flags shipped MAGIC projects build under, as a var->value
   map ready for `clojure.core/with-bindings` or the `:flags` option of
-  `compile-project` / `run-clojure-tests`. Kept open on purpose: a task that
-  needs to deviate assoc's onto it (test runs that rely on redefinable vars
-  set :direct-linking and :strongly-typed-invokes false), or passes its own
-  map. Shared so consumer dotnet.clj tasks do not each restate the set."
+  `compile-project` / `run-clojure-tests`. A plain map, so a task that needs
+  to deviate assoc's onto it or passes its own (see `test-flags`). Shared so
+  consumer dotnet.clj tasks do not each restate the set."
   {#'*unchecked-math*                true
    #'*warn-on-reflection*            true
    #'mflags/*strongly-typed-invokes* true
    #'mflags/*direct-linking*         true
    #'mflags/*elide-meta*             false})
+
+(def test-flags
+  "production-flags with direct-linking and strongly-typed-invokes off, so
+  with-redefs can rebind calls in tests."
+  (assoc production-flags
+         #'mflags/*direct-linking*         false
+         #'mflags/*strongly-typed-invokes* false))
 
 (defn- file-namespace
   "The namespace a Clojure source file declares, or nil if its first form is
@@ -169,7 +178,7 @@
   compile or test instead of hand-listing it. Read-only; does not touch the
   load path.
       (tasks/project-namespaces [:test])"
-  ([aliases] (project-namespaces "deps.edn" aliases))
+  ([aliases] (project-namespaces (basis/project-deps-file) aliases))
   ([deps-file aliases]
    (paths-namespaces (:paths (basis/create-basis deps-file (vec aliases))))))
 
@@ -180,7 +189,7 @@
   namespaces from either source (e.g. test-dir tooling that must not load)."
   [namespaces aliases exclude basis]
   (->> (or namespaces
-           (paths-namespaces (:paths (or basis (basis/create-basis "deps.edn" (vec aliases))))))
+           (paths-namespaces (:paths (or basis (basis/create-basis (basis/project-deps-file) (vec aliases))))))
        (remove (set exclude))))
 
 (defn compile-project
@@ -199,7 +208,7 @@
       (defn build [] (tasks/compile-project :aliases [:clr]))"
   [& {:keys [namespaces exclude aliases out clean? flags]
       :or   {out "build" clean? false flags production-flags}}]
-  (let [basis (when (seq aliases) (nos/establish-deps-edn "deps.edn" aliases))
+  (let [basis (when (seq aliases) (nos/establish-deps-edn (basis/project-deps-file) aliases))
         nses  (task-namespaces namespaces aliases exclude basis)]
     (with-bindings (assoc flags #'*compile-path* out)
       (println "Compiling into DLL dir:" *compile-path*)
@@ -219,8 +228,9 @@
     :namespaces  explicit namespaces to require (overrides derivation)
     :exclude     namespaces to drop from the set
     :re          regex limiting the run to namespaces it fully matches
-                 (`run-all-tests` uses `re-matches`), e.g. #\"flybot\\..*\"
-                 (default: every loaded suite)
+                 (`run-all-tests` uses `re-matches`), e.g. #\"flybot\\..*\".
+                 Without it the run is scoped to the derived namespaces, so a
+                 project's own suites run and its dependencies' do not.
     :aliases     deps.edn aliases to activate, e.g. [:clr :test] (so the test
                  source paths land on the load path before `require`)
     :flags       var->value binding map (default `production-flags`)
@@ -231,14 +241,74 @@
       (defn run-tests [] (tasks/run-clojure-tests :aliases [:clr :test]))"
   [& {:keys [namespaces exclude re aliases flags exit?]
       :or   {flags production-flags exit? true}}]
-  (let [basis (when (seq aliases) (nos/establish-deps-edn "deps.edn" aliases))
+  (let [basis (when (seq aliases) (nos/establish-deps-edn (basis/project-deps-file) aliases))
         nses  (task-namespaces namespaces aliases exclude basis)]
     (with-bindings flags
       (doseq [ns nses]
         (require ns))
-      (let [{:keys [fail error] :as summary} (if re
-                                               (test/run-all-tests re)
-                                               (test/run-all-tests))]
+      (let [{:keys [fail error] :as summary} (cond
+                                               re         (ct/run-all-tests re)
+                                               (seq nses) (apply ct/run-tests nses)
+                                               :else      (ct/run-all-tests))]
         (when (and exit? (or (pos? fail) (pos? error)))
           (Environment/Exit 1))
         summary))))
+
+(s/def ::aliases    (s/coll-of keyword? :kind vector?))
+(s/def ::namespaces (s/coll-of symbol?  :kind vector?))
+(s/def ::exclude    (s/coll-of symbol?  :kind vector?))
+(s/def ::re         string?)
+(s/def ::out        string?)
+(s/def ::clean?     boolean?)
+(s/def ::flags      (s/map-of qualified-symbol? any?))
+
+(s/def ::build (s/keys :opt-un [::aliases ::namespaces ::exclude ::out ::clean? ::flags]))
+(s/def ::test  (s/keys :opt-un [::aliases ::namespaces ::exclude ::re ::flags]))
+(s/def ::magic-edn (s/keys :opt-un [::build ::test]))
+
+(defn- read-magic-edn
+  "The project's magic.edn as a map, or nil when the file is absent. Throws a
+  spec explanation when the file is present but does not conform."
+  []
+  (when (File/Exists "magic.edn")
+    (let [config (edn/read-string (slurp "magic.edn"))]
+      (when-not (s/valid? ::magic-edn config)
+        (throw (ex-info (str "Invalid magic.edn:\n" (s/explain-str ::magic-edn config))
+                        {:config config})))
+      config)))
+
+(defn- resolve-flags
+  "Fold a {fully-qualified-symbol value} flag map over `base`, resolving each
+  symbol to its var (its namespace is required first)."
+  [base flags]
+  (reduce-kv (fn [m sym v]
+               (require (symbol (namespace sym)))
+               (assoc m (resolve sym) v))
+             base
+             flags))
+
+(defn build
+  "Compile the project under MAGIC, per magic.edn :build. Run as `nos build`."
+  []
+  (let [{:keys [aliases namespaces exclude out clean? flags]
+         :or   {out "build" clean? true}}
+        (:build (read-magic-edn))]
+    (compile-project :aliases    (vec aliases)
+                     :namespaces namespaces
+                     :exclude    exclude
+                     :out        out
+                     :clean?     clean?
+                     :flags      (resolve-flags production-flags flags))))
+
+(defn test
+  "Run the project's clojure.test suites under MAGIC, per magic.edn :test.
+  Run as `nos test`."
+  []
+  (let [{:keys [aliases namespaces exclude re flags]
+         :or   {aliases [:test]}}
+        (:test (read-magic-edn))]
+    (run-clojure-tests :aliases    (vec aliases)
+                       :namespaces namespaces
+                       :exclude    exclude
+                       :re         (some-> re re-pattern)
+                       :flags      (resolve-flags test-flags flags))))

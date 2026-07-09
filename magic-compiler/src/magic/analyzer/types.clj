@@ -403,8 +403,8 @@
    Object))
 
 (defmethod ast-type-impl :local
-  [{:keys [name form local by-ref?] {:keys [locals]} :env :as ast}]
-  (let [tag (-> form locals :form meta :tag)
+  [{:keys [name form local by-ref? by-ref-tag] {:keys [locals]} :env :as ast}]
+  (let [tag (or by-ref-tag (-> form locals :form meta :tag))
         type (cond tag
                    (if-let [t (resolve tag)]
                      t
