@@ -41,7 +41,8 @@
 
 (deftest keys*-op
   (is (true? (s/valid? (s/keys* :req-un [::a]) [:a 1])))
-  (is (= {:a 1} (s/conform (s/keys* :req-un [::a]) [:a 1]))))
+  (is (= {:a 1} (s/conform (s/keys* :req-un [::a]) [:a 1])))
+  (is (false? (s/valid? (s/keys* :req-un [::a]) []))))
 
 (deftest explain-data-op
   (testing "op-explain reached through a failing regex op"
