@@ -56,7 +56,7 @@
         (cond
           (nil? line)                       false
           (re-find #"^\s*(?:;.*)?$" line)   (recur)
-          (re-find #"^\s*\(ns\s" line)      true
+          (re-find #"^\s*\(ns(\s|$)" line)  true
           :else                             false)))))
 
 (defn- dll->ns-symbol
@@ -78,9 +78,11 @@
     (when (File/Exists p) (FileInfo. p))))
 
 (defn stdlib [& _args]
+  ;; ordinal sort: compile order feeds the gensym stream, and the default
+  ;; culture-sensitive string compare orders differently across OS collations
   (let [dll-files     (->> (Directory/EnumerateFiles refs "clojure.*.clj.dll")
                            (map #(Path/GetFileName ^String %))
-                           sort
+                           (sort (fn [^String a ^String b] (String/CompareOrdinal a b)))
                            vec)
         all-nss       (mapv dll->ns-symbol dll-files)
         ns->src       (into {} (for [ns all-nss
