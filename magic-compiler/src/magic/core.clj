@@ -1363,7 +1363,9 @@
                           (remove (fn [sig] (some #(= System.Void %) sig)))) ;; remove signatures with void returns 
           interfaces (->> (map #(interop/generic-type "Magic.Function" %) signatures)
                           (remove nil?)
-                          (into #{}))
+                          distinct
+                          ;; sort for deterministic emission: Type sets iterate per-run
+                          (sort-by str))
           fixed-arities (->> methods
                              (remove :variadic?)
                              (map :fixed-arity))
@@ -1742,6 +1744,23 @@
        (remove nil?)
        (filter #(.IsAbstract %))))
 
+(defn stable-method-key
+  "Signature string totally ordering override methods for deterministic emission
+   (MethodInfo maps iterate in per-run handle-hash order). Token breaks any tie."
+  [method]
+  (str (.DeclaringType method) "|"
+       (.Name method) "|"
+       (string/join "," (map #(str (.ParameterType %)) (.GetParameters method))) "|"
+       (.ReturnType method) "|"
+       (.MetadataToken method)))
+
+(defn ordered-method-ils
+  "IL values of a MethodInfo-keyed emission map, sorted by stable-method-key."
+  [method-map]
+  (->> method-map
+       (sort-by (comp stable-method-key key))
+       (mapv val)))
+
 (defn compile-proxy-type [{:keys [args super interfaces closed-overs fns proxy-type] :as ast} compilers]
   (when-not (.IsCreated proxy-type)
     (let [super-override (enum-or MethodAttributes/Public MethodAttributes/Virtual)
@@ -1810,7 +1829,7 @@
                       (vals closed-over-field-map))
           ctx (reduce (fn [ctx method] (il/emit! ctx method))
                       ctx
-                      (vals methods))]
+                      (ordered-method-ils methods))]
       (il/emit! ctx ctor)
       (.CreateType proxy-type))))
 
@@ -1995,7 +2014,7 @@
           methods* (merge iface-methods provided-methods)]
       (reduce (fn [ctx method] (il/emit! ctx method))
               {::il/type-builder reify-type}
-              [closed-over-fields ctor meta-ctor (vals methods*)
+              [closed-over-fields ctor meta-ctor (ordered-method-ils methods*)
                (iobj-implementation meta-il meta-field meta-ctor closed-over-field-map)]))
     (.CreateType reify-type)))
 
@@ -2185,7 +2204,7 @@
         methods* (merge iface-methods provided-methods)
         ctx' (reduce (fn [ctx method] (il/emit! ctx method))
                      {::il/type-builder deftype-type}
-                     [(vals ctors) (vals methods*)])]
+                     [(vals ctors) (ordered-method-ils methods*)])]
     (when deftype-type-cctor
       (il/emit! {::il/ilg (.GetILGenerator deftype-type-cctor)} (il/ret)))
     (compile-deftype-getbasis ctx' deftype-type
