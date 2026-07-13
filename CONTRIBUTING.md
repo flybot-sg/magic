@@ -65,9 +65,11 @@ Run the local gate first; CI runs the same drift check and tests:
 ```bash
 bb clean
 bb build
-bb check-drift   # fails on codegen, stdlib, dual-variant, or version drift
+bb check-drift   # fails on codegen, committed-DLL, dual-variant, or version drift
 bb test
 ```
+
+Keep the order: `check-drift` byte-diffs the committed `.clj.dll` binaries against the rebuild, so the fresh `bb build` before it is what surfaces bootstrap drift. The two C# runtime DLLs in the Unity Export folder embed a git-derived SourceRevisionId and cannot be byte-verified; `check-drift` restores them from HEAD.
 
 See [Development](./README.md#development) for what each task does.
 
@@ -83,8 +85,8 @@ Reference the related GitHub issue in the title or body, e.g. `(#42)` or `Closes
 
 ### Paired bootstrap refresh
 
-When a source change touches a stdlib namespace or magic-compiler internals, the committed `.clj.dll`s under `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` need a paired refresh commit:
+When a change affects the committed `.clj.dll`s under `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` (a stdlib or compiler `.clj` edit, or a C# runtime change that alters what the compiler emits), refresh them and commit the new binaries in a paired commit:
 
     chore(bootstrap): refresh <name> DLL for <short reason> (#<issue>)
 
-This keeps the committed binaries in lockstep with their sources.
+Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so only genuinely affected DLLs show up in `git status`, and `bb check-drift` fails if a stale one is left uncommitted.
