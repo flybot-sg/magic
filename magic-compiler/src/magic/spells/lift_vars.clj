@@ -28,7 +28,8 @@
 
 (defn emit-to-cctor!-and-make-specialized-compilers
   [vars containing-type containing-type-cctor compilers]
-  (let [vars (->> vars (map :var) (into #{}))
+  ;; sort for deterministic emission: Var sets/seqs are not stably ordered per run
+  (let [vars (->> vars (map :var) distinct (sort-by var-name) vec)
         var-fields (var-field-map containing-type vars)
         cctor-il
         (->> vars
