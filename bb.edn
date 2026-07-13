@@ -25,8 +25,10 @@
   ;; ============================================================
 
   build
-  {:doc "Full build: runtimes → nostrand → magic-compiler bootstrap → magic-unity. Slow (minutes) on first run."
-   :task (shell "dotnet build")}
+  {:doc "Full build: runtimes → nostrand → magic-compiler bootstrap → magic-unity. Normalizes committed-DLL mtimes first, so use this rather than raw `dotnet build` after a fresh clone (byte reproducibility depends on it). Slow (minutes) on first run."
+   :requires ([magic.drift :as drift])
+   :task (do (drift/touch-dlls!)
+             (shell "dotnet build"))}
 
   build-runtime
   {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand. No magic-compiler bootstrap. Fast."
@@ -38,27 +40,36 @@
    ;; The bootstrap step in magic.api/compile-file skips writing DLLs that
    ;; already exist on disk, so re-running it without cleaning is a no-op.
    ;; Delete magic-compiler/bootstrap/ first to force re-compilation.
+   :requires ([magic.drift :as drift])
    :task (do
+           (drift/touch-dlls!)
            (fs/delete-tree (fs/file compiler-dir "bootstrap"))
            (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "build/bootstrap"))}
 
   build-magic-portable
   {:doc "Like build-magic but applies the sparse-case spell. Use as the first pass when changing hashing semantics, then run build-magic again."
+   :requires ([magic.drift :as drift])
    :depends [-check-nostrand]
    :task (do
+           (drift/touch-dlls!)
            (fs/delete-tree (fs/file compiler-dir "bootstrap"))
            (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe)
                   "build/bootstrap"
                   ":spells" "[magic.spells.sparse-case/sparse-case]"))}
 
   build-bootstrap
-  {:doc "After build-magic, deploy bootstrap DLLs into nostrand/references (rebuilds nostrand) and into magic-unity Runtime/Infrastructure/Export."
-   :task (shell "dotnet build -t:Bootstrap;MagicUnity")}
+  {:doc "After build-magic, deploy bootstrap DLLs into nostrand/references (rebuilds nostrand) and into magic-unity Runtime/Infrastructure/Export, then re-record dll-sources.edn."
+   :requires ([magic.drift :as drift])
+   :task (do (shell "dotnet build -t:Bootstrap;MagicUnity")
+             (drift/record!))}
 
   refresh-stdlib
-  {:doc "Recompile every committed stdlib clojure.*.clj.dll from source and redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity/Runtime/Infrastructure/Export/. Use after editing any magic-compiler/src/stdlib/**/*.clj. Bootstrap namespaces (clojure.core etc.) are skipped; use bb build-magic + bb build-bootstrap for those."
+  {:doc "Recompile every committed stdlib clojure.*.clj.dll from source, redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity/Runtime/Infrastructure/Export/, then re-record dll-sources.edn. Use after editing any magic-compiler/src/stdlib/**/*.clj. Bootstrap namespaces (clojure.core etc.) are skipped; use bb build-magic + bb build-bootstrap for those."
+   :requires ([magic.drift :as drift])
    :depends [-check-nostrand]
-   :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "refresh/stdlib")}
+   :task (do (drift/touch-dlls!)
+             (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "refresh/stdlib")
+             (drift/record!))}
 
   ;; ============================================================
   ;; Codegen
@@ -83,21 +94,27 @@
                  (println "Updated magic-unity/package.json version to" version))))}
 
   check-drift
-  {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, UPM version, dual variant) and fail if any checked path differs from HEAD. Compilation is deterministic, so committed DLLs are byte-diffed directly. Run after a fresh `bb build` so the bootstrap .clj.dll set is covered too; CI and the pre-PR sequence in CONTRIBUTING.md do."
+  {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version, dual variant) and fail if any checked path differs from HEAD. Emission is machine-independent, so committed DLLs are byte-diffed directly; run after a fresh `bb build` so the bootstrap .clj.dll set is covered too, as CI and the pre-PR sequence in CONTRIBUTING.md do. `bb check-drift skip-dlls` restores the committed DLLs instead of diffing them and relies on the dll-sources.edn source hashes: the fallback for an environment that fails to reproduce the bytes."
    :requires ([magic.unity :as unity])
    :depends [regen-callsites refresh-stdlib sync-upm-version]
    ;; Export's Clojure.dll and Magic.Runtime.dll embed a git-describe
    ;; SourceRevisionId (csproj SetSourceRevisionId target), so their bytes are
    ;; commit-dependent by design and never rebuild-reproducible: restored from
    ;; HEAD instead of diffed.
-   :task (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
-                              "magic-unity/package.json"
-                              "magic-unity-dual"
-                              "nostrand/references"
-                              "magic-unity/Runtime/Infrastructure/Export"]
-               _ (shell "git" "checkout" "--"
-                        "magic-unity/Runtime/Infrastructure/Export/Clojure.dll"
-                        "magic-unity/Runtime/Infrastructure/Export/Magic.Runtime.dll")
+   :task (let [skip-dlls? (= "skip-dlls" (first *command-line-args*))
+               checked-paths (cond-> ["magic-runtime/Magic.Runtime/Generated"
+                                      "magic-compiler/dll-sources.edn"
+                                      "magic-unity/package.json"
+                                      "magic-unity-dual"]
+                               (not skip-dlls?)
+                               (conj "nostrand/references"
+                                     "magic-unity/Runtime/Infrastructure/Export"))
+               _ (apply shell "git" "checkout" "--"
+                        (if skip-dlls?
+                          ["nostrand/references/"
+                           "magic-unity/Runtime/Infrastructure/Export/"]
+                          ["magic-unity/Runtime/Infrastructure/Export/Clojure.dll"
+                           "magic-unity/Runtime/Infrastructure/Export/Magic.Runtime.dll"]))
                _ (unity/gen-dual!)
                {:keys [out]} (apply shell {:continue true :out :string}
                                     "git" "status" "--porcelain" "--" checked-paths)]
