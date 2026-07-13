@@ -69,7 +69,7 @@ bb check-drift   # fails on codegen, committed-DLL, dual-variant, or version dri
 bb test
 ```
 
-Keep the order: `check-drift` byte-diffs the committed `.clj.dll` binaries against the rebuild, so the fresh `bb build` before it is what surfaces bootstrap drift. The two C# runtime DLLs in the Unity Export folder embed a git-derived SourceRevisionId and cannot be byte-verified; `check-drift` restores them from HEAD.
+Keep the order: `check-drift` byte-diffs the committed `.clj.dll` binaries against the rebuild, so the fresh `bb build` before it is what surfaces bootstrap drift. Use `bb build` rather than raw `dotnet build` after a fresh clone (it normalizes DLL timestamps first), and rebuild twice after compiler changes (self-hosting: the second pass is the fixpoint). The two C# runtime DLLs in the Unity Export folder embed a git-derived SourceRevisionId and cannot be byte-verified; `check-drift` restores them from HEAD. Details in [docs/deterministic-compilation.md](./docs/deterministic-compilation.md).
 
 See [Development](./README.md#development) for what each task does.
 
