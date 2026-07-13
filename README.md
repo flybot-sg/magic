@@ -41,6 +41,7 @@ MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself t
 - [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md): `deps.edn`, `magic.edn`, and CI for a CLR build.
 - [Declaring CLR dependencies](./docs/clr-dependency-files.md): `deps-clr.edn` vs a `:clr` alias, when the CLR needs different deps than the JVM.
 - [Unity integration](./docs/unity-integration.md): compile `.clj.dll` and load them in a Unity project.
+- [Deterministic compilation and the drift check](./docs/deterministic-compilation.md): why the committed DLLs are byte-diffed against a rebuild, and the contributor workflows that follow.
 
 Per-component reference lives in each component's own README, linked from [Components](#components) below. To contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
@@ -168,7 +169,7 @@ Two folders of pre-built binaries are tracked in git:
 - `nostrand/references/*.clj.dll`: the compiler Nostrand loads at startup
 - `magic-unity/Runtime/Infrastructure/Export/*.dll`: the prebuilt runtime that Unity loads at play time
 
-Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so `git status` after a rebuild shows only the DLLs a change really affected, and those get committed together with the source fix. A maintainer refreshes them by running either `bb build` (full path) or `bb build-magic` followed by `bb build-bootstrap` (faster: bootstrap + deploy). For stdlib-only edits (any `magic-compiler/src/stdlib/**/*.clj`), `bb refresh-stdlib` recompiles only the affected `.clj.dll` files. Both paths refresh `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` together, and `bb check-drift` byte-diffs the compiled `.clj.dll` binaries against a rebuild to catch stale ones. The two C# runtime DLLs in `Export/` embed a git-derived revision id, so their bytes change with every commit; `check-drift` restores them from HEAD instead of diffing them.
+Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so `git status` after a rebuild shows only the DLLs a change really affected, and those get committed together with the source fix. A maintainer refreshes them by running either `bb build` (full path) or `bb build-magic` followed by `bb build-bootstrap` (faster: bootstrap + deploy). For stdlib-only edits (any `magic-compiler/src/stdlib/**/*.clj`), `bb refresh-stdlib` recompiles only the affected `.clj.dll` files. Both paths refresh `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` together, and `bb check-drift` byte-diffs the compiled `.clj.dll` binaries against a rebuild to catch stale ones. The design and its edge cases are covered in [Deterministic compilation and the drift check](./docs/deterministic-compilation.md).
 
 ### Common workflows
 
