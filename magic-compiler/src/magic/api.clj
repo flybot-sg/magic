@@ -152,6 +152,18 @@
             (unchecked-byte (bit-or (bit-and (int (aget hash 8)) 0x3F) 0x80))))
     (File/WriteAllBytes path bytes)))
 
+(def ^:private rt-id-field
+  (.GetField clojure.lang.RT "_id"
+             (enum-or System.Reflection.BindingFlags/NonPublic
+                      System.Reflection.BindingFlags/Static)))
+
+(defn- reset-global-gensym-counter!
+  "Emitted auto-gensym names must depend on the compilation unit alone, not
+   on what the process consumed before it. File-writing compiles only:
+   resetting mid-process weakens gensym uniqueness for the host."
+  []
+  (.SetValue rt-id-field nil (int 10000)))
+
 (defn compile-file
   ([path module]
    (compile-file path module nil))
@@ -161,10 +173,14 @@
    (let [module-name (-> module
                          str
                          (string/replace "/" ".")
-                         (str ".clj"))]
+                         (str ".clj"))
+         ;; *file* is load-relative like the JVM: an absolute path bakes the
+         ;; checkout directory into the emitted bytes via :file var metadata
+         source-path (str (string/replace (str module) "." "/")
+                          (Path/GetExtension path))]
      (binding [*print-meta*            false
                *ns*                    *ns*
-               *file*                  path
+               *file*                  source-path
                magic.emission/*module* (magic.emission/fresh-module module-name)]
        (let [type-name        (clojure-clr-init-class-name module)
              ns-type          (.DefineType magic.emission/*module* type-name abstract-sealed)
@@ -176,6 +192,8 @@
                                ::il/ilg            init-ilg}
              file             (System.IO.File/OpenText path)
              module-file-name (str module-name ".dll")]
+         (when (:write-files opts)
+           (reset-global-gensym-counter!))
          (try
            (let [rdr    (LineNumberingTextReader. file)
                  read-1 (fn [] (try (read read-options rdr) (catch Exception _ nil)))]

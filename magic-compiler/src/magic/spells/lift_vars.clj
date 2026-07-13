@@ -1,5 +1,6 @@
 (ns magic.spells.lift-vars
   (:require [magic.core :as magic]
+            [magic.util :as u]
             [mage.core :as il])
   (:import [System.Reflection CallingConventions FieldAttributes MethodAttributes]))
 
@@ -29,7 +30,7 @@
 (defn emit-to-cctor!-and-make-specialized-compilers
   [vars containing-type containing-type-cctor compilers]
   ;; sort for deterministic emission: Var sets/seqs are not stably ordered per run
-  (let [vars (->> vars (map :var) distinct (sort-by var-name) vec)
+  (let [vars (->> vars (map :var) distinct (sort-by var-name u/ordinal-str-compare) vec)
         var-fields (var-field-map containing-type vars)
         cctor-il
         (->> vars

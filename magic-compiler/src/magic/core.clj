@@ -1365,7 +1365,7 @@
                           (remove nil?)
                           distinct
                           ;; sort for deterministic emission: Type sets iterate per-run
-                          (sort-by str))
+                          (sort-by str u/ordinal-str-compare))
           fixed-arities (->> methods
                              (remove :variadic?)
                              (map :fixed-arity))
@@ -1758,7 +1758,7 @@
   "IL values of a MethodInfo-keyed emission map, sorted by stable-method-key."
   [method-map]
   (->> method-map
-       (sort-by (comp stable-method-key key))
+       (sort-by (comp stable-method-key key) u/ordinal-str-compare)
        (mapv val)))
 
 (defn compile-proxy-type [{:keys [args super interfaces closed-overs fns proxy-type] :as ast} compilers]
