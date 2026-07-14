@@ -92,7 +92,7 @@ A *spell* is one such map rewrite packaged as a `(fn [compilers] compilers')`, a
 
 Every knob that controls compilation is a dynamic var in [`src/magic/flags.clj`](src/magic/flags.clj), the single configuration surface: you `binding` the flags, the compiler reads them.
 
-Clients bind the optimization vars to control the codegen their build ships, chiefly `*direct-linking*` and `*strongly-typed-invokes*`. Compiler developers also bind the build-shaping options when needed: `*sparse-case*` for runtime-stable hashing (the `bb build-magic-portable` bootstrap pass), plus `*legacy-dynamic-callsites*` and `*elide-meta*`. Spells (`*lift-vars*`, `*lift-keywords*`, `*sparse-case*`) are flags too, so toggling one is the same idiom as any other:
+Clients bind the optimization vars to control the codegen their build ships, chiefly `*direct-linking*` and `*strongly-typed-invokes*`. Compiler developers also bind the build-shaping options when needed: `*sparse-case*` for runtime-stable hashing (the `bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'` pass), plus `*legacy-dynamic-callsites*` and `*elide-meta*`. Spells (`*lift-vars*`, `*lift-keywords*`, `*sparse-case*`) are flags too, so toggling one is the same idiom as any other:
 
 ```clojure
 (binding [magic.flags/*direct-linking* true
