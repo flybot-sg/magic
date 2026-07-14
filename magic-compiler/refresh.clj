@@ -28,6 +28,10 @@
    that would break subsequent compiles in the same process. They are kept
    in sync via `bb bootstrap`."
   '#{clojure.core
+     clojure.core-clr
+     clojure.core-proxy
+     clojure.core-print
+     clojure.core-deftype
      clojure.string
      clojure.set
      clojure.walk
@@ -48,7 +52,8 @@
 (defn- top-level-ns?
   "True if the file's first non-comment, non-blank line starts with `(ns`.
    Sub-files included via `(load ...)` from a parent start with `(in-ns ...)`
-   and can not be compiled standalone."
+   and compile standalone only after their parent has loaded (compiling the
+   parent interns every var the sub-file's forms reference)."
   [^FileInfo src-file]
   (with-open [r (StreamReader. (.FullName src-file))]
     (loop []
@@ -90,14 +95,19 @@
                                      :when f]
                                  [ns f]))
         missing-src   (remove ns->src all-nss)
-        top-level-nss (->> all-nss
+        sourced-nss   (->> all-nss
                            (remove bootstrap-namespaces)
-                           (filter ns->src)
-                           (filter #(top-level-ns? (ns->src %)))
-                           vec)
+                           (filter ns->src))
+        top-level-nss (vec (filter #(top-level-ns? (ns->src %)) sourced-nss))
+        ;; (in-ns ...) sub-files, compiled after every top-level ns so their
+        ;; parent's compile has interned the vars they reference. The mtime
+        ;; rules keep the parent's own (load ...) from re-emitting them, so
+        ;; without this explicit pass they would never be recompiled.
+        subfile-nss   (vec (remove (set top-level-nss) sourced-nss))
         tmp-dir       (Path/GetFullPath "target/refresh-stdlib")]
     (println (str "found " (count all-nss) " deployed stdlib DLLs, "
                   (count top-level-nss) " top-level, "
+                  (count subfile-nss) " sub-files, "
                   (count missing-src) " without source (skipped)"))
     (when (seq missing-src)
       (doseq [ns missing-src] (println "  missing source for" ns)))
@@ -111,7 +121,7 @@
               clojure.core/*warn-on-reflection* true
               clojure.core/*compile-path*       tmp-dir
               clojure.core/*compile-files*      true]
-      (doseq [ns top-level-nss]
+      (doseq [ns (concat top-level-nss subfile-nss)]
         (print (str "compiling " ns " ... "))
         (flush)
         (try
