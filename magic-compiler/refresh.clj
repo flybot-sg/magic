@@ -26,7 +26,7 @@
   "Namespaces compiled by build.clj's bootstrap chain. We must NOT re-compile
    these here because their source re-defines runtime vars like *load-paths*
    that would break subsequent compiles in the same process. They are kept
-   in sync via `bb build-magic` + `bb build-bootstrap`."
+   in sync via `bb bootstrap`."
   '#{clojure.core
      clojure.string
      clojure.set
