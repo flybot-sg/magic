@@ -62,6 +62,7 @@
     clojure.core.protocols
     clojure.gvec
     clojure.clr.io
+    clojure.core-clr
     clojure.core]) ;; if clojure.core not at the end, prevent other files from being compiled
 
 (defn- spell-flag-bindings
