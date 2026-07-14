@@ -2,7 +2,11 @@
   <PropertyGroup>
     <_VersionEdnText>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)version.edn'))</_VersionEdnText>
     <Version>$([System.Text.RegularExpressions.Regex]::Match($(_VersionEdnText), '\d+\.\d+\.\d+').Value)</Version>
-    <AssemblyVersion>$(Version).0</AssemblyVersion>
+    <!-- Pinned: AssemblyVersion is the identity emitted .clj.dll bake into
+         their AssemblyRefs, so tying it to version.edn would invalidate every
+         committed DLL on each release. Not used for binding (no strong name);
+         the release version lives in InformationalVersion/FileVersion. -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>$(Version).0</FileVersion>
   </PropertyGroup>
 </Project>
