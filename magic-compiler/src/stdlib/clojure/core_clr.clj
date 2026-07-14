@@ -314,6 +314,10 @@
   [^String assembly-name]
   (System.Reflection.Assembly/LoadWithPartialName assembly-name))
 
+;; upstream ClojureCLR interns this var from C# (RT.NSLoadMappings); this
+;; runtime does not, so the source must define it for the fn below to compile
+(def ^:dynamic *ns-load-mappings* (atom []))
+
 (defn add-ns-load-mapping
   "Convenience function to assist with loading .clj files embedded in
   C# projects.  ns-root specifies part of a namespace such as MyNamespace.A and
