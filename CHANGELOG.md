@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.10.0 - 2026-07-14
+
+Compilation is now deterministic, so rebuilding unchanged sources reproduces the committed DLLs byte-for-byte, and CI catches a stale binary with a plain byte diff. The `bb` tasks got simpler from it too.
+
+### Deterministic compilation
+- Emission is deterministic and machine-independent: members emit in a stable content-derived order, sorts ignore the locale, `:file` metadata is load-relative, the `gensym` counter and the `type-lookup` cache reset per compile unit, and the saved assembly gets a zeroed PE timestamp and a content-derived MVID. The same tree compiles to identical bytes on macOS and Linux - [#43](https://github.com/flybot-sg/magic/issues/43), [#48](https://github.com/flybot-sg/magic/issues/48).
+- `bb check-drift` byte-diffs the committed DLLs against a rebuild, and CI runs it on every PR. A single `dll-sources.edn` replaces the two source-SHA manifests, and a stale binary now fails CI no matter what made it stale - [#43](https://github.com/flybot-sg/magic/issues/43).
+- `(load ...)` sub-file DLLs compile as explicit units after their parent, so `core_clr` and the `pprint` sub-files finally regenerate; they had been frozen at their 2020/2022 upstream bytes - [#45](https://github.com/flybot-sg/magic/issues/45).
+- `AssemblyVersion` is pinned to `1.0.0.0`, and the release version lives in `FileVersion` / `InformationalVersion` (what `nos version` reports). Every emitted `.clj.dll` bakes `Clojure.dll`'s identity into its AssemblyRef, so deriving it from `version.edn` would have rewritten the whole committed DLL set on each release.
+
+### Stdlib
+- In `clojure.spec.alpha`, regex ops (`s/cat`, `s/*`, `s/alt`, ...) no longer throw `No matching clause`. The committed spec DLL predated the qualified-keyword `hasheq` change, so its `case` jump tables were keyed on the old hashes; the 17 stdlib DLLs that `dotnet build` skips are regenerated, and a regression suite now runs against the committed DLL - [#40](https://github.com/flybot-sg/magic/issues/40).
+- `&` applies its predicates on empty input, so `(s/keys* :req-un [...])` rejects an empty sequence like upstream does - [#41](https://github.com/flybot-sg/magic/issues/41).
+- `*ns-load-mappings*` is defined in `clojure.core-clr`. The runtime dropped its C#-side intern in 2020, which left the source uncompilable and `add-ns-load-mapping` missing from the committed DLL - [#45](https://github.com/flybot-sg/magic/issues/45).
+
+### Tooling
+- `bb bootstrap` replaces `build-magic` / `build-bootstrap` / `build-magic-portable`: one task that re-bootstraps, deploys, and re-records `dll-sources.edn`, forwarding extra args to `nos`.
+- `bb test` takes namespace args to run a subset.
+
+### Docs
+- New [`docs/deterministic-compilation.md`](docs/deterministic-compilation.md) explains the guarantees and the drift workflow - [#43](https://github.com/flybot-sg/magic/issues/43).
+
 ## v0.9.0 - 2026-07-08
 
 Aligns MAGIC's tooling with the ClojureCLR ecosystem: `nos` reads `deps-clr.edn` like `cljr` does, and a ported library builds and tests from a small `magic.edn` instead of a hand-written `dotnet.clj`. Plus a compiler fix for hinted by-ref locals.
