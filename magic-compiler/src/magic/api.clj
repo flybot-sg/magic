@@ -1,7 +1,7 @@
 (ns magic.api
   (:refer-clojure :exclude [compile load-file eval])
   (:require [magic.analyzer :as ana]
-            [magic.analyzer.types :refer [tag ast-type]]
+            [magic.analyzer.types :refer [tag ast-type type-lookup-cache-clear!]]
             [magic.core :as magic]
             [magic.util :as u]
             [mage.core :as il]
@@ -193,7 +193,8 @@
              file             (System.IO.File/OpenText path)
              module-file-name (str module-name ".dll")]
          (when (:write-files opts)
-           (reset-global-gensym-counter!))
+           (reset-global-gensym-counter!)
+           (type-lookup-cache-clear!))
          (try
            (let [rdr    (LineNumberingTextReader. file)
                  read-1 (fn [] (try (read read-options rdr) (catch Exception _ nil)))]
