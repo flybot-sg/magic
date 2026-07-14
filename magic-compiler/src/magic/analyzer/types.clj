@@ -190,6 +190,13 @@
 (defn type-lookup-cache-evict! [type-name]
   (swap! type-lookup-cache type-lookup-cache-evict type-name))
 
+(defn type-lookup-cache-clear!
+  "Reset the cache. Must run per file-writing compile unit: the per-unit gensym
+   reset makes AST nodes hash-identical across units, so stale entries turn
+   every lookup into a deep-equality walk over colliding keys."
+  []
+  (reset! type-lookup-cache {:forward {} :reverse {}}))
+
 (defn ast-type-impl* [ast]
   (if-let [cached-type (get (:forward @type-lookup-cache) ast)]
     cached-type
