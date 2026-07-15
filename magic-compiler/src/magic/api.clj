@@ -1,7 +1,7 @@
 (ns magic.api
   (:refer-clojure :exclude [compile load-file eval])
   (:require [magic.analyzer :as ana]
-            [magic.analyzer.types :refer [tag ast-type]]
+            [magic.analyzer.types :refer [tag ast-type type-lookup-cache-clear!]]
             [magic.core :as magic]
             [magic.util :as u]
             [mage.core :as il]
@@ -14,7 +14,8 @@
   (:import [clojure.lang RT LineNumberingTextReader]
            [System.IO Path Directory File]
            [System.Reflection MethodAttributes TypeAttributes]
-           [System.Reflection.Emit AssemblyBuilder ModuleBuilder]))
+           [System.Reflection.Emit AssemblyBuilder ModuleBuilder]
+           [System.Security.Cryptography SHA256]))
 
 (def empty-args (into-array []))
 (def public-static (enum-or MethodAttributes/Public MethodAttributes/Static))
@@ -73,6 +74,96 @@
   [path]
   (str "__Init__$" (-> path (string/replace "." "/") (string/replace "/" "$"))))
 
+;; AssemblyBuilder.Save stamps a random MVID and the current time, the only
+;; non-source-derived bytes once emission order is deterministic. Patch them
+;; (offsets parsed from the PE / CLI metadata layout).
+
+(defn- b->i32 [bytes off]
+  (BitConverter/ToInt32 bytes (int off)))
+
+(defn- b->u16 [bytes off]
+  (int (BitConverter/ToUInt16 bytes (int off))))
+
+(defn- read-ascii-cstr
+  "Null-terminated ASCII string in bytes starting at off."
+  [bytes off]
+  (loop [i (int off) acc []]
+    (let [c (int (aget bytes i))]
+      (if (zero? c)
+        (apply str (map char acc))
+        (recur (inc i) (conj acc c))))))
+
+(defn- rva->file-offset
+  "Translate a PE relative virtual address to a file offset via the section table."
+  [bytes pe-off rva]
+  (let [num-sections (b->u16 bytes (+ pe-off 6))
+        opt-size     (b->u16 bytes (+ pe-off 20))
+        sections-off (+ pe-off 24 opt-size)]
+    (loop [i 0]
+      (if (< i num-sections)
+        (let [sec     (+ sections-off (* i 40))
+              vsize   (b->i32 bytes (+ sec 8))
+              va      (b->i32 bytes (+ sec 12))
+              raw-ptr (b->i32 bytes (+ sec 20))]
+          (if (and (>= rva va) (< rva (+ va vsize)))
+            (+ (- rva va) raw-ptr)
+            (recur (inc i))))
+        (throw (Exception. (str "RVA " rva " not found in any PE section")))))))
+
+(defn- guid-heap-offset
+  "File offset of the #GUID metadata heap, which holds the module MVID."
+  [bytes]
+  (let [pe-off       (b->i32 bytes 0x3C)
+        opt-off      (+ pe-off 24)
+        pe32+?       (= 0x20B (b->u16 bytes opt-off))
+        data-dir-off (+ opt-off (if pe32+? 112 96))
+        cli-off      (rva->file-offset bytes pe-off (b->i32 bytes (+ data-dir-off (* 14 8))))
+        meta-off     (rva->file-offset bytes pe-off (b->i32 bytes (+ cli-off 8)))
+        version-len  (b->i32 bytes (+ meta-off 12))
+        version-pad  (* 4 (quot (+ version-len 3) 4))
+        streams-off  (+ meta-off 16 version-pad)
+        num-streams  (b->u16 bytes (+ streams-off 2))]
+    (loop [i 0 hdr (+ streams-off 4)]
+      (if (< i num-streams)
+        (let [stream-off (b->i32 bytes hdr)
+              name       (read-ascii-cstr bytes (+ hdr 8))
+              name-pad   (* 4 (quot (+ (inc (count name)) 3) 4))]
+          (if (= name "#GUID")
+            (+ meta-off stream-off)
+            (recur (inc i) (+ hdr 8 name-pad))))
+        (throw (Exception. "#GUID metadata heap not found in assembly"))))))
+
+(defn normalize-assembly!
+  "Rewrite a freshly-saved assembly so identical source yields identical bytes."
+  [path]
+  (let [bytes    (File/ReadAllBytes path)
+        ts-off   (int (+ (b->i32 bytes 0x3C) 8))
+        guid-off (int (guid-heap-offset bytes))]
+    (System.Array/Clear bytes ts-off (int 4))
+    (System.Array/Clear bytes guid-off (int 16))
+    (let [sha  (SHA256/Create)
+          hash (.ComputeHash sha bytes)]
+      (.Dispose sha)
+      (System.Array/Copy hash (int 0) bytes guid-off (int 16))
+      ;; stamp UUID version (4) and RFC-4122 variant bits for a well-formed GUID
+      (aset bytes (int (+ guid-off 7))
+            (unchecked-byte (bit-or (bit-and (int (aget hash 7)) 0x0F) 0x40)))
+      (aset bytes (int (+ guid-off 8))
+            (unchecked-byte (bit-or (bit-and (int (aget hash 8)) 0x3F) 0x80))))
+    (File/WriteAllBytes path bytes)))
+
+(def ^:private rt-id-field
+  (.GetField clojure.lang.RT "_id"
+             (enum-or System.Reflection.BindingFlags/NonPublic
+                      System.Reflection.BindingFlags/Static)))
+
+(defn- reset-global-gensym-counter!
+  "Emitted auto-gensym names must depend on the compilation unit alone, not
+   on what the process consumed before it. File-writing compiles only:
+   resetting mid-process weakens gensym uniqueness for the host."
+  []
+  (.SetValue rt-id-field nil (int 10000)))
+
 (defn compile-file
   ([path module]
    (compile-file path module nil))
@@ -82,10 +173,14 @@
    (let [module-name (-> module
                          str
                          (string/replace "/" ".")
-                         (str ".clj"))]
+                         (str ".clj"))
+         ;; *file* is load-relative like the JVM: an absolute path bakes the
+         ;; checkout directory into the emitted bytes via :file var metadata
+         source-path (str (string/replace (str module) "." "/")
+                          (Path/GetExtension path))]
      (binding [*print-meta*            false
                *ns*                    *ns*
-               *file*                  path
+               *file*                  source-path
                magic.emission/*module* (magic.emission/fresh-module module-name)]
        (let [type-name        (clojure-clr-init-class-name module)
              ns-type          (.DefineType magic.emission/*module* type-name abstract-sealed)
@@ -97,6 +192,9 @@
                                ::il/ilg            init-ilg}
              file             (System.IO.File/OpenText path)
              module-file-name (str module-name ".dll")]
+         (when (:write-files opts)
+           (reset-global-gensym-counter!)
+           (type-lookup-cache-clear!))
          (try
            (let [rdr    (LineNumberingTextReader. file)
                  read-1 (fn [] (try (read read-options rdr) (catch Exception _ nil)))]
@@ -117,6 +215,7 @@
              (if-not (File/Exists final-path)
                (let [assembly (.Assembly magic.emission/*module*)]
                  (Magic.Emission/EmitAssembly assembly file-name)
+                 (normalize-assembly! file-name)
                  (when-not (= compile-path ".")
                    (File/Move file-name final-path)))
                (println "[compile-file] file already exists" final-path))

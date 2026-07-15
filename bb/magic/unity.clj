@@ -4,6 +4,7 @@
    `magic-unity-coexist` repro that proves the dual variant is silent."
   (:require [babashka.fs :as fs]
             [babashka.tasks :refer [shell]]
+            [clojure.edn :as edn]
             [clojure.pprint :as pp]
             [clojure.string :as str]))
 
@@ -36,6 +37,21 @@
     (when (= content edited)
       (throw (ex-info (str "gen-unity-dual: no substitution applied to " path) {:path path})))
     (spit path edited)))
+
+(defn sync-upm-version!
+  "Sync magic-unity/package.json version with version.edn. UPM manifests are
+   not covered by Directory.Build.props, so this keeps them in lockstep."
+  []
+  (let [version (:version (edn/read-string (slurp "version.edn")))
+        path    (str default-pkg "/package.json")
+        content (slurp path)
+        updated (str/replace content
+                             (re-pattern "\"version\":\\s*\"[^\"]+\"")
+                             (str "\"version\": \"" version "\""))]
+    (if (= content updated)
+      (println "magic-unity/package.json version already in sync (" version ")")
+      (do (spit path updated)
+          (println "Updated magic-unity/package.json version to" version)))))
 
 (defn gen-dual!
   "Regenerate magic-unity-dual as a verbatim copy of magic-unity with the runtime

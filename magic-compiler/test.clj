@@ -16,6 +16,8 @@
    magic.test.pipeline
    magic.test.hash
    magic.test.stdlib
+   magic.test.spec
+   magic.test.deterministic
    magic.test.flags)
   (:use clojure.test))
 
@@ -37,6 +39,8 @@
    'magic.test.pipeline
    'magic.test.hash
    'magic.test.stdlib
+   'magic.test.spec
+   'magic.test.deterministic
    'magic.test.flags))
 
 (defn run [& namespaces]

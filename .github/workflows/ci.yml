@@ -26,7 +26,7 @@ jobs:
       uses: actions/checkout@v6
 
     - name: Build and bootstrap MAGIC
-      run: dotnet build
+      run: bb build
 
     - name: Verify generated files are current
       run: bb check-drift

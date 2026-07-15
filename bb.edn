@@ -1,267 +1,159 @@
-;; MAGIC dev workflows.
+;; MAGIC dev workflows: the task graph and docs. Implementation lives in bb/magic/.
 ;; Run `bb tasks` for the public list.
 
 {:min-bb-version "1.3.0"
  :paths ["bb"]
  :tasks
- {:requires ([babashka.fs :as fs]
-             [clojure.string :as str])
-  :init
-  (do
-    (def nostrand-exe  "nostrand/bin/Release/net471/NostrandMain.exe")
-    (def nostrand-proj "nostrand/NostrandMain.csproj")
-    (def compiler-dir  "magic-compiler")
-    (def callsites-dir "magic-runtime/Magic.Runtime.Callsites"))
+ {:requires ([magic.nos :as nos])
 
   -check-nostrand
   {:doc "Abort if Nostrand has not been built yet."
-   :task (when-not (fs/exists? nostrand-exe)
-           (binding [*out* *err*]
-             (println "Nostrand not built. Run `bb build` first (or `bb build-runtime` if everything else is current)."))
-           (throw (ex-info "nostrand not built" {:babashka/exit 1})))}
-
-  -revert-byproducts
-  {:doc "Revert build-byproduct DLLs so iteration commits stay clean. The nostrand/references/ and magic-unity/Runtime/Infrastructure/Export/ binaries (and bootstrap-manifest.edn, which tracks them) are intentionally tracked but only updated via dedicated commits, not as side effects of every iteration."
-   :task (shell "git" "checkout" "--"
-                "nostrand/references/"
-                "magic-unity/Runtime/Infrastructure/Export/"
-                "magic-compiler/bootstrap-manifest.edn")}
+   :task (nos/check-built!)}
 
   ;; ============================================================
   ;; Build
   ;; ============================================================
 
   build
-  {:doc "Full build: runtimes → nostrand → magic-compiler bootstrap → magic-unity. Slow (minutes) on first run."
-   :task (shell "dotnet build")}
+  {:doc "Full build: runtimes → nostrand → magic-compiler bootstrap → magic-unity. Slow (minutes) on first run.
+         Normalizes committed-DLL mtimes first, so use this rather than raw `dotnet build` after a fresh clone (byte reproducibility depends on it)."
+   :requires ([magic.drift :as drift])
+   :task (do (drift/touch-dlls!)
+             (shell "dotnet build"))}
 
   build-runtime
   {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand. No magic-compiler bootstrap. Fast."
-   :task (shell "dotnet build" nostrand-proj "-c" "Release")}
+   :task (shell "dotnet build" "nostrand/NostrandMain.csproj" "-c" "Release")}
 
-  build-magic
-  {:doc "Re-bootstrap magic-compiler (compiles .clj → .clj.dll). Slow. Use after editing compiler or stdlib .clj files."
-   :depends [-check-nostrand]
-   ;; The bootstrap step in magic.api/compile-file skips writing DLLs that
-   ;; already exist on disk, so re-running it without cleaning is a no-op.
-   ;; Delete magic-compiler/bootstrap/ first to force re-compilation.
-   :task (do
-           (fs/delete-tree (fs/file compiler-dir "bootstrap"))
-           (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "build/bootstrap"))}
-
-  build-magic-portable
-  {:doc "Like build-magic but applies the sparse-case spell. Use as the first pass when changing hashing semantics, then run build-magic again."
+  bootstrap
+  {:doc "Re-bootstrap magic-compiler (.clj → .clj.dll), deploy the DLLs into nostrand/references (rebuilds nostrand) and magic-unity Export, then re-record dll-sources.edn. Slow.
+         Extra args go to nos build/bootstrap, e.g. `bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'`.
+         Self-hosting: after compiler changes run twice; the second pass is the fixpoint."
+   :requires ([babashka.fs :as fs]
+              [magic.drift :as drift])
    :depends [-check-nostrand]
    :task (do
-           (fs/delete-tree (fs/file compiler-dir "bootstrap"))
-           (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe)
-                  "build/bootstrap"
-                  ":spells" "[magic.spells.sparse-case/sparse-case]"))}
-
-  build-bootstrap
-  {:doc "After build-magic, deploy bootstrap DLLs into nostrand/references (rebuilds nostrand) and into magic-unity Runtime/Infrastructure/Export, then re-record bootstrap-manifest.edn from the refreshed sources."
-   :requires ([magic.drift :as drift])
-   :task (do (shell "dotnet build -t:Bootstrap;MagicUnity")
-             (drift/refresh-bootstrap-manifest!))}
+           (drift/touch-dlls!)
+           ;; magic.api/compile-file skips DLLs that already exist on disk, so
+           ;; delete bootstrap/ first to force re-compilation.
+           (fs/delete-tree (fs/file "magic-compiler" "bootstrap"))
+           (apply nos/nos! "build/bootstrap" *command-line-args*)
+           (shell "dotnet build -t:Bootstrap;MagicUnity")
+           (drift/record!))}
 
   refresh-stdlib
-  {:doc "Recompile every committed stdlib clojure.*.clj.dll from source and redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity/Runtime/Infrastructure/Export/. Use after editing any magic-compiler/src/stdlib/**/*.clj. Bootstrap namespaces (clojure.core etc.) are skipped; use bb build-magic + bb build-bootstrap for those."
-   :depends [-check-nostrand]
-   :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "refresh/stdlib")}
-
-  refresh-bootstrap-manifest
-  {:doc "Recompute magic-compiler/bootstrap-manifest.edn: the SHA256 of every committed bootstrap/compiler .clj source (clojure.core, the core_* helpers, magic.*, mage, and the bootstrap stdlib refresh-stdlib skips). Pure source hashing, no compiler run. Folded into bb build-bootstrap; run standalone only to re-baseline."
+  {:doc "Recompile every committed stdlib clojure.*.clj.dll from source, redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity Export, then re-record dll-sources.edn.
+         Use after editing any magic-compiler/src/stdlib/**/*.clj.
+         Bootstrap namespaces (clojure.core etc.) are skipped; those need `bb bootstrap`."
    :requires ([magic.drift :as drift])
-   :task (drift/refresh-bootstrap-manifest!)}
+   :depends [-check-nostrand]
+   :task (do (drift/touch-dlls!)
+             (nos/nos! "refresh/stdlib")
+             (drift/record!))}
 
   ;; ============================================================
-  ;; Codegen
+  ;; Generated outputs
   ;; ============================================================
 
   regen-callsites
   {:doc "Regenerate magic-runtime .g.cs files from .mustache templates."
-   :task (shell {:dir callsites-dir} "dotnet run")}
+   :task (shell {:dir "magic-runtime/Magic.Runtime.Callsites"} "dotnet run")}
 
   sync-upm-version
-  {:doc "Sync magic-unity/package.json :version field with version.edn. UPM manifests are not covered by Directory.Build.props, so this keeps them in lockstep manually."
-   :requires ([clojure.edn :as edn])
-   :task (let [version (:version (edn/read-string (slurp "version.edn")))
-               path    "magic-unity/package.json"
-               content (slurp path)
-               updated (str/replace content
-                                    (re-pattern "\"version\":\\s*\"[^\"]+\"")
-                                    (str "\"version\": \"" version "\""))]
-           (if (= content updated)
-             (println "magic-unity/package.json version already in sync (" version ")")
-             (do (spit path updated)
-                 (println "Updated magic-unity/package.json version to" version))))}
+  {:doc "Sync magic-unity/package.json version with version.edn (UPM manifests are not covered by Directory.Build.props)."
+   :requires ([magic.unity :as unity])
+   :task (unity/sync-upm-version!)}
+
+  gen-unity-dual
+  {:doc "Regenerate the magic-unity-dual UPM package from magic-unity: byte-identical except the runtime *.clj.dll are constrained to !UNITY_EDITOR and the package is renamed.
+         Run after any magic-unity change; the output is committed and drift-checked. See docs/unity-integration.md."
+   :requires ([magic.unity :as unity])
+   :task (println "Generated magic-unity-dual -" (unity/gen-dual!)
+                  "runtime plugins constrained to !UNITY_EDITOR")}
 
   check-drift
-  {:doc "Verify generated files, stdlib + bootstrap DLL manifests, and UPM version are current. Runs regen + refresh-stdlib + refresh-bootstrap-manifest + sync-upm-version and fails if the working tree changed. Use in CI and before opening a PR."
-   :requires ([magic.unity :as unity])
-   :depends [regen-callsites refresh-stdlib refresh-bootstrap-manifest sync-upm-version]
-   ;; Drift signals checked:
-   ;;  - magic-runtime/Magic.Runtime/Generated: .g.cs files produced by Mustache
-   ;;    templates. Deterministic text output; byte-diffable.
-   ;;  - magic-compiler/stdlib-manifest.edn: maps each stdlib namespace to its
-   ;;    source SHA256. Updated by refresh-stdlib. If a source was edited since
-   ;;    last refresh, the SHA in this file changes; that's our drift signal.
-   ;;    We do NOT diff DLL bytes themselves because compilation is
-   ;;    non-deterministic (gensyms, hash tokens) and would always fail.
-   ;;  - magic-compiler/bootstrap-manifest.edn: the same source-SHA tripwire for
-   ;;    the bootstrap set refresh-stdlib skips (clojure.core, the core_* helpers,
-   ;;    magic.*, mage). Updated by refresh-bootstrap-manifest / build-bootstrap.
-   ;;    Catches editing a compiler/core source without rerunning build-magic +
-   ;;    build-bootstrap to refresh its committed .clj.dll.
-   ;;  - magic-unity/package.json: UPM manifest version field. Synced from
-   ;;    version.edn by sync-upm-version (above).
-   ;;  - magic-unity-dual: the generated coexistence variant. gen-unity-dual
-   ;;    copies magic-unity verbatim, then constrains the 46 runtime metas and
-   ;;    renames the package. refresh-stdlib (above) redeploys freshly-compiled,
-   ;;    non-deterministic DLLs into magic-unity/Runtime/Infrastructure/Export,
-   ;;    so we revert that byproduct first; the dual is then a copy of the
-   ;;    committed binaries and the diff isolates the deterministic transforms
-   ;;    (the meta constraints, the package rename) plus any DLL the maintainer
-   ;;    refreshed in magic-unity without regenerating the dual.
-   :task (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
-                              "magic-compiler/stdlib-manifest.edn"
-                              "magic-compiler/bootstrap-manifest.edn"
-                              "magic-unity/package.json"
-                              "magic-unity-dual"]
-               _ (shell "git" "checkout" "--"
-                        "magic-unity/Runtime/Infrastructure/Export/")
-               _ (unity/gen-dual!)
-               {:keys [out]} (apply shell {:continue true :out :string}
-                                    "git" "diff" "--" checked-paths)]
-           (when-not (str/blank? out)
-             (binding [*out* *err*]
-               (println)
-               (println "Drift detected.")
-               (println "Either a .mustache template was edited without regenerating .g.cs,")
-               (println "a stdlib .clj source was edited without refreshing its .clj.dll,")
-               (println "a compiler/core source was edited without rerunning build-magic + build-bootstrap,")
-               (println "version.edn was bumped without syncing magic-unity/package.json,")
-               (println "or magic-unity changed without regenerating magic-unity-dual.")
-               (println)
-               (println "Fix locally:")
-               (println "  bb regen-callsites      # if magic-runtime Generated/ drifted")
-               (println "  bb refresh-stdlib       # if stdlib-manifest.edn drifted")
-               (println "  bb build-magic + bb build-bootstrap   # if bootstrap-manifest.edn drifted")
-               (println "  bb sync-upm-version     # if magic-unity/package.json drifted")
-               (println "  bb gen-unity-dual       # if magic-unity-dual drifted from magic-unity")
-               (println "  git add" (str/join " " checked-paths)
-                        "nostrand/references magic-unity/Runtime/Infrastructure/Export")
-               (println)
-               (println "Diff:")
-               (->> (str/split-lines out)
-                    (take 80)
-                    (run! println)))
-             (throw (ex-info "drift detected" {:babashka/exit 1}))))}
+  {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version, dual variant) and fail if any checked path differs from HEAD.
+         Committed DLLs are byte-diffed; run after a fresh `bb build` so the bootstrap set is covered too, as CI does.
+         `bb check-drift skip-dlls` checks the dll-sources.edn source hashes instead: the fallback for an environment that fails to reproduce the bytes.
+         See docs/deterministic-compilation.md."
+   :requires ([magic.drift :as drift])
+   :depends [regen-callsites refresh-stdlib sync-upm-version]
+   :task (drift/check! (= "skip-dlls" (first *command-line-args*)))}
 
   ;; ============================================================
-  ;; Test
+  ;; Test + dev loops
   ;; ============================================================
 
   test
-  {:doc "Run the magic-compiler test suite. Requires built nostrand."
+  {:doc "Run the magic-compiler test suite. `bb test magic.test.fn magic.test.reify` runs specific namespaces. Requires built nostrand."
    :depends [-check-nostrand]
-   :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "test/all")}
-
-  ;; ============================================================
-  ;; Dev loops
-  ;; ============================================================
+   :task (if (seq *command-line-args*)
+           (apply nos/nos! "test/run" *command-line-args*)
+           (nos/nos! "test/all"))}
 
   dev-runtime
-  {:doc "After editing C# in clojure-runtime/ or magic-runtime/: rebuild runtimes + test. No bootstrap. Byproduct DLLs reverted at the end."
-   :depends [build-runtime test -revert-byproducts]}
+  {:doc "After editing C# in clojure-runtime/ or magic-runtime/: rebuild runtimes + test. No bootstrap."
+   :depends [build-runtime test]}
 
   dev-callsites
-  {:doc "After editing magic-runtime/Magic.Runtime.Callsites/*.mustache: regen + rebuild runtimes + test. Byproduct DLLs reverted at the end."
-   :depends [regen-callsites build-runtime test -revert-byproducts]}
+  {:doc "After editing magic-runtime/Magic.Runtime.Callsites/*.mustache: regen + rebuild runtimes + test."
+   :depends [regen-callsites build-runtime test]}
 
   dev-compiler
-  {:doc "After editing magic-compiler/src/**/*.clj: clean bootstrap, re-bootstrap, deploy DLLs to nostrand/references, then test. Slow. Byproduct DLLs reverted at the end."
-   ;; build-bootstrap is required: build-magic only writes to magic-compiler/bootstrap/,
-   ;; but nos test/all loads compiler DLLs from nostrand/references/. Without
-   ;; build-bootstrap copying them over, tests run the old compiler.
-   :depends [build-magic build-bootstrap test -revert-byproducts]}
+  {:doc "After editing magic-compiler/src/**/*.clj: bootstrap + test. Slow. Redeployed DLLs that differ in git status are real changes; commit them with the source fix."
+   :depends [bootstrap test]}
 
   ;; ============================================================
   ;; Inspect / debug
   ;; ============================================================
 
   pipeline
-  {:doc "Walk a Clojure form through reader -> AST -> symbolic IL. Prints form, macroexpand, AST skeleton, type summary, and flattened opcode listing; dumps EDN to <out>/ (default magic-compiler/target). Options: :out <dir>, :sections '#{...}' subset of #{:form :macroexpand :ast :types :il :ast-edn :il-edn :tree-edn}."
+  {:doc "Walk a Clojure form through reader -> AST -> symbolic IL.
+         Prints form, macroexpand, AST skeleton, type summary, and flattened opcode listing; dumps EDN to <out>/ (default magic-compiler/target).
+         Options: :out <dir>, :sections '#{...}' subset of #{:form :macroexpand :ast :types :il :ast-edn :il-edn :tree-edn}."
+   :requires ([magic.log :as log])
    :depends [-check-nostrand]
    :task (if (empty? *command-line-args*)
-           (do (binding [*out* *err*]
-                 (println "usage: bb pipeline '<form>' [:key value]...")
-                 (println "examples:")
-                 (println "  bb pipeline '(let [x 1] (+ x 1))'")
-                 (println "  bb pipeline '(let [x 1] x)' :out /tmp/x")
-                 (println "  bb pipeline '(let [x 1] x)' :sections '#{:ast :il}'"))
-               (throw (ex-info "missing form" {:babashka/exit 1})))
-           (apply shell {:dir compiler-dir}
-                  "mono" (str "../" nostrand-exe)
-                  "pipeline/show" *command-line-args*))}
-
-  ;; ============================================================
-  ;; REPL
-  ;; ============================================================
+           (log/fail! "missing form"
+                      "usage: bb pipeline '<form>' [:key value]..."
+                      "examples:"
+                      "  bb pipeline '(let [x 1] (+ x 1))'"
+                      "  bb pipeline '(let [x 1] x)' :out /tmp/x"
+                      "  bb pipeline '(let [x 1] x)' :sections '#{:ast :il}'")
+           (apply nos/nos! "pipeline/show" *command-line-args*))}
 
   repl
   {:doc "Start the Nostrand CLI REPL in magic-compiler/."
    :override-builtin true
    :depends [-check-nostrand]
-   :task (shell {:dir compiler-dir} "mono" (str "../" nostrand-exe) "repl")}
+   :task (nos/nos! "repl")}
 
   prepl-server
-  {:doc "Start a socket prepl server (io-prepl) on a warm MAGIC runtime, like an nREPL for dev. Blocks. Default port 5555; override: bb prepl-server 5560. Send forms from another shell with `bb prepl-eval`."
+  {:doc "Start a socket prepl server (io-prepl) on a warm MAGIC runtime, like an nREPL for dev. Blocks.
+         Default port 5555; override: bb prepl-server 5560. Send forms from another shell with `bb prepl-eval`."
    :depends [-check-nostrand]
-   :task (apply shell {:dir compiler-dir} "mono" (str "../" nostrand-exe)
-                "preplserver/start" *command-line-args*)}
+   :task (apply nos/nos! "preplserver/start" *command-line-args*)}
 
   prepl-eval
-  {:doc "Eval one form against the running prepl server and print the structured reply maps. Usage: bb prepl-eval '(+ 1 2)' or bb prepl-eval :port 5560 '(+ 1 2)'. Global defs persist across calls (Vars are interned in the runtime)."
-   :requires ([clojure.java.io :as io])
-   :task (let [args *command-line-args*
-               [port args] (if (= ":port" (first args))
-                             [(Integer/parseInt (second args)) (drop 2 args)]
-                             [5555 args])
-               form (str/join " " args)]
-           (when (str/blank? form)
-             (binding [*out* *err*] (println "usage: bb prepl-eval '<form>'  (or bb prepl-eval :port N '<form>')"))
-             (throw (ex-info "missing form" {:babashka/exit 1})))
-           (with-open [sock (java.net.Socket. "127.0.0.1" ^long port)]
-             (.setSoTimeout sock 15000)
-             (let [out (io/writer (.getOutputStream sock))
-                   in  (io/reader (.getInputStream sock))]
-               (.write out (str form "\n"))
-               (.flush out)
-               (loop []
-                 (when-let [line (.readLine in)]
-                   (println line)
-                   (when-not (str/includes? line ":tag :ret")
-                     (recur)))))))}
+  {:doc "Eval one form against the running prepl server and print the structured reply maps.
+         Usage: bb prepl-eval '(+ 1 2)' or bb prepl-eval :port 5560 '(+ 1 2)'.
+         Global defs persist across calls (Vars are interned in the runtime)."
+   :task (nos/prepl-eval! *command-line-args*)}
 
   ;; ============================================================
-  ;; Unity packaging (two variants) + coexistence repro
+  ;; Unity coexistence repro
   ;; ============================================================
-
-  gen-unity-dual
-  {:doc "Generate the magic-unity-dual UPM package from magic-unity. Byte-identical except the 46 runtime *.clj.dll plugins carry defineConstraints ['!UNITY_EDITOR'] so Unity leaves them out of the editor (a project running stock ClojureCLR in the editor then sees no 'incompatible with the editor' narration), and package.json is renamed sg.flybot.magic.unity.dual. The default sg.flybot.magic.unity stays editor-loadable so MAGIC also runs in the editor's Play mode. Output is committed and drift-checked; regenerate after any magic-unity change."
-   :requires ([magic.unity :as unity])
-   :task (println "Generated magic-unity-dual -" (unity/gen-dual!)
-                  "runtime plugins constrained to !UNITY_EDITOR")}
 
   coexist-noise
-  {:doc "Reproduce / regression-check the coexistence editor noise in-repo (the #25 'Assembly is incompatible with the editor' narration). Packs a magic-unity variant into an immutable tarball, points the magic-unity-coexist project (which vendors stock ClojureCLR) at it via a fresh PackageCache resolve (the only state that shows the noise: a mutable file: install writes the editor-off flip back and it never appears), launches Unity 2022.3.62f3 headless twice, and reports the narration-line count plus CoexistenceProbe state. 'bb coexist-noise' tests the dual variant (expect 0 lines, the shipped fix); 'bb coexist-noise magic-only' tests the default variant (expect 46 lines, the problem the dual variant solves). Quit any GUI Unity holding magic-unity-coexist first (batchmode exits 134)."
+  {:doc "Headless coexistence-noise repro on unity-examples/magic-unity-coexist.
+         `bb coexist-noise` tests the dual variant (expect 0 narration lines, the shipped fix); `bb coexist-noise magic-only` tests the default variant (expect 46 lines, the problem).
+         Needs Unity 2022.3.62f3 with no GUI editor holding the project; details in magic.unity/coexist-noise!."
    :requires ([magic.unity :as unity])
    :depends [gen-unity-dual]
    :task (unity/coexist-noise! (or (first *command-line-args*) "dual"))}
 
   ;; ============================================================
-  ;; Hygiene
+  ;; Hygiene + release
   ;; ============================================================
 
   clean
@@ -270,76 +162,22 @@
 
   outdated
   {:doc "Report outdated dependencies (GitHub Actions via antq, NuGet via dotnet)."
-   :task (do
-           (println "=== GitHub Actions (antq) ===")
-           (shell {:continue true}
-                  "clojure" "-Sdeps"
-                  "{:deps {com.github.liquidz/antq {:mvn/version \"RELEASE\"}}}"
-                  "-M" "-m" "antq.core")
-           (doseq [proj ["clojure-runtime/Clojure.csproj"
-                         "magic-runtime/Magic.Runtime/Magic.Runtime.csproj"
-                         "magic-runtime/Magic.Runtime.Callsites/Magic.Runtime.Callsites.csproj"
-                         "nostrand/NostrandMain.csproj"]]
-             (println)
-             (println (str "=== " proj " (NuGet) ==="))
-             (shell {:continue true} "dotnet" "list" proj "package" "--outdated"))
-           (println)
-           (println "Note: Nostrand `deps.edn` git deps are pinned by sha and not version-checked by antq. Inspect manually if used."))}
+   :requires ([magic.release :as release])
+   :task (release/outdated!)}
 
   verify-dist
   {:doc "Verify release artifacts are present and `nos version` works. Run before tagging."
-   :task (let [nos-dir   "nostrand/bin/Release/net471"
-               unity-dir "magic-unity/Runtime/Infrastructure/Export"
-               required  [(str nos-dir "/nos")
-                          (str nos-dir "/NostrandMain.exe")
-                          (str nos-dir "/Clojure.dll")
-                          (str nos-dir "/Magic.Runtime.dll")
-                          (str unity-dir "/Clojure.dll")
-                          (str unity-dir "/Magic.Runtime.dll")]
-               globs     [[nos-dir "*.clj.dll"]
-                          [unity-dir "*.clj.dll"]]]
-           (doseq [p required]
-             (when-not (fs/exists? p)
-               (binding [*out* *err*] (println "Missing:" p))
-               (throw (ex-info "verify-dist failed" {:babashka/exit 1}))))
-           (doseq [[dir glob] globs]
-             (when (empty? (fs/glob dir glob))
-               (binding [*out* *err*] (println "No matches:" dir "/" glob))
-               (throw (ex-info "verify-dist failed" {:babashka/exit 1}))))
-           (println "Running nos version:")
-           (shell (str nos-dir "/nos") "version"))}
+   :requires ([magic.release :as release])
+   :task (release/verify-dist!)}
 
   release-tarball
   {:doc "Build the nos release tarball under target/ and smoke-test it. Run by the release workflow on a tag push."
-   :requires ([clojure.edn :as edn])
+   :requires ([magic.release :as release])
    :depends [build]
-   :task (let [version   (:version (edn/read-string (slurp "version.edn")))
-               dist-name (str "nostrand-v" version "-mono")
-               staging   (str "target/" dist-name)
-               tarball   (str "target/" dist-name ".tar.gz")
-               smoke-dir "target/smoke"]
-           (fs/delete-tree staging)
-           (fs/delete-tree smoke-dir)
-           (fs/create-dirs staging)
-           ;; bin/Release/net471/ is self-contained: nos launcher, NostrandMain.exe,
-           ;; runtime DLLs, all .clj.dll, and the nostrand/ source subdir that the
-           ;; runtime loads at startup. Recursive copy of contents.
-           (shell "cp" "-R" "nostrand/bin/Release/net471/." (str staging "/"))
-           (shell {:dir "target"} "tar" "czf" (str dist-name ".tar.gz") dist-name)
-           (println "Wrote" tarball)
-           (println "Smoke: extract + run nos version")
-           (fs/create-dirs smoke-dir)
-           (shell "tar" "xzf" tarball "-C" smoke-dir)
-           (shell (str smoke-dir "/" dist-name "/nos") "version"))}
+   :task (release/release-tarball!)}
 
   tag
   {:doc "Verify dist, then tag from version.edn and push."
-   :requires ([clojure.edn :as edn])
+   :requires ([magic.release :as release])
    :depends [verify-dist]
-   :task (let [version (:version (edn/read-string (slurp "version.edn")))
-               tag     (str "v" version)]
-           (println "Creating tag:" tag)
-           (shell "git" "tag" "-a" tag "-m" (str "Release " version))
-           (println "Pushing tag to origin...")
-           (shell "git" "push" "origin" tag)
-           (println (str "Done! Release workflow will validate " tag)))}}}
+   :task (release/tag!)}}}

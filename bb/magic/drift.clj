@@ -1,48 +1,37 @@
 (ns magic.drift
-  "Source-SHA tripwire for the committed bootstrap binaries that
-   `stdlib-manifest.edn` does not cover.
-
-   `refresh-stdlib` guards the 17 refresh-able stdlib namespaces by hashing
-   their .clj source. The bootstrap set it skips (clojure.core, the core_*
-   helpers, the magic.* compiler, mage, and the other bootstrap stdlib)
-   compiles to committed .clj.dll under nostrand/references with no such
-   guard, so editing one of those sources without rerunning
-   `bb build-magic` + `bb build-bootstrap` ships a stale binary and CI never
-   notices.
-
-   This records each such namespace's source SHA256 in
-   bootstrap-manifest.edn. `bb check-drift` rewrites it and fails if a source
-   changed since. Pure source hashing, no compiler run, so the check is
-   independent of the runtime (Mono today, CoreCLR later)."
+  "The drift check and its dll-sources.edn manifest: the SHA256 of the .clj
+   source behind each committed reference DLL, re-recorded by refresh-stdlib /
+   bootstrap. check-drift fails when it differs from HEAD, meaning a source
+   was edited without refreshing its DLL. The check hashes sources only, no
+   compiler run, so it also works in an environment whose toolchain cannot
+   reproduce the committed DLL bytes (the check-drift skip-dlls fallback)."
   (:require [babashka.fs :as fs]
-            [clojure.edn :as edn]
-            [clojure.string :as str])
+            [babashka.tasks :refer [shell]]
+            [clojure.edn]
+            [clojure.string :as str]
+            [magic.log :as log]
+            [magic.unity :as unity])
   (:import [java.security MessageDigest]))
 
-(def ^:private references-dir "nostrand/references")
-(def ^:private stdlib-manifest "magic-compiler/stdlib-manifest.edn")
-(def ^:private bootstrap-manifest "magic-compiler/bootstrap-manifest.edn")
+(def manifest-path "magic-compiler/dll-sources.edn")
 
-;; Roots that hold our own bootstrap/compiler .clj. A committed .clj.dll
-;; whose source is in none of these (the vendored clojure.tools.analyzer.*)
-;; has nothing to hash and is reported as skipped.
-(def ^:private source-roots ["magic-compiler/src"
-                             "magic-compiler/src/stdlib"
-                             "mage/src"])
+(def ^:private references-dir "nostrand/references")
+
+;; Ordered: stdlib sources shadow nothing, but clojure.* lives under stdlib
+;; while magic.* lives under src and mage under its own tree. A DLL whose
+;; namespace resolves in none of these (the vendored clojure.tools.analyzer.*)
+;; has no in-tree source and is skipped.
+(def ^:private source-roots
+  ["magic-compiler/src/stdlib" "magic-compiler/src" "mage/src"])
 
 (defn- sha256 [file]
   (let [md (MessageDigest/getInstance "SHA-256")]
     (apply str (map #(format "%02x" (bit-and % 0xff))
                     (.digest md (fs/read-all-bytes file))))))
 
-(defn- dll->ns
-  "magic.analyzer.util.clj.dll -> magic.analyzer.util (munged form kept)."
-  [dll]
-  (str/replace dll #"\.clj\.dll$" ""))
-
 (defn- ns->source
-  "Resolve a namespace to its source file across the roots, or nil. The DLL
-   name already carries the munged (underscore) form, so dots become slashes."
+  "Resolve a committed DLL's namespace (munged form, dots to slashes) to its
+   source file, or nil when there is no in-tree source."
   [ns-munged]
   (let [rel (str/replace ns-munged "." "/")]
     (some (fn [root]
@@ -52,43 +41,92 @@
                   [".clj" ".cljc"]))
           source-roots)))
 
-(defn- stdlib-namespaces []
-  (set (map str (keys (edn/read-string (slurp stdlib-manifest))))))
+(def ^:private dll-dirs
+  [references-dir
+   "magic-unity/Runtime/Infrastructure/Export"
+   "nostrand/bin/Release/net471"])
 
-(defn bootstrap-entries
-  "Returns [entries skipped]: a sorted ns->{:source :sha256} map for every
-   committed reference .clj.dll with in-tree source not already in
-   stdlib-manifest, and the list of DLLs with no in-tree source."
+(defn touch-dlls!
+  "clojure.core/load-one picks between a .clj source and its .clj.dll by
+   comparing mtimes, and a fresh checkout leaves those arbitrary. Give every
+   committed DLL a deliberate mtime instead: 1s newer than its source when
+   the source still hashes to its manifest entry, so requires load the DLL;
+   1s older when the source was edited, so the build recompiles it; now when
+   it has no in-tree source."
   []
-  (let [stdlib  (stdlib-namespaces)
-        skipped (atom [])
-        entries (reduce
-                 (fn [m dll]
-                   (let [nsm (dll->ns dll)]
-                     (if (stdlib nsm)
-                       m
-                       (if-let [src (ns->source nsm)]
-                         (assoc m (symbol nsm) {:source src :sha256 (sha256 src)})
-                         (do (swap! skipped conj nsm) m)))))
-                 (sorted-map)
-                 (sort (map (comp str fs/file-name)
-                            (fs/glob references-dir "*.clj.dll"))))]
-    [entries @skipped]))
+  (let [now      (java.time.Instant/now)
+        recorded (try (clojure.edn/read-string (slurp manifest-path))
+                      (catch Exception _ {}))]
+    (doseq [dir dll-dirs
+            :when (fs/exists? dir)
+            dll (fs/glob dir "*.clj.dll")
+            :let [nsm (str/replace (str (fs/file-name dll)) #"\.clj\.dll$" "")
+                  src (ns->source nsm)]]
+      (fs/set-last-modified-time
+       dll
+       (cond
+         (nil? src) now
+         (= (sha256 src) (:sha256 (get recorded (symbol nsm))))
+         (.plusSeconds (.toInstant (fs/last-modified-time src)) 1)
+         :else
+         (.minusSeconds (.toInstant (fs/last-modified-time src)) 1))))))
 
-(defn refresh-bootstrap-manifest! []
-  (let [[entries skipped] (bootstrap-entries)]
-    (spit bootstrap-manifest
-          (str ";; Auto-generated by `bb refresh-bootstrap-manifest`. DO NOT EDIT BY HAND.\n"
-               ";; SHA256 of the .clj source each committed bootstrap/compiler .clj.dll\n"
-               ";; was last emitted from. `bb check-drift` fails if a source changed\n"
-               ";; without `bb build-magic` + `bb build-bootstrap` refreshing its DLL.\n"
+(defn record!
+  "Rewrite the manifest from the current sources."
+  []
+  (let [entries (into (sorted-map)
+                      (keep (fn [dll]
+                              (let [nsm (str/replace (str (fs/file-name dll))
+                                                     #"\.clj\.dll$" "")]
+                                (when-let [src (ns->source nsm)]
+                                  [(symbol nsm) {:source src
+                                                 :sha256 (sha256 src)}]))))
+                      (fs/glob references-dir "*.clj.dll"))]
+    (spit manifest-path
+          (str ";; Auto-generated by magic.drift/record! (bb refresh-stdlib /\n"
+               ";; bb bootstrap). DO NOT EDIT BY HAND.\n"
+               ";; SHA256 of the .clj source each committed .clj.dll was last refreshed\n"
+               ";; from. bb check-drift re-records this file and fails if a source\n"
+               ";; changed without its DLL being refreshed and committed.\n"
                "{\n"
                (str/join "\n"
                          (for [[k v] entries]
                            (format " %s {:source %s, :sha256 %s}"
                                    k (pr-str (:source v)) (pr-str (:sha256 v)))))
                "}\n"))
-    (println "wrote" bootstrap-manifest "with" (count entries) "entries")
-    (when (seq skipped)
-      (println " " (count skipped) "committed DLLs have no in-tree source (skipped):")
-      (doseq [s (sort skipped)] (println "   " s)))))
+    (println "recorded" manifest-path "-" (count entries) "sources")))
+
+(defn check!
+  "After the regen tasks have run, regenerate the dual variant and fail if any
+   checked path differs from HEAD. Committed DLLs are byte-diffed, except
+   Export's Clojure.dll and Magic.Runtime.dll: they embed a git-describe
+   SourceRevisionId (csproj SetSourceRevisionId target), so their bytes are
+   commit-dependent by design and are restored from HEAD instead. skip-dlls?
+   restores all committed DLLs and relies on the dll-sources.edn source
+   hashes: the fallback for an environment that fails to reproduce the bytes."
+  [skip-dlls?]
+  (let [checked-paths (cond-> ["magic-runtime/Magic.Runtime/Generated"
+                               manifest-path
+                               "magic-unity/package.json"
+                               "magic-unity-dual"]
+                        (not skip-dlls?)
+                        (conj "nostrand/references"
+                              "magic-unity/Runtime/Infrastructure/Export"))
+        _ (apply shell "git" "checkout" "--"
+                 (if skip-dlls?
+                   ["nostrand/references/"
+                    "magic-unity/Runtime/Infrastructure/Export/"]
+                   ["magic-unity/Runtime/Infrastructure/Export/Clojure.dll"
+                    "magic-unity/Runtime/Infrastructure/Export/Magic.Runtime.dll"]))
+        _ (unity/gen-dual!)
+        {:keys [out]} (apply shell {:continue true :out :string}
+                             "git" "status" "--porcelain" "--" checked-paths)]
+    (when-not (str/blank? out)
+      (apply log/fail! "drift detected"
+             (concat [""
+                      "Drift detected: a generated file or committed DLL is stale."
+                      "The working tree now holds the refreshed version of each path below."
+                      "Commit them if the drift is expected (chore(bootstrap): refresh ...);"
+                      "investigate before reverting if not."
+                      ""]
+                     (take 80 (str/split-lines out)))))))

@@ -62,6 +62,7 @@
     clojure.core.protocols
     clojure.gvec
     clojure.clr.io
+    clojure.core-clr
     clojure.core]) ;; if clojure.core not at the end, prevent other files from being compiled
 
 (defn- spell-flag-bindings
@@ -69,7 +70,7 @@
   fully-qualified spell fn symbol, matched by name). Loads a symbol spell's
   namespace so magic.core/active-spells can find-var it, and resolves the flag
   var at runtime so this loads on a compiler that predates the flags. Extra
-  spells are only used post-transition (e.g. build-magic-portable's sparse-case)."
+  spells are only used post-transition (e.g. the sparse-case bootstrap pass)."
   [spells]
   (into {} (keep (fn [s]
                    (when (symbol? s) (require (symbol (namespace s))))

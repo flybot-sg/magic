@@ -41,6 +41,7 @@ MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself t
 - [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md): `deps.edn`, `magic.edn`, and CI for a CLR build.
 - [Declaring CLR dependencies](./docs/clr-dependency-files.md): `deps-clr.edn` vs a `:clr` alias, when the CLR needs different deps than the JVM.
 - [Unity integration](./docs/unity-integration.md): compile `.clj.dll` and load them in a Unity project.
+- [Deterministic compilation and the drift check](./docs/deterministic-compilation.md): why the committed DLLs are byte-diffed against a rebuild, and the contributor workflows that follow.
 
 Per-component reference lives in each component's own README, linked from [Components](#components) below. To contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
@@ -168,7 +169,7 @@ Two folders of pre-built binaries are tracked in git:
 - `nostrand/references/*.clj.dll`: the compiler Nostrand loads at startup
 - `magic-unity/Runtime/Infrastructure/Export/*.dll`: the prebuilt runtime that Unity loads at play time
 
-The `bb dev-*` tasks auto-revert any changes to these folders so day-to-day iteration commits stay clean. A maintainer refreshes them on purpose, usually after a batch of compiler or runtime fixes, by running either `bb build` (full path) or `bb build-magic` followed by `bb build-bootstrap` (faster: bootstrap + deploy). For stdlib-only edits (any `magic-compiler/src/stdlib/**/*.clj`), `bb refresh-stdlib` recompiles only the affected `.clj.dll` files and updates the SHA256 manifest (`magic-compiler/stdlib-manifest.edn`) that `bb check-drift` uses. Both paths refresh `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` together.
+Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so `git status` after a rebuild shows only the DLLs a change really affected, and those get committed together with the source fix. A maintainer refreshes them by running either `bb build` (full path) or `bb bootstrap` (faster: re-bootstrap + deploy). For stdlib-only edits (any `magic-compiler/src/stdlib/**/*.clj`), `bb refresh-stdlib` recompiles only the affected `.clj.dll` files. Both paths refresh `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` together, and `bb check-drift` byte-diffs the compiled `.clj.dll` binaries against a rebuild to catch stale ones. The design and its edge cases are covered in [Deterministic compilation and the drift check](./docs/deterministic-compilation.md).
 
 ### Common workflows
 
@@ -179,8 +180,8 @@ bb build-runtime # incremental C# runtimes + nostrand (seconds)
 bb test          # run magic-compiler test suite
 bb dev-runtime   # build-runtime + test  (after C# runtime edits)
 bb dev-callsites # regen + build-runtime + test  (after .mustache edits)
-bb dev-compiler  # build-magic + test  (after compiler .clj edits)
-bb check-drift   # regen and fail if .g.cs files are stale (CI uses this)
+bb dev-compiler  # bootstrap + test  (after compiler .clj edits)
+bb check-drift   # regen + rebuild stdlib, fail if generated files or committed DLLs are stale (CI uses this after a fresh build)
 bb repl          # nostrand CLI REPL in magic-compiler/
 bb clean         # remove bin/ and bootstrap/
 ```
