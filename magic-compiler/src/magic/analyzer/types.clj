@@ -72,7 +72,21 @@
 
 (def cached-ns-imports ns-imports)
 
-(defn resolve 
+(defn- protocol-interface?
+  "True when interface t belongs to a protocol named by the simple tag. Such a
+  hint must not narrow: extend/extend-protocol types are not instances of the
+  interface. A qualified tag (a deftype/reify spec) keeps narrowing."
+  [t tag]
+  (when (and (instance? Type t)
+             (.IsInterface t)
+             (not (some #{\.} tag)))
+    (when-let [pns (find-ns (symbol (clojure.lang.Compiler/demunge (str (.Namespace t)))))]
+      (when-let [v (ns-resolve pns (symbol (clojure.lang.Compiler/demunge (.Name t))))]
+        (and (var? v)
+             (bound? v)
+             (identical? t (:on-interface (deref v))))))))
+
+(defn resolve
   ([t] (resolve t *ns*))
   ([t ns]
    (cond
@@ -84,16 +98,23 @@
      (recur (str t) ns)
      (string? t)
      (or (shorthand t)
-         (and *module*
-              (try 
-                (let [name t
-                      qualified-name (str (namespace-munge ns) "." name)]
-                  (or (.GetType *module* qualified-name) (.GetType *module* name)))
-                (catch ArgumentException e
-                  nil)))
-         (Runtime/FindType t)
-         (and ns 
-              (get (cached-ns-imports ns) (symbol t))))
+         (let [resolved
+               (or (and *module*
+                        (try
+                          (let [name t
+                                qualified-name (str (namespace-munge ns) "." name)]
+                            (or (.GetType *module* qualified-name) (.GetType *module* name)))
+                          (catch ArgumentException e
+                            nil)))
+                   (Runtime/FindType t)
+                   (and ns
+                        (get (cached-ns-imports ns) (symbol t))))]
+           ;; A protocol hint resolves to the protocol's generated interface, but
+           ;; extend-protocol types do not implement it. Keep the value as Object
+           ;; so it dispatches through the protocol fn, like stock Clojure.
+           (if (protocol-interface? resolved t)
+             Object
+             resolved)))
      :else
      nil)))
 
