@@ -121,10 +121,15 @@
   (or (ast-type-impl ast)
       Object))
 
+(declare always-then? always-else?)
+
 (defn always-throws? [ast]
   (case (:op ast)
-    :if (and (always-throws? (:then ast))
-             (always-throws? (:else ast)))
+    :if (cond
+          (always-then? ast) (always-throws? (:then ast))
+          (always-else? ast) (always-throws? (:else ast))
+          :else (and (always-throws? (:then ast))
+                     (always-throws? (:else ast))))
     :let (always-throws? (:body ast))
     :do (always-throws? (:ret ast))
     :throw true
@@ -132,8 +137,11 @@
 
 (defn disregard-type? [ast]
   (case (:op ast)
-    :if (and (disregard-type? (:then ast))
-             (disregard-type? (:else ast)))
+    :if (cond
+          (always-then? ast) (disregard-type? (:then ast))
+          (always-else? ast) (disregard-type? (:else ast))
+          :else (and (disregard-type? (:then ast))
+                     (disregard-type? (:else ast))))
     :let (disregard-type? (:body ast))
     :do (disregard-type? (:ret ast))
     (= ::disregard (ast-type-impl ast))))

@@ -1049,8 +1049,8 @@
                  (il/brtrue then-label)
                  (compile else compilers)
                  (when-not (types/disregard-type? else)
-                   (convert else if-expr-type))
-                 (il/br end-label)
+                   [(convert else if-expr-type)
+                    (il/br end-label)])
                  then-label
                  (compile then compilers)
                  (when-not (types/disregard-type? then)

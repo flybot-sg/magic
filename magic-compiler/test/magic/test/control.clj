@@ -79,6 +79,26 @@
     nil (if-not true (throw (Exception.)))
     1 (if-not true (throw (Exception.)) 1)))
 
+(deftest test-if-both-branches-throw
+  (cljclr=magic
+   (try ((fn [c] (if (= c -1)
+                   (throw (Exception. "a"))
+                   (throw (Exception. "b")))) -1)
+        (catch Exception e (ex-message e)))
+   (try ((fn [c] (if (= c -1)
+                   (throw (Exception. "a"))
+                   (throw (Exception. "b")))) 0)
+        (catch Exception e (ex-message e)))))
+
+(deftest test-cond-branches-throw
+  (cljclr=magic
+   (try ((fn [x] (cond (= x 1) (throw (Exception. "one"))
+                       (= x 2) (throw (Exception. "two"))
+                       :else   (throw (Exception. "other")))) 9)
+        (catch Exception e (ex-message e)))
+   ((fn [x] (cond (= x 1) :one
+                  :else   (throw (Exception. "other")))) 1)))
+
 (deftest test-when-let
   (are [x y] (= x y)
     1 (when-let [a 1]
