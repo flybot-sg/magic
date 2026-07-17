@@ -55,12 +55,12 @@
  magic.analyzer.reflection {:source "magic-compiler/src/magic/analyzer/reflection.clj", :sha256 "16de58b74c60882c7ee36df8410f30e8d16cec6bb8168d899bcf9a463cb0f8f3"}
  magic.analyzer.remove_local_children {:source "magic-compiler/src/magic/analyzer/remove_local_children.clj", :sha256 "e5f8971111f3e5b6ad7e9873f1ae1f53a0e8e214da463ed5162b8ffb3948c8d1"}
  magic.analyzer.typed_passes {:source "magic-compiler/src/magic/analyzer/typed_passes.clj", :sha256 "be72b81588bd8e46a818e124841f064313f8b74468a47c6b1b40404a00f0efdc"}
- magic.analyzer.types {:source "magic-compiler/src/magic/analyzer/types.clj", :sha256 "1834aa9782be66e237a6b82a2d2bc995259275c04433e51138235aad459a23cb"}
+ magic.analyzer.types {:source "magic-compiler/src/magic/analyzer/types.clj", :sha256 "8cd1d618639af7fe4ad67c24a24fe75d46e1326f469ac4c14407e7a3560f7126"}
  magic.analyzer.uniquify {:source "magic-compiler/src/magic/analyzer/uniquify.clj", :sha256 "8efe465c85094d3c1a788403231f5f84dde5c6a169ec66ca897da93bb4794d7a"}
  magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "18cd506d72c6a103147ac051478895ec42e688bea21e72763461be1dc696a9a6"}
  magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "a16c67c42be37888b875673bf7262c5c9b42e2ed0c93c19e1b71783362abf815"}
  magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "5a6be789780d7ced48abc647b27ea305b075e2003f1798de6abc05658bd8dabd"}
- magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "7d999d546139ee9fb380be930f754b0efe258ffc3f61778e7f128786c2de8a60"}
+ magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "c60802c9aa611799ae0320792b065658d19e6a682cd6b60ad7814b718401341d"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
  magic.interop {:source "magic-compiler/src/magic/interop.clj", :sha256 "17e4d2fbf1a915948b634d9252691c3183e17b25482fdedef1e039a6438cbc98"}
