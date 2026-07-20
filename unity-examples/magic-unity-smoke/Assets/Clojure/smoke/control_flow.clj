@@ -51,4 +51,11 @@
    (check "destructuring in let"
           #(let [{:keys [a b] :or {b 99}} {:a 1}]
              [a b])
-          [1 99])])
+          [1 99])
+   (check "named fn self-reference is the fn value"
+          #(let [f (fn me [_k v] (if (nil? v) me v))]
+             [(identical? f (f :a nil)) (= f (f :a nil)) (f :a 7)])
+          [true true 7])
+   (check "fn value carries no reader meta"
+          #(meta (fn [] 1))
+          nil)])

@@ -1420,7 +1420,7 @@
     (.GetFields fn-type (enum-or BindingFlags/NonPublic BindingFlags/Instance)))])
 
 (defn fn-method-compiler
-  [{:keys [fn-name-tag body params form variadic? fn-variadic? closed-overs] :as ast} compilers]
+  [{:keys [fn-name-tag body params form variadic? fn-variadic? closed-overs self-name-as-value?] :as ast} compilers]
   (let [param-hint (-> form first tag)
         param-types (mapv ast-type params)
         param-names (into #{} (map :name params))
@@ -1436,7 +1436,10 @@
         public-static (enum-or MethodAttributes/Public MethodAttributes/Static)
         recur-target (il/label)
         invoke-method-name (if variadic? "doInvoke" "invoke")
-        emit-static-invoke? (and *direct-linking* (not fn-variadic?) (zero? (count closed-overs)))
+        ;; a static body has no this to resolve the fn's self-name to, so a
+        ;; method that uses the name as a value must stay an instance method
+        emit-static-invoke? (and *direct-linking* (not fn-variadic?) (zero? (count closed-overs))
+                                 (not self-name-as-value?))
         specialized-compilers-static
         (merge compilers
                {:local (fn fn-static-method-local-compiler

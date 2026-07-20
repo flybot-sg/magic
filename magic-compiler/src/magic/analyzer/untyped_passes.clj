@@ -244,6 +244,35 @@
     :fn (assoc ast :methods (mapv #(assoc % :fn-variadic? variadic?) methods))
     ast))
 
+(defn- self-value-use?
+  "True when ast references the local named self-name anywhere but as the
+  callee of a direct invoke (a callee's identity is unobservable)."
+  [self-name {:keys [op] :as ast}]
+  (letfn [(self-local? [{:keys [op local name]}]
+            (and (= :local op) (= :fn local) (= self-name name)))]
+    (case op
+      :local
+      (self-local? ast)
+      :invoke
+      (boolean (or (some #(self-value-use? self-name %) (:args ast))
+                   (when-not (self-local? (:fn ast))
+                     (self-value-use? self-name (:fn ast)))))
+      (boolean (some #(self-value-use? self-name %) (children ast))))))
+
+(defn mark-self-name-as-value
+  "Mark fn methods that use the fn's own name as a value. Such a method must
+  resolve the name to this, so it cannot compile to a static invoke."
+  {:pass-info {:walk :any :after #{#'uniquify-locals}}}
+  [{:keys [op local methods] :as ast}]
+  (case op
+    :fn
+    (if-let [self-name (:name local)]
+      (assoc ast :methods
+             (mapv #(assoc % :self-name-as-value? (self-value-use? self-name (:body %)))
+                   methods))
+      ast)
+    ast))
+
 (defn- arg->binding [init]
   (let [name (gensym)]
     {:op :binding
@@ -347,6 +376,7 @@
     #'prevent-recur-out-of-try
     #'propagate-fn-name
     #'propagate-fn-variadic
+    #'mark-self-name-as-value
     #'explicit-const-type})
 
 (def scheduled-passes
