@@ -1,6 +1,7 @@
 (ns magic.test.fn
   (:require [clojure.test :refer [deftest]]
-            [magic.api :as magic])
+            [magic.api :as magic]
+            [magic.flags :as flags])
   (:use magic.test.common))
 
 (deftest invocation
@@ -66,3 +67,39 @@
    (= "x" (magic/eval
            '(do (defn only-form [&form] (str &form))
                 (only-form "x"))))))
+
+(deftest named-fn-self-reference
+  (clojure.test/is
+   (= [true true]
+      (magic/eval
+       '(let [f (fn me [k v] (if (nil? v) me v))]
+          [(identical? f (f :a nil)) (= f (f :a nil))]))))
+  (clojure.test/is
+   (= [true true]
+      (binding [flags/*direct-linking* true]
+        (magic/eval
+         '(let [f (fn me [k v] (if (nil? v) me v))]
+            [(identical? f (f :a nil)) (= f (f :a nil))])))))
+  (clojure.test/is
+   (= true
+      (binding [flags/*direct-linking* true]
+        (magic/eval
+         '(let [f (fn me [] (fn [] me))]
+            (identical? f ((f))))))))
+  ;; arity 2 keeps invokeStatic; the self-returning arity compiles as instance
+  (clojure.test/is
+   (= [true 5 [2]]
+      (binding [flags/*direct-linking* true]
+        (magic/eval
+         '(do (defn self-arity ([v] (if (nil? v) self-arity v)) ([a b] (+ a b)))
+              [(identical? self-arity (self-arity nil))
+               (self-arity 2 3)
+               (mapv #(count (.GetParameters %))
+                     (filter #(= "invokeStatic" (.Name %))
+                             (.GetMethods (type self-arity))))]))))))
+
+(deftest fn-meta-elides-source-position
+  (clojure.test/is
+   (nil? (magic/eval '(meta (fn [] 1)))))
+  (clojure.test/is
+   (= {:cool true} (magic/eval '(meta ^{:cool true} (fn [] 1))))))

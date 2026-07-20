@@ -298,6 +298,20 @@
    :form form
    :env env})
 
+(defn parse-fn*
+  "fn* via ana/-parse, minus reader source-position keys and :rettag in the
+  fn meta, matching upstream FnExpr. Keeping them wraps every fn in withMeta,
+  which breaks identity between a named fn and its self-reference."
+  [form env]
+  (let [ast (ana/-parse form env)]
+    (if-not (= :with-meta (:op ast))
+      ast
+      (let [m (not-empty (dissoc (meta form) :line :column :file :source-span :rettag))]
+        (cond
+          (= m (meta form)) ast
+          m                 (assoc ast :meta (ana/analyze-form m (ctx env :ctx/expr)))
+          :else             (assoc-in (:expr ast) [:env :context] (:context env)))))))
+
 (defn expand-sym [sym env]
   (when-let [val (resolve-sym sym env)]
     (if (var? val)
@@ -319,6 +333,7 @@
     clojure.core/definterface  parse-definterface
     clojure.core/gen-interface parse-gen-interface
     clojure.core/import*       parse-import*
+    fn*                        parse-fn*
     #_:else                    nil))
 
 (defn parse
