@@ -42,7 +42,7 @@
  clojure.walk {:source "magic-compiler/src/stdlib/clojure/walk.clj", :sha256 "3dcae5221cae67f13a69c3ff02de6021c3a87cbc1a6b7ee9bc4fc84c8bef877b"}
  clojure.zip {:source "magic-compiler/src/stdlib/clojure/zip.clj", :sha256 "b16e741a48aba671d437e94da04839dbeaf2dcff4c0c0c4b1c51f3de4c386276"}
  mage.core {:source "mage/src/mage/core.clj", :sha256 "434324953383554a7d7f176076bb4faa9a3bee00233ed98afe0ac0fa56cf7824"}
- magic.analyzer {:source "magic-compiler/src/magic/analyzer.clj", :sha256 "54b9c1ffa669924b27ddece742784c1f3b83b2a9e502d2a9b0a9451635a19bce"}
+ magic.analyzer {:source "magic-compiler/src/magic/analyzer.clj", :sha256 "3289a82a5e4a967be64b5456f056fe5e74fac198709c96987190d878f3125a09"}
  magic.analyzer.analyze_host_forms {:source "magic-compiler/src/magic/analyzer/analyze_host_forms.clj", :sha256 "1dbbb4208265896fc7c146c1bef63af78b3d097384b1f8ca6ccfc1869e3eb20d"}
  magic.analyzer.binder {:source "magic-compiler/src/magic/analyzer/binder.clj", :sha256 "bfb28ea9f585912fed8251f7e3ca95df69562af32af8790de9712bd5948536d1"}
  magic.analyzer.collect_closed_overs {:source "magic-compiler/src/magic/analyzer/collect_closed_overs.clj", :sha256 "8eb887d4e3c5503d00c0c05fb7f04aeaee878a31023ca757e8f736021d27824a"}
@@ -57,10 +57,10 @@
  magic.analyzer.typed_passes {:source "magic-compiler/src/magic/analyzer/typed_passes.clj", :sha256 "be72b81588bd8e46a818e124841f064313f8b74468a47c6b1b40404a00f0efdc"}
  magic.analyzer.types {:source "magic-compiler/src/magic/analyzer/types.clj", :sha256 "d0e758c13a7b8e913c32538f0bbe4d56a1df68300fad71fe5514cf414cfa6c25"}
  magic.analyzer.uniquify {:source "magic-compiler/src/magic/analyzer/uniquify.clj", :sha256 "8efe465c85094d3c1a788403231f5f84dde5c6a169ec66ca897da93bb4794d7a"}
- magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "18cd506d72c6a103147ac051478895ec42e688bea21e72763461be1dc696a9a6"}
+ magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "19e7f4f2a357f2c265e373dcb1175f336baaf09b5d380744433a4d25f87c4a94"}
  magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "a16c67c42be37888b875673bf7262c5c9b42e2ed0c93c19e1b71783362abf815"}
  magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "5a6be789780d7ced48abc647b27ea305b075e2003f1798de6abc05658bd8dabd"}
- magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "c60802c9aa611799ae0320792b065658d19e6a682cd6b60ad7814b718401341d"}
+ magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "ef21abec4c6c18b09c2119f2306d5a514f1bd67e303378dd92880dfddd7c3a61"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
  magic.interop {:source "magic-compiler/src/magic/interop.clj", :sha256 "17e4d2fbf1a915948b634d9252691c3183e17b25482fdedef1e039a6438cbc98"}
