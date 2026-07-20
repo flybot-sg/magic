@@ -4,6 +4,14 @@
             [clojure.string :as str]
             [nostrand.deps.git :as git]))
 
+(def ^:private default-paths ["src"])
+
+(defn- printerrln
+  "println to stderr, keeping stdout clean for task output."
+  [& args]
+  (binding [*out* *err*]
+    (apply println args)))
+
 (def ^:private runtime-provided
   "Libs that ship inside Clojure.dll, so they are never resolved."
   '#{org.clojure/clojure
@@ -25,10 +33,14 @@
   "Fold the selected aliases into {:paths :deps :overrides}. :extra-paths
   append to :paths; :extra-deps merge onto the dep set; :override-deps are
   kept separate (an override swaps a lib's coord wherever it is encountered
-  in the tree, without itself seeding a root dependency)."
+  in the tree, without itself seeding a root dependency). Selected keywords
+  not declared under :aliases warn and are skipped, matching tools.deps."
   [{:keys [paths deps aliases]} alias-kws]
-  (let [selected (map aliases alias-kws)]
-    {:paths     (into (vec (or paths ["src"])) (mapcat :extra-paths selected))
+  (when-let [undeclared (seq (remove #(contains? aliases %) (distinct alias-kws)))]
+    (printerrln "WARNING: Specified aliases are undeclared and are not being used:"
+                (vec undeclared)))
+  (let [selected (keep #(get aliases %) alias-kws)]
+    {:paths     (into (vec (or paths default-paths)) (mapcat :extra-paths selected))
      :deps      (apply merge deps (map :extra-deps selected))
      :overrides (apply merge (map :override-deps selected))}))
 
