@@ -26,14 +26,17 @@
       (assembly-load-from full-asm-path))))
 
 (defn update-load-path []
-  (Environment/SetEnvironmentVariable
-    "CLOJURE_LOAD_PATH"
-    (string/join Path/PathSeparator @-load-path))
-  (alter-var-root #'*load-paths*
-                  (fn [load-paths]
-                    (mapv
-                     #(System.IO.Path/GetFullPath %)
-                     (concat @-load-path load-paths)))))
+  (let [abs-paths (mapv #(System.IO.Path/GetFullPath %) @-load-path)]
+    ;; CLOJURE_LOAD_PATH gets absolute roots (like *load-paths*), so a loader
+    ;; scanning it finds files from any cwd, matching stock ClojureCLR.
+    (Environment/SetEnvironmentVariable
+      "CLOJURE_LOAD_PATH"
+      (string/join Path/PathSeparator abs-paths))
+    (alter-var-root #'*load-paths*
+                    (fn [load-paths]
+                      (mapv
+                       #(System.IO.Path/GetFullPath %)
+                       (concat @-load-path load-paths))))))
 
 (defn set-load-path [val]
   (reset! -load-path val)
