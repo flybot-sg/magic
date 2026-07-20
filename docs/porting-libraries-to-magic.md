@@ -30,7 +30,7 @@ For the source patterns in depth (value-type and reference-type hints, records a
  :aliases {:test {:extra-paths ["test"]}}}
 ```
 
-When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them either in a `deps-clr.edn` or a `:clr` alias. See [Declaring CLR dependencies](./clr-dependency-files.md) for which one fits.
+When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them either in a `deps-clr.edn` or a `:clr` alias. See [Declaring CLR dependencies](./clr-dependency-files.md) for which one fits. If the library ships a precompiled C# assembly alongside its Clojure source, it also needs a small loader namespace to load that DLL on the CLR: see [Loading precompiled native assemblies](./native-assemblies.md).
 
 ## 3. magic.edn
 
