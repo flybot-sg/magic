@@ -40,6 +40,7 @@ MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself t
 - [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md): `.cljc` source patterns for code that runs on both the JVM and the CLR.
 - [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md): `deps.edn`, `magic.edn`, and CI for a CLR build.
 - [Declaring CLR dependencies](./docs/clr-dependency-files.md): `deps-clr.edn` vs a `:clr` alias, when the CLR needs different deps than the JVM.
+- [Loading precompiled native assemblies](./docs/native-assemblies.md): loading a committed C# DLL on the CLR, where `:import` alone does not.
 - [Unity integration](./docs/unity-integration.md): compile `.clj.dll` and load them in a Unity project.
 - [Deterministic compilation and the drift check](./docs/deterministic-compilation.md): why the committed DLLs are byte-diffed against a rebuild, and the contributor workflows that follow.
 
