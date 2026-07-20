@@ -50,7 +50,7 @@
   repo has no deps.edn or a non-src layout, e.g. a pom-only contrib lib under
   src/main/clojure), else the lib's own deps.edn :paths, else [\"src\"]."
   [dir coord lib-deps-edn]
-  (map #(str dir "/" %) (or (:paths coord) (:paths lib-deps-edn) ["src"])))
+  (map #(str dir "/" %) (or (:paths coord) (:paths lib-deps-edn) default-paths)))
 
 (defn- read-deps-edn [dir]
   (let [f (str dir "/deps.edn")]
@@ -90,8 +90,8 @@
           (let [kept (:resolved-sha (out lib))
                 cur  (or (:git/sha coord) (:git/tag coord))]
             (when (and kept cur (not (git/same-commit? kept cur)))
-              (println "WARN: conflicting version for" lib
-                       "-> kept" kept "ignored" cur))
+              (printerrln "WARN: conflicting version for" lib
+                          "-> kept" kept "ignored" cur))
             (recur more out skipped))
 
           (not (native-coord? coord))
@@ -107,8 +107,8 @@
                    skipped))))
       (do
         (when (seq skipped)
-          (println "Note: skipped" (count skipped) "non-native (maven) dep(s):"
-                   (str/join ", " skipped)))
+          (printerrln "Note: skipped" (count skipped) "non-native (maven) dep(s):"
+                      (str/join ", " skipped)))
         out))))
 
 (defn- cache-root
@@ -127,12 +127,24 @@
   []
   (if (File/Exists "deps-clr.edn") "deps-clr.edn" "deps.edn"))
 
+(defn read-project-deps
+  "Parse the project deps file, naming it in the error when it is missing
+  or malformed (a bare slurp/reader failure names neither)."
+  [deps-file]
+  (when-not (File/Exists deps-file)
+    (throw (ex-info (str "Deps file not found: " deps-file) {:file deps-file})))
+  (try
+    (edn/read-string (slurp deps-file))
+    (catch Exception e
+      (throw (ex-info (str "Malformed " deps-file ": " (.Message e))
+                      {:file deps-file} e)))))
+
 (defn create-basis
   "Read deps-file, fold in the selected aliases, resolve transitively,
   and return {:paths :libs :classpath-paths}."
   ([] (create-basis (project-deps-file) []))
   ([deps-file aliases]
-   (let [{:keys [paths deps overrides]} (merge-aliases (edn/read-string (slurp deps-file)) aliases)
+   (let [{:keys [paths deps overrides]} (merge-aliases (read-project-deps deps-file) aliases)
          libs (resolve-deps (cache-root) deps overrides)]
      {:paths paths
       :libs  libs

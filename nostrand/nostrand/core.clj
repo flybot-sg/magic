@@ -2,8 +2,7 @@
     ^{:author "Ramsey Nasser"
       :doc "Core nostrand API containing load path, assemblies, and dependency functions."}
     nostrand.core
-  (:require [clojure.edn :as edn]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [nostrand.deps.basis :as basis]
             [nostrand.deps.submodules :as submodules])
   (:import [System.IO Path File]))
@@ -74,7 +73,7 @@
   or true for every submodule)."
   ([]
    (let [deps-file (basis/project-deps-file)
-         deps-edn  (edn/read-string (slurp deps-file))
+         deps-edn  (basis/read-project-deps deps-file)
          b         (establish-deps-edn deps-file (:nos/aliases deps-edn []))]
      (when-let [root (:nos/submodule-paths deps-edn)]
        (when (File/Exists ".gitmodules")
