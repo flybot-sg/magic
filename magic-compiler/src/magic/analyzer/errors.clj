@@ -26,7 +26,7 @@
 
 (defmethod error ::missing-type
   [err {:keys [type] :as ast}]
-  (throw! "Unable to resolve symbol: " type))
+  (throw! "Unable to resolve symbol: " type (util/unloaded-dll-hint type)))
 
 (defmethod error ::missing-constructor-arity
   [err {:keys [args class] :as ast}]
