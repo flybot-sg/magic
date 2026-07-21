@@ -23,14 +23,20 @@
            d
            (recur (.BaseType t) (inc d)))))
 
+(defn ordinal-sort
+  "Order types by name with an ordinal comparator. Reduces over type sets
+   must not depend on hash-set iteration order (process-varying) or locale."
+  [types]
+  (sort-by str #(String/CompareOrdinal %1 %2) types))
+
 (defn best-type [a b]
   (if (and (numeric-type? a) (numeric-type? b))
     (best-numeric-promotion [a b])
     (let [common-ancestors   (s/intersection
                               (conj (or (ancestors a) #{}) a)
                               (conj (or (ancestors b) #{}) b))
-          common-types       (remove #(.IsInterface %) common-ancestors)
-          common-interfaces  (filter #(.IsInterface %) common-ancestors)
+          common-types       (ordinal-sort (remove #(.IsInterface %) common-ancestors))
+          common-interfaces  (ordinal-sort (filter #(.IsInterface %) common-ancestors))
           deepest-base-type  (when-not (empty? common-types)
                                (reduce
                                 (fn [t1 t2]
@@ -79,7 +85,7 @@
           candidate-types  (->> binding-types
                                 (conj recur-expr-types)
                                 (apply map hash-set)
-                                (map #(reduce best-type %))
+                                (map #(reduce best-type (ordinal-sort %)))
                                 vec)
           best-types (mapv (fn [c h] (or h c)) candidate-types binding-type-hints)]
       (if (= binding-types best-types)
