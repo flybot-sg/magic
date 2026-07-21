@@ -434,7 +434,7 @@
               candidate-types  (->> binding-types
                                     (conj  @*recur-expr-types*)
                                     (apply map hash-set)
-                                    (map #(reduce loop-bindings/best-type %))
+                                    (map #(reduce loop-bindings/best-type (loop-bindings/ordinal-sort %)))
                                     vec)
               best-types (mapv (fn [c h] (or h c)) candidate-types binding-type-hints)]
           (if (= binding-types best-types)
