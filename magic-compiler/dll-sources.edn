@@ -46,7 +46,7 @@
  magic.analyzer.analyze_host_forms {:source "magic-compiler/src/magic/analyzer/analyze_host_forms.clj", :sha256 "1dbbb4208265896fc7c146c1bef63af78b3d097384b1f8ca6ccfc1869e3eb20d"}
  magic.analyzer.binder {:source "magic-compiler/src/magic/analyzer/binder.clj", :sha256 "bfb28ea9f585912fed8251f7e3ca95df69562af32af8790de9712bd5948536d1"}
  magic.analyzer.collect_closed_overs {:source "magic-compiler/src/magic/analyzer/collect_closed_overs.clj", :sha256 "8eb887d4e3c5503d00c0c05fb7f04aeaee878a31023ca757e8f736021d27824a"}
- magic.analyzer.errors {:source "magic-compiler/src/magic/analyzer/errors.clj", :sha256 "ce95d5067e58d05e3a7cf2a1be06b4ae0a740acba602ec0b9e746a5a2efb3cd0"}
+ magic.analyzer.errors {:source "magic-compiler/src/magic/analyzer/errors.clj", :sha256 "392129419717b64c45cfcbbabed0575f96292548123704d01a34679f281e78ca"}
  magic.analyzer.generated_types {:source "magic-compiler/src/magic/analyzer/generated_types.clj", :sha256 "ede9195e51de246d8e96ad2f5071e08e0cf422f9fa965ff31e201b91cb595af0"}
  magic.analyzer.intrinsics {:source "magic-compiler/src/magic/analyzer/intrinsics.clj", :sha256 "800ce5f9cea217bdb2ba0019291f68e0090f75a4a6d18f13feb593e78979eee7"}
  magic.analyzer.literal_reinterpretation {:source "magic-compiler/src/magic/analyzer/literal_reinterpretation.clj", :sha256 "e56eec5f886a9744867dfdc3776b94603f4f39a2e4d14a80420bd6e06c205c86"}
@@ -55,12 +55,12 @@
  magic.analyzer.reflection {:source "magic-compiler/src/magic/analyzer/reflection.clj", :sha256 "16de58b74c60882c7ee36df8410f30e8d16cec6bb8168d899bcf9a463cb0f8f3"}
  magic.analyzer.remove_local_children {:source "magic-compiler/src/magic/analyzer/remove_local_children.clj", :sha256 "e5f8971111f3e5b6ad7e9873f1ae1f53a0e8e214da463ed5162b8ffb3948c8d1"}
  magic.analyzer.typed_passes {:source "magic-compiler/src/magic/analyzer/typed_passes.clj", :sha256 "dacd9e83cb4c2fc67354c7ef49f6eefc4bc0cd59079b2dbc487cb1b0df2a4e0a"}
- magic.analyzer.types {:source "magic-compiler/src/magic/analyzer/types.clj", :sha256 "d0e758c13a7b8e913c32538f0bbe4d56a1df68300fad71fe5514cf414cfa6c25"}
+ magic.analyzer.types {:source "magic-compiler/src/magic/analyzer/types.clj", :sha256 "e47a7cf02ac85df1976c0fa23d8389f251f381171aaa98c10b453bea7d6389d9"}
  magic.analyzer.uniquify {:source "magic-compiler/src/magic/analyzer/uniquify.clj", :sha256 "8efe465c85094d3c1a788403231f5f84dde5c6a169ec66ca897da93bb4794d7a"}
  magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "19e7f4f2a357f2c265e373dcb1175f336baaf09b5d380744433a4d25f87c4a94"}
- magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "a16c67c42be37888b875673bf7262c5c9b42e2ed0c93c19e1b71783362abf815"}
+ magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "452824e951159fc291ab3d0055ca6a8c92a13afb626036041223f2cf0ce8759f"}
  magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "0ca4634ad93b01ff6cec5e8d04b022af1cd6b694d9a9529da46c704d89773df1"}
- magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "ef21abec4c6c18b09c2119f2306d5a514f1bd67e303378dd92880dfddd7c3a61"}
+ magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "52ddbb14163e76aa9921e869c2ff022df66052810b5d758d947e96e02cfc12bc"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
  magic.interop {:source "magic-compiler/src/magic/interop.clj", :sha256 "17e4d2fbf1a915948b634d9252691c3183e17b25482fdedef1e039a6438cbc98"}
