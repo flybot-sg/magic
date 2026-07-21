@@ -5,7 +5,7 @@
   (:refer-clojure :exclude [test])
   (:import
    [Nostrand Nostrand]
-   [System.IO Directory File]
+   [System.IO Directory File Path]
    [System.Threading Thread ThreadStart]
    [System.Reflection AssemblyInformationalVersionAttribute])
   (:require [nostrand.repl :as repl]
@@ -36,6 +36,15 @@
   (msg "Runtime" (str (Environment/get_Version)
                       " (" (Environment/get_OSVersion) ")")
        ConsoleColor/DarkGray))
+
+(defn where
+  "Print the directory the running host loaded Clojure.dll from, as bare
+  stdout for shell capture. With a file name, print that file's full path.
+  Usage: nos where                  ; the runtime assemblies dir
+         nos where Clojure.dll      ; full path of one assembly"
+  ([] (println (-> (.Assembly clojure.lang.RT) .Location Path/GetDirectoryName)))
+  ([file] (println (Path/Combine (-> (.Assembly clojure.lang.RT) .Location Path/GetDirectoryName)
+                                 (str file)))))
 
 (defn cli-repl
   ([] (cli-repl nil))

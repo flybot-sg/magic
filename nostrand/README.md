@@ -38,6 +38,12 @@ Clojure 1.10.0-master-SNAPSHOT
 
 $ nos repl
 user=>
+
+$ nos where
+/Users/me/.local/nostrand/net471
+
+$ nos where Clojure.dll
+/Users/me/.local/nostrand/net471/Clojure.dll
 ```
 
 With a namespace they are searched for using Clojure's normal namespace resolution machinery. The current directory is on the load path by default.
