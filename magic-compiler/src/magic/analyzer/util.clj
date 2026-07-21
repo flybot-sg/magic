@@ -5,6 +5,34 @@
 (defmacro throw! [& e]
   `(throw (ex-info (str ~@e) {})))
 
+(defn- load-path-dirs []
+  (distinct
+   (concat (some-> (resolve 'clojure.core/*load-paths*) deref)
+           (some-> (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH")
+                   (string/split (re-pattern (str "\\" System.IO.Path/PathSeparator)))))))
+
+(defn- dll-prefix-candidates [type-name]
+  (let [segments (string/split type-name #"\.")]
+    (when (> (count segments) 1)
+      (map #(string/join "." (take % segments))
+           (range (dec (count segments)) 0 -1)))))
+
+(defn unloaded-dll-hint
+  "Best-effort hint for an unresolved type name: a DLL on the load path whose
+   file name matches a namespace prefix of the type suggests an assembly that
+   was never loaded. Returns the hint string, or nil when nothing matches.
+   Runs on the compiler's failure path, so it must never throw."
+  [t]
+  (try
+    (first
+     (for [prefix (dll-prefix-candidates (str t))
+           dir (load-path-dirs)
+           :let [dll (System.IO.Path/Combine (str dir) (str prefix ".dll"))]
+           :when (System.IO.File/Exists dll)]
+       (str "; found " dll " on the load path but no loaded assembly defines this type,"
+            " load it before :import, see docs/native-assemblies.md")))
+    (catch Exception _ nil)))
+
 (defn var-reference
   "Get the var reference associated with an AST, or nil"
   [{:keys [init var fn] :as ast}]

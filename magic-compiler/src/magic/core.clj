@@ -1,7 +1,7 @@
 (ns magic.core
   (:refer-clojure :exclude [compile])
   (:require [mage.core :as il]
-            [magic.analyzer.util :refer [var-interfaces var-type var-reference throw!]]
+            [magic.analyzer.util :refer [var-interfaces var-type var-reference throw! unloaded-dll-hint]]
             [magic.util :as u]
             [magic.analyzer.types :as types :refer [tag ast-type ast-type-ignore-tag non-void-ast-type]]
             [magic.analyzer.binder :refer [select-method]]
@@ -2257,7 +2257,13 @@
        [(il/ldtoken t)
         (il/call (interop/method Type "GetTypeFromHandle" RuntimeTypeHandle))]
        ;; TODO should this be an error? just throw the exception here?
-       [(il/ldstr class-name)
+       ;; The hint warns at compile time instead of extending the emitted
+       ;; message: the ldstr below is baked into the DLL, and a load-path
+       ;; string would make the bytes machine-dependent.
+       [(when-let [hint (unloaded-dll-hint class-name)]
+          (binding [*out* *err*]
+            (println (str "WARNING: could not resolve " class-name " during import" hint))))
+        (il/ldstr class-name)
         (il/call (interop/method Magic.Runtime "FindType" String))
         (il/dup)
         (il/ldnull)

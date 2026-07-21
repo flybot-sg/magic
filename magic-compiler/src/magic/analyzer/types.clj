@@ -238,7 +238,8 @@
     (or (resolve tag)
         (throw! "Unable to resolve type hint " (pr-str tag)
                 " while analyzing form " (pr-str (or (-> ast :raw-forms first)
-                                                     (:form ast)))))
+                                                     (:form ast)))
+                (util/unloaded-dll-hint tag)))
     (ast-type-impl* ast)))
 
 (defn ast-type-ignore-tag [ast]
@@ -271,7 +272,8 @@
 (defmethod ast-type-impl :tagged [{:keys [tag form]}]
   (or (resolve tag)
       (throw! "Unable to resolve type hint " (pr-str tag)
-              " while analyzing form " (pr-str form))))
+              " while analyzing form " (pr-str form)
+              (util/unloaded-dll-hint tag))))
 
 (defmethod ast-type-impl :gen-interface [_] System.Type)
 
@@ -444,7 +446,8 @@
         type (cond tag
                    (if-let [t (resolve tag)]
                      t
-                     (throw! "Could not resolve type hint " tag " while analyzing form " form))
+                     (throw! "Could not resolve type hint " tag " while analyzing form " form
+                             (util/unloaded-dll-hint tag)))
                    (= local :arg)
                    Object
                    (= local :proxy-this)
