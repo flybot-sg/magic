@@ -57,6 +57,14 @@ Keeping the load in the require graph is what makes it work everywhere, with no 
 
 A library that must build on both stock ClojureCLR and MAGIC should pair the loader with a self-contained `deps-clr.edn` whose `:paths` include the DLL directory. Both `cljr` and `nos` read that one file and put every `:paths` entry on `CLOJURE_LOAD_PATH`, so the loader's scan finds the assembly on either runtime. See [Declaring CLR dependencies](./clr-dependency-files.md).
 
+## Building the assembly against the runtime
+
+When the C# source references Clojure types, the compiler needs the runtime assemblies. `nos where` prints the directory the running host loaded them from, so a build script never guesses install dirs:
+
+```bash
+csc -deterministic -target:library -r:$(nos where Clojure.dll) -out:src_classes/my_interop.dll MyInterop.cs
+```
+
 ## See also
 
 - [Declaring CLR dependencies](./clr-dependency-files.md)
