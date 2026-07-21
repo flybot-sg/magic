@@ -77,7 +77,7 @@
   (throw! "Could not find overload of instance method " method
           " taking " (count args) " arguments"
           " for type " (ast-type target)
-          " while analyzing form " (user-form )))
+          " while analyzing form " (user-form ast)))
 
 (defmethod error ::var-bad-arity
   [err {:keys [fn args] :as ast}]
