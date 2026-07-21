@@ -14,7 +14,6 @@ namespace Magic
 #if NETSTANDARD
             return AssemblyBuilder.DefineDynamicAssembly(name, access);
 #else
-            var assy = AppDomain.CurrentDomain.DefineDynamicAssembly(name, access);
             return AppDomain.CurrentDomain.DefineDynamicAssembly(name, access);
 #endif
         }
