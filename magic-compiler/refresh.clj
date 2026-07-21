@@ -94,7 +94,10 @@
                                      :let [f (ns-symbol->source-file ns)]
                                      :when f]
                                  [ns f]))
-        missing-src   (remove ns->src all-nss)
+        bootstrap-nss (filter bootstrap-namespaces all-nss)
+        missing-src   (->> all-nss
+                           (remove bootstrap-namespaces)
+                           (remove ns->src))
         sourced-nss   (->> all-nss
                            (remove bootstrap-namespaces)
                            (filter ns->src))
@@ -108,6 +111,7 @@
     (println (str "found " (count all-nss) " deployed stdlib DLLs, "
                   (count top-level-nss) " top-level, "
                   (count subfile-nss) " sub-files, "
+                  (count bootstrap-nss) " bootstrap-owned (bb bootstrap), "
                   (count missing-src) " without source (skipped)"))
     (when (seq missing-src)
       (doseq [ns missing-src] (println "  missing source for" ns)))
