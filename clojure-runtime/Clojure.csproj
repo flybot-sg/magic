@@ -8,7 +8,7 @@
 
     <Target Name="SetSourceRevisionId" BeforeTargets="InitializeSourceControlInformation">
     <Exec 
-      Command="git describe --long --always --dirty --exclude=* --abbrev=8"
+      Command="git describe --tags --long --always --dirty --match='v*' --abbrev=8"
       StandardOutputImportance="low"
       ConsoleToMSBuild="True"
       IgnoreExitCode="False"
