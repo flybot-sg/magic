@@ -194,6 +194,9 @@
              module-file-name (str module-name ".dll")]
          (when (:write-files opts)
            (reset-global-gensym-counter!)
+           ;; likewise the type-name counter, else it carries state from files
+           ;; compiled earlier under the build driver's *ns*
+           (u/reset-gensym-map!)
            (type-lookup-cache-clear!))
          (try
            (let [rdr    (LineNumberingTextReader. file)
