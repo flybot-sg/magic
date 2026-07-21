@@ -46,7 +46,7 @@
  magic.analyzer.analyze_host_forms {:source "magic-compiler/src/magic/analyzer/analyze_host_forms.clj", :sha256 "1dbbb4208265896fc7c146c1bef63af78b3d097384b1f8ca6ccfc1869e3eb20d"}
  magic.analyzer.binder {:source "magic-compiler/src/magic/analyzer/binder.clj", :sha256 "bfb28ea9f585912fed8251f7e3ca95df69562af32af8790de9712bd5948536d1"}
  magic.analyzer.collect_closed_overs {:source "magic-compiler/src/magic/analyzer/collect_closed_overs.clj", :sha256 "8eb887d4e3c5503d00c0c05fb7f04aeaee878a31023ca757e8f736021d27824a"}
- magic.analyzer.errors {:source "magic-compiler/src/magic/analyzer/errors.clj", :sha256 "392129419717b64c45cfcbbabed0575f96292548123704d01a34679f281e78ca"}
+ magic.analyzer.errors {:source "magic-compiler/src/magic/analyzer/errors.clj", :sha256 "fe53f69897cb8a97d157123cd47330db3b71507aeb63a11582b9572fd8fafa6f"}
  magic.analyzer.generated_types {:source "magic-compiler/src/magic/analyzer/generated_types.clj", :sha256 "ede9195e51de246d8e96ad2f5071e08e0cf422f9fa965ff31e201b91cb595af0"}
  magic.analyzer.intrinsics {:source "magic-compiler/src/magic/analyzer/intrinsics.clj", :sha256 "800ce5f9cea217bdb2ba0019291f68e0090f75a4a6d18f13feb593e78979eee7"}
  magic.analyzer.literal_reinterpretation {:source "magic-compiler/src/magic/analyzer/literal_reinterpretation.clj", :sha256 "e56eec5f886a9744867dfdc3776b94603f4f39a2e4d14a80420bd6e06c205c86"}
