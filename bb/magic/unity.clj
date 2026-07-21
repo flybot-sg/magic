@@ -71,7 +71,7 @@
 
 (def ^:private variants
   {"dual"       {:pkg dual-pkg    :dependency "sg.flybot.magic.unity.dual" :expected 0}
-   "magic-only" {:pkg default-pkg :dependency "sg.flybot.magic.unity"      :expected 46}})
+   "magic-only" {:pkg default-pkg :dependency "sg.flybot.magic.unity"      :expected 37}})
 
 (defn- coexist-path [& parts]
   (str/join "/" (cons coexist-proj parts)))
@@ -152,7 +152,7 @@
 (defn coexist-noise!
   "Reproduce / regression-check the coexistence noise for variant \"dual\" (the
    shipped fix, expect 0 narration lines) or \"magic-only\" (the default, expect
-   46). Packs the variant into an immutable tarball, resolves it fresh, then runs
+   37). Packs the variant into an immutable tarball, resolves it fresh, then runs
    Unity headless twice: a cold import, then a domain reload that runs
    CoexistenceProbe. The probe runs only on the second pass because a flip
    applies to the next domain load, so a same-session probe reads stale state."

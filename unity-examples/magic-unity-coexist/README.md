@@ -15,8 +15,9 @@ Assembly 'Packages/sg.flybot.magic.unity/Runtime/Infrastructure/Export/clojure.c
 Assembly is incompatible with the editor
 ```
 
-plus one benign `Duplicate assembly 'Clojure.dll'` dedup line. At MAGIC v0.6.0
-the baseline is **46** narration lines. They are benign: Unity is narrating the
+plus one benign `Duplicate assembly 'Clojure.dll'` dedup line. The baseline is
+one narration line per runtime `.clj.dll` in Export, currently **37**. They are
+benign: Unity is narrating the
 intended editor exclusion from issue #25, not a real failure. This project
 exists to make that narration measurable and to let a silencing patch prove it
 went to zero without regressing the exclusion.
@@ -50,7 +51,7 @@ counterpart.
 
 ```
 bb coexist-noise            # tests the dual variant: expect 0 narration lines
-bb coexist-noise magic-only # tests the default variant: expect 46 lines (the problem)
+bb coexist-noise magic-only # tests the default variant: expect 37 lines (the problem)
 ```
 
 From the repo root. The task:
@@ -80,7 +81,7 @@ Quit any GUI Unity holding this project first; batchmode exits 134 otherwise.
 Open `magic-unity-coexist` in Unity Hub (2022.3.62f3) after running
 `bb coexist-noise magic-only` once (so the magic-only tarball is resolved and the
 problem is present). Watch `~/Library/Logs/Unity/Editor.log` on a domain reload
-(for example, by re-saving any script) for the 46 lines.
+(for example, by re-saving any script) for the 37 lines.
 
 ## What each variant must prove
 
@@ -91,7 +92,7 @@ problem is present). Watch `~/Library/Logs/Unity/Editor.log` on a domain reload
   line remains (benign, and confirms the package actually resolved). A run that
   reports 0 narration but no probe line is INCONCLUSIVE, not a pass: the package
   likely failed to resolve.
-- **Magic-only variant** (`bb coexist-noise magic-only`): **46** narration lines,
+- **Magic-only variant** (`bb coexist-noise magic-only`): **37** narration lines,
   reproducing exactly what a coexistence consumer of the default package sees.
   This is the problem the dual variant solves.
 
@@ -103,5 +104,5 @@ IL2CPP) that the player path is unchanged.
 The `CoexistenceProbe` marker line in the editor log carries the per-run state:
 
 ```
-[CoexistenceProbe] preloaded-clj=0 core-clj-loadable=false core-clj-load=FileNotFoundException clojure-versions=[1.11.0.0] export-clj-editor-off=46
+[CoexistenceProbe] preloaded-clj=0 core-clj-loadable=false core-clj-load=FileNotFoundException clojure-versions=[1.11.0.0] export-clj-editor-off=37
 ```

@@ -52,7 +52,7 @@ The package is shipped in two variants. They are identical except for one thing:
 
 Choose the **default** if your project runs MAGIC in the Editor (Play mode, edit-mode tooling) and has no stock ClojureCLR. Choose **`.dual`** if your Editor runs stock ClojureCLR (REPL / hot-reload) and MAGIC only ships in player builds: the runtime is excluded from the Editor by the define constraint, so Unity never attempts to load it there and prints no narration.
 
-`magic-unity-dual/` is generated from `magic-unity/` by `bb gen-unity-dual` (the DLLs are byte-identical copies; only the 46 runtime `.meta`s and the package name differ) and is kept in sync by `bb check-drift`. The in-repo coexistence repro that validates both variants is `magic-unity-coexist/` (`bb coexist-noise` for the dual variant, `bb coexist-noise magic-only` to reproduce the noise).
+`magic-unity-dual/` is generated from `magic-unity/` by `bb gen-unity-dual` (the DLLs are byte-identical copies; only the 37 runtime `.meta`s and the package name differ) and is kept in sync by `bb check-drift`. The in-repo coexistence repro that validates both variants is `magic-unity-coexist/` (`bb coexist-noise` for the dual variant, `bb coexist-noise magic-only` to reproduce the noise).
 
 ## API
 
