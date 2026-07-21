@@ -65,6 +65,8 @@ When the C# source references Clojure types, the compiler needs the runtime asse
 csc -deterministic -target:library -r:$(nos where Clojure.dll) -out:src_classes/my_interop.dll MyInterop.cs
 ```
 
+The `-deterministic` flag is what keeps the committed DLL byte-stable: without it, `csc` stamps a random module id, so rebuilding unchanged source modifies the committed file every time. Byte-stability also needs a pinned `AssemblyVersion` (a `1.0.*` wildcard derives the version from the build time) and the same compiler version across rebuilds, so expect a toolchain upgrade to change the bytes once. If the build emits debug info (`-debug:portable`), add `-pathmap:"$PWD"=/src` so the embedded source paths do not tie the bytes to one checkout directory.
+
 ## See also
 
 - [Declaring CLR dependencies](./clr-dependency-files.md)
