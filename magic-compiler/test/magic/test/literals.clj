@@ -17,7 +17,9 @@
 
 (deftest unsigned-constants
   (cljclr=magic UInt32/MaxValue)
-  (clojure.test/is (= "4294967295" (str UInt32/MaxValue))))
+  (clojure.test/is (= "4294967295" (str UInt32/MaxValue)))
+  (cljclr=magic UInt64/MaxValue)
+  (clojure.test/is (= "18446744073709551615" (str UInt64/MaxValue))))
 
 (deftest sets
   (cljclr=magic #{}))

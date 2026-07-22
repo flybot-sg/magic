@@ -357,7 +357,7 @@
   (il/ldc-i8 k))
 
 (defmethod load-constant UInt64 [k]
-  (il/ldc-i8 k))
+  (il/ldc-i8 (unchecked-long k)))
 
 (defmethod load-constant UInt32 [k]
   (load-integer k))
