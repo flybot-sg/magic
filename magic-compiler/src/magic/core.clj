@@ -296,7 +296,13 @@
     items)))
 
 (defmethod load-constant :default [k]
-  (throw! "load-constant not implemented for " k " (" (type k) ")"))
+  (let [s (try
+            (binding [*print-dup* true] (pr-str k))
+            (catch Exception _
+              (throw! "Can't embed object in code, maybe print-dup not defined: " k " (" (type k) ")")))]
+    [(il/ldstr s)
+     (il/call (interop/method RT "readString" String))
+     (convert-type Object (type k))]))
 
 (defn load-constant-meta [k]
   (when-let [m (meta k)]

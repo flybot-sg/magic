@@ -1,9 +1,15 @@
 (ns magic.test.errors
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as string]
+            [magic.api :as m]
             [magic.analyzer.util :as util]
             [magic.analyzer.errors :as errors])
   (:import [System.IO Directory File Path]))
+
+(defn- root-message [^Exception e]
+  (if-let [inner (.InnerException e)]
+    (recur inner)
+    (.Message e)))
 
 (deftest unloaded-dll-hint
   (let [dir (Path/Combine (Path/GetTempPath) (str "magic-test-dll-hint-" (gensym)))
@@ -30,3 +36,10 @@
       (finally
         (Environment/SetEnvironmentVariable "CLOJURE_LOAD_PATH" original)
         (Directory/Delete dir true)))))
+
+(deftest constant-without-print-dup
+  (testing "unembeddable constant fails at compile time naming print-dup"
+    (let [msg (try
+                (str (m/eval (list 'fn [] (System.Random.))))
+                (catch Exception e (root-message e)))]
+      (is (string/includes? msg "print-dup")))))
