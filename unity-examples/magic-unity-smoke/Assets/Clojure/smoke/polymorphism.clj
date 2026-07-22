@@ -5,7 +5,10 @@
   set! check is bound to the deftype set! castclass fix: stfld of
   an invoke return into a type-hinted mutable field used to emit
   without castclass, unverifiable IL that Mono accepts and IL2CPP
-  rejects at C++ compile time. The rest of the suite is broad
+  rejects at C++ compile time. The protocol-hinted parameter check
+  is bound to the hint-relax fix: a ^Protocol param used to cast to
+  the protocol's generated interface, which extend-protocol
+  implementers are not instances of. The rest of the suite is broad
   construct coverage to catch dispatch-related regressions.")
 
 (defn- pass [n]       {:name n :pass? true})
@@ -44,6 +47,15 @@
   IAccum
   (add-item [this x] (set! items (conj items x)) this)
   (item-vec [_] items))
+
+(defprotocol IStrLen
+  (str-len [s]))
+
+(extend-protocol IStrLen
+  System.String
+  (str-len [s] (.Length s)))
+
+(defn- hinted-len [^IStrLen s] (str-len s))
 
 (defmulti animal-sound :kind)
 (defmethod animal-sound :dog  [_] "woof")
@@ -103,6 +115,9 @@
    (check "deftype set! hinted mutable field from invoke return"
           #(item-vec (-> (->Accum []) (add-item 1) (add-item 2)))
           [1 2])
+   (check "protocol-hinted param with extend-protocol implementer"
+          #(hinted-len "hello")
+          5)
    (check "multimethod :dog"
           #(animal-sound {:kind :dog}) "woof")
    (check "multimethod default"

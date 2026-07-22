@@ -58,4 +58,15 @@
           [true true 7])
    (check "fn value carries no reader meta"
           #(meta (fn [] 1))
-          nil)])
+          nil)
+   (check "if where both branches throw"
+          #(try ((fn [c] (if (= c -1)
+                           (throw (System.Exception. "a"))
+                           (throw (System.Exception. "b")))) 0)
+                (catch System.Exception e (.Message e)))
+          "b")
+   (check "cond where every branch throws"
+          #(try ((fn [x] (cond (= x 1) (throw (System.Exception. "one"))
+                               :else   (throw (System.Exception. "other")))) 9)
+                (catch System.Exception e (.Message e)))
+          "other")])
