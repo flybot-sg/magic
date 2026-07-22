@@ -69,4 +69,11 @@
           #(try ((fn [x] (cond (= x 1) (throw (System.Exception. "one"))
                                :else   (throw (System.Exception. "other")))) 9)
                 (catch System.Exception e (.Message e)))
-          "other")])
+          "other")
+   (check "inst and uuid literal constants"
+          #(let [d #inst "2007-10-16T00:00:00.000-00:00"
+                 u #uuid "3b8a31ed-fd89-4f1b-a00f-42e3d60cf5ce"]
+             [(.Year d)
+              (= u #uuid "3b8a31ed-fd89-4f1b-a00f-42e3d60cf5ce")
+              (class d)])
+          [2007 true System.DateTime])])
