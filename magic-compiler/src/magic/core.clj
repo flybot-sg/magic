@@ -55,7 +55,7 @@
     (= k 1)  (il/ldc-i4-1)
     (= k -1) (il/ldc-i4-m1)
     (and (pos? k) (< k 128)) (il/ldc-i4-s (byte k))
-    :else (il/ldc-i4 (int k))))
+    :else (il/ldc-i4 (unchecked-int k))))
 
 (defn reference-to-type [t]
   (when (types/is-value-type? t)

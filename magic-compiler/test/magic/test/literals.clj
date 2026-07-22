@@ -15,6 +15,10 @@
   (cljclr=magic [#inst "2020-01-02T03:04:05.678-00:00"
                  #uuid "00000000-0000-0000-0000-000000000001"]))
 
+(deftest unsigned-constants
+  (cljclr=magic UInt32/MaxValue)
+  (clojure.test/is (= "4294967295" (str UInt32/MaxValue))))
+
 (deftest sets
   (cljclr=magic #{}))
 
