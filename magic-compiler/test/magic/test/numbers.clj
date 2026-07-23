@@ -7,6 +7,11 @@
   (is (unchecked-int (char 0xFFFF)))
   (is (let [c (char 0xFFFF)] (unchecked-int c))))
 
+(deftest widen-unsigned-to-long
+  (cljclr=magic (long UInt32/MaxValue))
+  (cljclr=magic (long (UInt32/Parse "2147483648")))
+  (cljclr=magic (long (UInt32/Parse "42"))))
+
 (defonce DELTA 1e-12)
 
 (deftest test-add

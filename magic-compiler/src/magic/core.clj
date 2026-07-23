@@ -78,6 +78,9 @@
    UInt32 (il/conv-u4)
    UInt64 (il/conv-u8)})
 
+(def unsigned-integer
+  #{Byte UInt16 UInt32 UInt64})
+
 (defn convert-type [from to]
   (cond
     (= from :magic.analyzer.types/disregard)
@@ -160,6 +163,12 @@
     ;; use user defined explicit conversion if it exists
     (interop/method to "op_Explicit" from)
     (il/call (interop/method to "op_Explicit" from))
+
+    ;; widening to 8 bytes: extension follows source signedness, not the target
+    (and (types/integer-type? from)
+         (#{Int64 UInt64} to)
+         (not (#{Int64 UInt64} from)))
+    (if (unsigned-integer from) (il/conv-u8) (il/conv-i8))
 
     ;; use intrinsic conv opcodes from primitive to primitive
     (and (types/is-primitive? from) (types/is-primitive? to))
