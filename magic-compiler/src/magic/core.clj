@@ -199,6 +199,30 @@
     (il/call (if *unchecked-math*
                (interop/method RT "uncheckedByteCast" from)
                (interop/method RT "byteCast" from)))
+    (and (= from Object) (= to SByte))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedSByteCast" from)
+               (interop/method RT "sbyteCast" from)))
+    (and (= from Object) (= to Int16))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedShortCast" from)
+               (interop/method RT "shortCast" from)))
+    (and (= from Object) (= to UInt16))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedUShortCast" from)
+               (interop/method RT "ushortCast" from)))
+    (and (= from Object) (= to UInt32))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedUIntCast" from)
+               (interop/method RT "uintCast" from)))
+    (and (= from Object) (= to UInt64))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedULongCast" from)
+               (interop/method RT "ulongCast" from)))
+    (and (= from Object) (= to Char))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedCharCast" from)
+               (interop/method RT "charCast" from)))
 
     ;; unbox objects to valuetypes
     ;; TODO this will throw an exception of the object
