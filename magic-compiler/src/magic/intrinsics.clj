@@ -15,17 +15,23 @@
      ~type-fn
      ~il-fn))
 
+(defn promote-unsigned
+  "Integer arithmetic in an unsigned type wraps: the .ovf opcodes are
+  signed and Clojure computes integer math in long. Widen to Int64."
+  [t]
+  (if (#{Byte UInt16 UInt32} t) Int64 t))
+
 (defn numeric-args [{:keys [args]}]
   (let [arg-types (->> args (map ast-type))
         non-numeric-args (filter (complement types/numeric) arg-types)]
     (when (empty non-numeric-args)
-      (types/best-numeric-promotion arg-types))))
+      (promote-unsigned (types/best-numeric-promotion arg-types)))))
 
 (defn best-numeric-type [{:keys [args]}]
   (let [arg-types (->> args (map ast-type))
         non-numeric-args (filter (complement types/numeric) arg-types)
         inline? (empty? non-numeric-args)
-        type (->> args (map ast-type) types/best-numeric-promotion)]
+        type (->> args (map ast-type) types/best-numeric-promotion promote-unsigned)]
     (when inline? type)))
 
 (defn add-mul-numeric-type [{:keys [args] :as ast}]
@@ -96,6 +102,7 @@
     [{:keys [args] :as ast} type compilers]
     (let [arg (first args)]
       [(magic/compile arg compilers)
+       (magic/convert arg type)
        (magic/load-constant
          (reinterpret-value 1 type))
        (if (or *unchecked-math*
@@ -134,6 +141,7 @@
     [{:keys [args] :as ast} type compilers]
     (let [arg (first args)]
       [(magic/compile arg compilers)
+       (magic/convert arg type)
        (magic/load-constant
          (reinterpret-value 1 type))
        (if (or *unchecked-math*
