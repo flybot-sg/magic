@@ -84,4 +84,7 @@
           [\A 4294967295])
    (check "unsigned integer arithmetic promotes to long"
           #(inc UInt32/MaxValue)
-          4294967296)])
+          4294967296)
+   (check "signed integer arithmetic promotes to long"
+          #(inc Int32/MaxValue)
+          2147483648)])
