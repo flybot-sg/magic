@@ -76,4 +76,12 @@
              [(.Year d)
               (= u #uuid "3b8a31ed-fd89-4f1b-a00f-42e3d60cf5ce")
               (class d)])
-          [2007 true System.DateTime])])
+          [2007 true System.DateTime])
+   (check "cast boxed value to narrow numeric types"
+          #(let [c (rand-nth [65])
+                 u (rand-nth [4294967295])]
+             [(char c) (long (uint u))])
+          [\A 4294967295])
+   (check "unsigned integer arithmetic promotes to long"
+          #(inc UInt32/MaxValue)
+          4294967296)])
