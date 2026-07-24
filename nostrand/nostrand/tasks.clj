@@ -240,6 +240,12 @@
                  (`run-all-tests` uses `re-matches`), e.g. #\"flybot\\..*\".
                  Without it the run is scoped to the derived namespaces, so a
                  project's own suites run and its dependencies' do not.
+    :exclude-vars fully-qualified `deftest` symbols to skip. Each var's :test
+                 meta is cleared after `require`, so `clojure.test` runs the
+                 rest of its namespace but omits these, e.g.
+                 [my.ns-test/windows-only-test]. For a handful of
+                 platform-specific failures inside otherwise-passing namespaces,
+                 where a namespace-level `:exclude` would drop good tests too.
     :aliases     deps.edn aliases to activate, e.g. [:clr :test] (so the test
                  source paths land on the load path before `require`)
     :flags       var->value binding map (default `production-flags`)
@@ -248,13 +254,17 @@
   Returns the clojure.test summary map.
   Drop-in for a consumer's `nos dotnet/run-tests`:
       (defn run-tests [] (tasks/run-clojure-tests :aliases [:clr :test]))"
-  [& {:keys [namespaces exclude re aliases flags exit?]
+  [& {:keys [namespaces exclude re aliases flags exit? exclude-vars]
       :or   {flags production-flags exit? true}}]
   (let [basis (when (seq aliases) (nos/establish-deps-edn (basis/project-deps-file) aliases))
         nses  (task-namespaces namespaces aliases exclude basis)]
     (with-bindings flags
       (doseq [ns nses]
         (require ns))
+      (doseq [v exclude-vars]
+        (if-let [var* (resolve v)]
+          (alter-meta! var* assoc :test nil)
+          (println "WARNING: :exclude-vars could not resolve" v)))
       (let [{:keys [fail error] :as summary} (cond
                                                re         (ct/run-all-tests re)
                                                (seq nses) (apply ct/run-tests nses)
@@ -270,9 +280,10 @@
 (s/def ::out        string?)
 (s/def ::clean?     boolean?)
 (s/def ::flags      (s/map-of qualified-symbol? any?))
+(s/def ::exclude-vars (s/coll-of qualified-symbol? :kind vector?))
 
 (s/def ::build (s/keys :opt-un [::aliases ::namespaces ::exclude ::out ::clean? ::flags]))
-(s/def ::test  (s/keys :opt-un [::aliases ::namespaces ::exclude ::re ::flags]))
+(s/def ::test  (s/keys :opt-un [::aliases ::namespaces ::exclude ::re ::flags ::exclude-vars]))
 (s/def ::magic-edn (s/keys :opt-un [::build ::test]))
 
 (defn- read-magic-edn
@@ -313,11 +324,12 @@
   "Run the project's clojure.test suites under MAGIC, per magic.edn :test.
   Run as `nos test`."
   []
-  (let [{:keys [aliases namespaces exclude re flags]
+  (let [{:keys [aliases namespaces exclude re flags exclude-vars]
          :or   {aliases [:test]}}
         (:test (read-magic-edn))]
-    (run-clojure-tests :aliases    (vec aliases)
-                       :namespaces namespaces
-                       :exclude    exclude
-                       :re         (some-> re re-pattern)
-                       :flags      (resolve-flags test-flags flags))))
+    (run-clojure-tests :aliases      (vec aliases)
+                       :namespaces   namespaces
+                       :exclude      exclude
+                       :re           (some-> re re-pattern)
+                       :exclude-vars exclude-vars
+                       :flags        (resolve-flags test-flags flags))))
