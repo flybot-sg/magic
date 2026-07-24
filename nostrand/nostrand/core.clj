@@ -2,8 +2,7 @@
     ^{:author "Ramsey Nasser"
       :doc "Core nostrand API containing load path, assemblies, and dependency functions."}
     nostrand.core
-  (:require [clojure.edn :as edn]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [nostrand.deps.basis :as basis]
             [nostrand.deps.submodules :as submodules])
   (:import [System.IO Path File]))
@@ -27,14 +26,17 @@
       (assembly-load-from full-asm-path))))
 
 (defn update-load-path []
-  (Environment/SetEnvironmentVariable
-    "CLOJURE_LOAD_PATH"
-    (string/join Path/PathSeparator @-load-path))
-  (alter-var-root #'*load-paths*
-                  (fn [load-paths]
-                    (mapv
-                     #(System.IO.Path/GetFullPath %)
-                     (concat @-load-path load-paths)))))
+  (let [abs-paths (mapv #(System.IO.Path/GetFullPath %) @-load-path)]
+    ;; CLOJURE_LOAD_PATH gets absolute roots (like *load-paths*), so a loader
+    ;; scanning it finds files from any cwd, matching stock ClojureCLR.
+    (Environment/SetEnvironmentVariable
+      "CLOJURE_LOAD_PATH"
+      (string/join Path/PathSeparator abs-paths))
+    (alter-var-root #'*load-paths*
+                    (fn [load-paths]
+                      (mapv
+                       #(System.IO.Path/GetFullPath %)
+                       (concat @-load-path load-paths))))))
 
 (defn set-load-path [val]
   (reset! -load-path val)
@@ -74,7 +76,7 @@
   or true for every submodule)."
   ([]
    (let [deps-file (basis/project-deps-file)
-         deps-edn  (edn/read-string (slurp deps-file))
+         deps-edn  (basis/read-project-deps deps-file)
          b         (establish-deps-edn deps-file (:nos/aliases deps-edn []))]
      (when-let [root (:nos/submodule-paths deps-edn)]
        (when (File/Exists ".gitmodules")

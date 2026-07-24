@@ -18,7 +18,9 @@
    magic.test.stdlib
    magic.test.spec
    magic.test.deterministic
-   magic.test.flags)
+   magic.test.flags
+   magic.test.protocol
+   magic.test.errors)
   (:use clojure.test))
 
 (defn all []
@@ -41,7 +43,9 @@
    'magic.test.stdlib
    'magic.test.spec
    'magic.test.deterministic
-   'magic.test.flags))
+   'magic.test.flags
+   'magic.test.protocol
+   'magic.test.errors))
 
 (defn run [& namespaces]
   (apply run-tests namespaces))

@@ -1,7 +1,7 @@
 (ns magic.core
   (:refer-clojure :exclude [compile])
   (:require [mage.core :as il]
-            [magic.analyzer.util :refer [var-interfaces var-type var-reference throw!]]
+            [magic.analyzer.util :refer [var-interfaces var-type var-reference throw! unloaded-dll-hint]]
             [magic.util :as u]
             [magic.analyzer.types :as types :refer [tag ast-type ast-type-ignore-tag non-void-ast-type]]
             [magic.analyzer.binder :refer [select-method]]
@@ -55,7 +55,7 @@
     (= k 1)  (il/ldc-i4-1)
     (= k -1) (il/ldc-i4-m1)
     (and (pos? k) (< k 128)) (il/ldc-i4-s (byte k))
-    :else (il/ldc-i4 (int k))))
+    :else (il/ldc-i4 (unchecked-int k))))
 
 (defn reference-to-type [t]
   (when (types/is-value-type? t)
@@ -77,6 +77,9 @@
    UInt16 (il/conv-u2)
    UInt32 (il/conv-u4)
    UInt64 (il/conv-u8)})
+
+(def unsigned-integer
+  #{Byte UInt16 UInt32 UInt64})
 
 (defn convert-type [from to]
   (cond
@@ -161,6 +164,12 @@
     (interop/method to "op_Explicit" from)
     (il/call (interop/method to "op_Explicit" from))
 
+    ;; widening to 8 bytes: extension follows source signedness, not the target
+    (and (types/integer-type? from)
+         (#{Int64 UInt64} to)
+         (not (#{Int64 UInt64} from)))
+    (if (unsigned-integer from) (il/conv-u8) (il/conv-i8))
+
     ;; use intrinsic conv opcodes from primitive to primitive
     (and (types/is-primitive? from) (types/is-primitive? to))
     (intrinsic-conv to)
@@ -190,6 +199,30 @@
     (il/call (if *unchecked-math*
                (interop/method RT "uncheckedByteCast" from)
                (interop/method RT "byteCast" from)))
+    (and (= from Object) (= to SByte))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedSByteCast" from)
+               (interop/method RT "sbyteCast" from)))
+    (and (= from Object) (= to Int16))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedShortCast" from)
+               (interop/method RT "shortCast" from)))
+    (and (= from Object) (= to UInt16))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedUShortCast" from)
+               (interop/method RT "ushortCast" from)))
+    (and (= from Object) (= to UInt32))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedUIntCast" from)
+               (interop/method RT "uintCast" from)))
+    (and (= from Object) (= to UInt64))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedULongCast" from)
+               (interop/method RT "ulongCast" from)))
+    (and (= from Object) (= to Char))
+    (il/call (if *unchecked-math*
+               (interop/method RT "uncheckedCharCast" from)
+               (interop/method RT "charCast" from)))
 
     ;; unbox objects to valuetypes
     ;; TODO this will throw an exception of the object
@@ -296,7 +329,13 @@
     items)))
 
 (defmethod load-constant :default [k]
-  (throw! "load-constant not implemented for " k " (" (type k) ")"))
+  (let [s (try
+            (binding [*print-dup* true] (pr-str k))
+            (catch Exception _
+              (throw! "Can't embed object in code, maybe print-dup not defined: " k " (" (type k) ")")))]
+    [(il/ldstr s)
+     (il/call (interop/method RT "readString" String))
+     (convert-type Object (type k))]))
 
 (defn load-constant-meta [k]
   (when-let [m (meta k)]
@@ -351,7 +390,7 @@
   (il/ldc-i8 k))
 
 (defmethod load-constant UInt64 [k]
-  (il/ldc-i8 k))
+  (il/ldc-i8 (unchecked-long k)))
 
 (defmethod load-constant UInt32 [k]
   (load-integer k))
@@ -1049,8 +1088,8 @@
                  (il/brtrue then-label)
                  (compile else compilers)
                  (when-not (types/disregard-type? else)
-                   (convert else if-expr-type))
-                 (il/br end-label)
+                   [(convert else if-expr-type)
+                    (il/br end-label)])
                  then-label
                  (compile then compilers)
                  (when-not (types/disregard-type? then)
@@ -1420,7 +1459,7 @@
     (.GetFields fn-type (enum-or BindingFlags/NonPublic BindingFlags/Instance)))])
 
 (defn fn-method-compiler
-  [{:keys [fn-name-tag body params form variadic? fn-variadic? closed-overs] :as ast} compilers]
+  [{:keys [fn-name-tag body params form variadic? fn-variadic? closed-overs self-name-as-value?] :as ast} compilers]
   (let [param-hint (-> form first tag)
         param-types (mapv ast-type params)
         param-names (into #{} (map :name params))
@@ -1436,7 +1475,10 @@
         public-static (enum-or MethodAttributes/Public MethodAttributes/Static)
         recur-target (il/label)
         invoke-method-name (if variadic? "doInvoke" "invoke")
-        emit-static-invoke? (and *direct-linking* (not fn-variadic?) (zero? (count closed-overs)))
+        ;; a static body has no this to resolve the fn's self-name to, so a
+        ;; method that uses the name as a value must stay an instance method
+        emit-static-invoke? (and *direct-linking* (not fn-variadic?) (zero? (count closed-overs))
+                                 (not self-name-as-value?))
         specialized-compilers-static
         (merge compilers
                {:local (fn fn-static-method-local-compiler
@@ -2254,7 +2296,13 @@
        [(il/ldtoken t)
         (il/call (interop/method Type "GetTypeFromHandle" RuntimeTypeHandle))]
        ;; TODO should this be an error? just throw the exception here?
-       [(il/ldstr class-name)
+       ;; The hint warns at compile time instead of extending the emitted
+       ;; message: the ldstr below is baked into the DLL, and a load-path
+       ;; string would make the bytes machine-dependent.
+       [(when-let [hint (unloaded-dll-hint class-name)]
+          (binding [*out* *err*]
+            (println (str "WARNING: could not resolve " class-name " during import" hint))))
+        (il/ldstr class-name)
         (il/call (interop/method Magic.Runtime "FindType" String))
         (il/dup)
         (il/ldnull)

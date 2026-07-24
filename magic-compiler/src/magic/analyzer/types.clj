@@ -72,7 +72,21 @@
 
 (def cached-ns-imports ns-imports)
 
-(defn resolve 
+(defn- protocol-interface?
+  "True when interface t belongs to a protocol named by the simple tag. Such a
+  hint must not narrow: extend/extend-protocol types are not instances of the
+  interface. A qualified tag (a deftype/reify spec) keeps narrowing."
+  [t tag]
+  (when (and (instance? Type t)
+             (.IsInterface t)
+             (not (some #{\.} tag)))
+    (when-let [pns (find-ns (symbol (clojure.lang.Compiler/demunge (str (.Namespace t)))))]
+      (when-let [v (ns-resolve pns (symbol (clojure.lang.Compiler/demunge (.Name t))))]
+        (and (var? v)
+             (bound? v)
+             (identical? t (:on-interface (deref v))))))))
+
+(defn resolve
   ([t] (resolve t *ns*))
   ([t ns]
    (cond
@@ -84,16 +98,23 @@
      (recur (str t) ns)
      (string? t)
      (or (shorthand t)
-         (and *module*
-              (try 
-                (let [name t
-                      qualified-name (str (namespace-munge ns) "." name)]
-                  (or (.GetType *module* qualified-name) (.GetType *module* name)))
-                (catch ArgumentException e
-                  nil)))
-         (Runtime/FindType t)
-         (and ns 
-              (get (cached-ns-imports ns) (symbol t))))
+         (let [resolved
+               (or (and *module*
+                        (try
+                          (let [name t
+                                qualified-name (str (namespace-munge ns) "." name)]
+                            (or (.GetType *module* qualified-name) (.GetType *module* name)))
+                          (catch ArgumentException e
+                            nil)))
+                   (Runtime/FindType t)
+                   (and ns
+                        (get (cached-ns-imports ns) (symbol t))))]
+           ;; A protocol hint resolves to the protocol's generated interface, but
+           ;; extend-protocol types do not implement it. Keep the value as Object
+           ;; so it dispatches through the protocol fn, like stock Clojure.
+           (if (protocol-interface? resolved t)
+             Object
+             resolved)))
      :else
      nil)))
 
@@ -121,10 +142,15 @@
   (or (ast-type-impl ast)
       Object))
 
+(declare always-then? always-else?)
+
 (defn always-throws? [ast]
   (case (:op ast)
-    :if (and (always-throws? (:then ast))
-             (always-throws? (:else ast)))
+    :if (cond
+          (always-then? ast) (always-throws? (:then ast))
+          (always-else? ast) (always-throws? (:else ast))
+          :else (and (always-throws? (:then ast))
+                     (always-throws? (:else ast))))
     :let (always-throws? (:body ast))
     :do (always-throws? (:ret ast))
     :throw true
@@ -132,8 +158,11 @@
 
 (defn disregard-type? [ast]
   (case (:op ast)
-    :if (and (disregard-type? (:then ast))
-             (disregard-type? (:else ast)))
+    :if (cond
+          (always-then? ast) (disregard-type? (:then ast))
+          (always-else? ast) (disregard-type? (:else ast))
+          :else (and (disregard-type? (:then ast))
+                     (disregard-type? (:else ast))))
     :let (disregard-type? (:body ast))
     :do (disregard-type? (:ret ast))
     (= ::disregard (ast-type-impl ast))))
@@ -209,7 +238,8 @@
     (or (resolve tag)
         (throw! "Unable to resolve type hint " (pr-str tag)
                 " while analyzing form " (pr-str (or (-> ast :raw-forms first)
-                                                     (:form ast)))))
+                                                     (:form ast)))
+                (util/unloaded-dll-hint tag)))
     (ast-type-impl* ast)))
 
 (defn ast-type-ignore-tag [ast]
@@ -242,7 +272,8 @@
 (defmethod ast-type-impl :tagged [{:keys [tag form]}]
   (or (resolve tag)
       (throw! "Unable to resolve type hint " (pr-str tag)
-              " while analyzing form " (pr-str form))))
+              " while analyzing form " (pr-str form)
+              (util/unloaded-dll-hint tag))))
 
 (defmethod ast-type-impl :gen-interface [_] System.Type)
 
@@ -415,7 +446,8 @@
         type (cond tag
                    (if-let [t (resolve tag)]
                      t
-                     (throw! "Could not resolve type hint " tag " while analyzing form " form))
+                     (throw! "Could not resolve type hint " tag " while analyzing form " form
+                             (util/unloaded-dll-hint tag)))
                    (= local :arg)
                    Object
                    (= local :proxy-this)

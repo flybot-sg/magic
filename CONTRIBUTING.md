@@ -15,13 +15,13 @@ Phrase the title as a problem statement, not a solution or action.
 
     ## Problem
 
-    What is wrong. How to reproduce. Symptoms, error messages, relevant file paths.
+    What is wrong. A minimal reproducing code block. Symptoms, error messages, relevant file paths.
 
     ## Suggestion
 
-    Optional. How the fix could be approached. Omit the section entirely if you have no concrete suggestion.
+    Optional. The concrete change as a code block (real or pseudo-code) and why. Omit the section entirely if you have no concrete suggestion.
 
-Keep `## Problem` concrete: how to reproduce, observed vs expected behaviour. Two sections only.
+Keep `## Problem` concrete: show, don't describe. A minimal reproducible code block beats a paragraph, in both sections. Two sections only.
 
 ## Labeling issues with affected components
 
@@ -39,6 +39,8 @@ MAGIC is a monorepo. Every issue should carry one or more `comp:` labels naming 
 
 PRs target the `develop` branch. `main` only receives merges from `develop` via release PRs.
 
+Branch from `develop`, named `<prefix>/<short-description>`, e.g. `fix/loop-inference-candidate-order`.
+
 ### Title
 
 Same format as a commit title:
@@ -50,13 +52,12 @@ Keep it to one line.
 ### Description
 
     Closes #<issue-number>
-
     ---
 
     - First change description
     - Second change description
 
-Reference the issue with `Closes #<n>` in the description so GitHub closes it when the change reaches `main`. Keep bullets short; the issue carries the full context.
+Reference the issue with `Closes #<n>` in the description so GitHub closes it when the PR merges into `develop` (the default branch). Keep bullets short; the issue carries the full context.
 
 ### Before opening one
 
@@ -81,7 +82,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 Common prefixes: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`. Keep the title to one line; details belong in the PR description.
 
-Reference the related GitHub issue in the title or body, e.g. `(#42)` or `Closes #42`.
+Reference the related GitHub issue in the title or body, e.g. `(#42)` or `Closes #42`. Issue references belong in commit messages and PR descriptions only, never in source files or comments: trackers migrate, and in-code numbers go stale.
 
 ### Paired bootstrap refresh
 

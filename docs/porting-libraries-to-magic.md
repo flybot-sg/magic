@@ -30,7 +30,7 @@ For the source patterns in depth (value-type and reference-type hints, records a
  :aliases {:test {:extra-paths ["test"]}}}
 ```
 
-When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them either in a `deps-clr.edn` or a `:clr` alias. See [Declaring CLR dependencies](./clr-dependency-files.md) for which one fits.
+When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them either in a `deps-clr.edn` or a `:clr` alias. See [Declaring CLR dependencies](./clr-dependency-files.md) for which one fits. If the library ships a precompiled C# assembly alongside its Clojure source, it also needs a small loader namespace to load that DLL on the CLR: see [Loading precompiled native assemblies](./native-assemblies.md).
 
 ## 3. magic.edn
 
@@ -50,6 +50,7 @@ When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for
 | `:namespaces` | yes | yes | explicit namespaces, overrides derivation | derived from paths |
 | `:exclude`    | yes | yes | namespaces to drop from the set | none |
 | `:re`         |     | yes | regex string scoping the run (`re-matches`) | the project's own namespaces |
+| `:exclude-vars` |   | yes | fully-qualified `deftest` symbols to skip | none |
 | `:flags`      | yes | yes | flag overrides (see below) | build: production, test: test-friendly |
 | `:out`        | yes |     | compile output dir | `"build"` |
 | `:clean?`     | yes |     | wipe `:out` first | `true` |
@@ -58,6 +59,7 @@ Defaults when a key is omitted:
 
 - `:namespaces`: derived from the paths the aliases contribute (base `:paths` for build; plus the test alias's `:extra-paths` for test).
 - `:re`: the test run is scoped to the project's own namespaces (its suites run, its dependencies' bundled suites do not). Write it as a string, e.g. `"my\\.lib\\..*"`; EDN has no regex literal.
+- `:exclude-vars`: a vector of fully-qualified `deftest` symbols the run clears the `:test` meta on after `require`, so `clojure.test` skips exactly those vars while the rest of their namespace still runs. Use it for a few platform-specific failures scattered inside otherwise-passing namespaces (a Windows-only newline expectation, a Mono-only numeric edge case), where excluding the whole namespace would drop good tests too.
 
 ### Flags
 
@@ -83,6 +85,13 @@ State the compile roots and output directory explicitly (a Unity plugins build, 
 ```clojure
 {:build {:namespaces [my.lib.core my.lib.api]
          :out        "Assets/Plugins/Magic"}}
+```
+
+Skip individual tests that fail only for platform reasons (a Windows CRLF expectation, a Mono numeric edge case), keeping the rest of their namespaces:
+
+```clojure
+{:test {:exclude-vars [my.lib-test/windows-newline-test
+                       my.lib.suite-test/huge-exponent-test]}}
 ```
 
 ### The old way: dotnet.clj

@@ -15,17 +15,33 @@
      ~type-fn
      ~il-fn))
 
+(defn promote-integer
+  "Clojure's numeric tower computes all integer arithmetic in long, but
+  MAGIC computes in the operand's own type, where the signed .ovf opcodes
+  overflow or wrap at the edge of a narrow type. Widen each type so math
+  matches the tower:
+
+    Byte SByte Int16 UInt16 Int32 UInt32  ->  Int64 (fits losslessly)
+    Int64                                 ->  Int64 (already long)
+    UInt64                                ->  unchanged: cannot fit Int64,
+                                              ClojureCLR uses BigInteger
+
+  Without the promotion (inc Int32/MaxValue) throws and
+  (inc UInt32/MaxValue) wraps to 0."
+  [t]
+  (if (#{Byte SByte Int16 UInt16 Int32 UInt32} t) Int64 t))
+
 (defn numeric-args [{:keys [args]}]
   (let [arg-types (->> args (map ast-type))
         non-numeric-args (filter (complement types/numeric) arg-types)]
     (when (empty non-numeric-args)
-      (types/best-numeric-promotion arg-types))))
+      (promote-integer (types/best-numeric-promotion arg-types)))))
 
 (defn best-numeric-type [{:keys [args]}]
   (let [arg-types (->> args (map ast-type))
         non-numeric-args (filter (complement types/numeric) arg-types)
         inline? (empty? non-numeric-args)
-        type (->> args (map ast-type) types/best-numeric-promotion)]
+        type (->> args (map ast-type) types/best-numeric-promotion promote-integer)]
     (when inline? type)))
 
 (defn add-mul-numeric-type [{:keys [args] :as ast}]
@@ -96,6 +112,7 @@
     [{:keys [args] :as ast} type compilers]
     (let [arg (first args)]
       [(magic/compile arg compilers)
+       (magic/convert arg type)
        (magic/load-constant
          (reinterpret-value 1 type))
        (if (or *unchecked-math*
@@ -134,6 +151,7 @@
     [{:keys [args] :as ast} type compilers]
     (let [arg (first args)]
       [(magic/compile arg compilers)
+       (magic/convert arg type)
        (magic/load-constant
          (reinterpret-value 1 type))
        (if (or *unchecked-math*

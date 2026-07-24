@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.11.0 - 2026-07-24
+
+Mostly compiler fixes: never-returning branches emitted invalid IL, protocol-hinted parameters threw `InvalidCastException`, a named fn was not `identical?` to its own self-reference, several numeric literals and integer operations emitted wrong bytes or overflowed instead of promoting, and the last known sources of nondeterministic DLL bytes are gone.
+
+### Compiler
+- `if`/`cond` forms whose branches never return (throw or recur on both sides) no longer emit a dead branch past the end of the method, which the CLR rejected with a `VerificationException`. Constant-test ifs, like `cond`'s `(if :else expr nil)` expansion, are analyzed correctly too - [#54](https://github.com/flybot-sg/magic/issues/54).
+- A parameter hinted with a protocol name stays `Object` and dispatches through the protocol fn, as stock Clojure does. The hint used to narrow to the protocol's generated interface, so passing an `extend` / `extend-protocol` type threw `InvalidCastException` at the invoke boundary. A qualified tag, which is what `deftype` / `reify` specs expand to, still narrows - [#51](https://github.com/flybot-sg/magic/issues/51).
+- A named fn's self-reference is the fn value itself, so `identical?` / `=` between them returns true, matching JVM and ClojureCLR. Reader source-location metadata is stripped from fn literals like upstream, so `(meta (fn [] 1))` is `nil` - [#52](https://github.com/flybot-sg/magic/issues/52), [#53](https://github.com/flybot-sg/magic/issues/53).
+- When a type fails to resolve, the error hints at load-path DLLs matching the type's namespace prefix that are not loaded yet - [#70](https://github.com/flybot-sg/magic/issues/70).
+- Reporting a wrong-arity instance-method call no longer throws an `ArityException` from the error reporter itself, masking the diagnostic - [#79](https://github.com/flybot-sg/magic/issues/79).
+- `#inst`, `#uuid`, and any other literal without a dedicated emitter no longer throw `load-constant not implemented` when embedded in compiled source; they are written as a `print-dup` string and read back with `RT.readString` at load - [#83](https://github.com/flybot-sg/magic/issues/83).
+- Unsigned integer constants keep their exact bits: a `UInt32` above `Int32/MaxValue` no longer throws `Value was either too large or too small` during emission, and a `UInt64` constant no longer emits corrupted IL through mage's untyped `Emit` dispatch - [#85](https://github.com/flybot-sg/magic/issues/85), [#88](https://github.com/flybot-sg/magic/issues/88).
+- Widening an unsigned value to `long` zero-extends instead of sign-extending, so `(long UInt32/MaxValue)` is `4294967295`, not `-1`; the conversion opcode is chosen from the source type's signedness - [#87](https://github.com/flybot-sg/magic/issues/87).
+- Casting an `Object` to a narrow numeric type (`Char`, `SByte`, `Int16`, `UInt16`, `UInt32`, `UInt64`) goes through the matching `RT` cast, so `(char x)` or `(int x)` on a boxed value no longer throws `InvalidCastException` - [#91](https://github.com/flybot-sg/magic/issues/91).
+- Integer arithmetic promotes narrow operands to `long` like Clojure's numeric tower, so `(inc Int32/MaxValue)` is `2147483648` and `(inc UInt32/MaxValue)` is `4294967296` instead of overflowing or wrapping to a smaller type - [#92](https://github.com/flybot-sg/magic/issues/92), [#93](https://github.com/flybot-sg/magic/issues/93).
+
+### Deterministic compilation
+- Reusable-type selection and loop binding-type inference iterate their candidate sets in a sorted order instead of hash order, removing the last known ways unchanged sources could compile to different bytes across processes - [#60](https://github.com/flybot-sg/magic/issues/60), [#68](https://github.com/flybot-sg/magic/issues/68).
+- The type-name gensym counter resets per file-writing compile unit, so editing an unrelated nostrand namespace no longer renumbers every committed DLL - [#64](https://github.com/flybot-sg/magic/issues/64).
+
+### Runtime
+- Every eval on Mono registered a dead extra dynamic assembly; the duplicate `DefineDynamicAssembly` call, leftover upstream debug code, is gone - [#77](https://github.com/flybot-sg/magic/issues/77).
+
+### Nostrand
+- New `nos where` prints the directory of the runtime the running host actually loaded - [#72](https://github.com/flybot-sg/magic/issues/72).
+- `CLOJURE_LOAD_PATH` entries are absolute, so a loader scanning it finds native assemblies from any working directory, as on stock ClojureCLR - [#62](https://github.com/flybot-sg/magic/issues/62).
+- A `deps.edn` without `:aliases` no longer throws a `NullReferenceException` when aliases are requested, undeclared aliases warn on stderr like tools.deps does, and a missing or malformed deps file is reported by name - [#55](https://github.com/flybot-sg/magic/issues/55).
+- `nos test` can skip individual `deftest` vars via `:exclude-vars` in `magic.edn`'s `:test` config, not just whole namespaces, so a lib with a few platform-specific tests still runs the rest - [#96](https://github.com/flybot-sg/magic/issues/96).
+
+### Unity
+- Nine orphaned `clojure.tools.analyzer*` DLLs, excluded from the deploy target since the monorepo's first commit and last compiled in 2022, are dropped from `Export/` so they stop shipping in every player build - [#66](https://github.com/flybot-sg/magic/issues/66).
+
+### Tooling
+- The `SourceRevisionId` stamped into `Clojure.dll` and `Magic.Runtime.dll` includes release tags, so from this release on a build at a tag checkout stamps `0.11.0+v0.11.0-0-g<hash>` instead of a bare commit hash. Develop builds, where no release tag exists, keep the bare hash - [#75](https://github.com/flybot-sg/magic/issues/75).
+- `bb refresh-stdlib` no longer flags the bootstrap-owned DLLs as missing source on every run - [#81](https://github.com/flybot-sg/magic/issues/81).
+
+### Docs
+- New [`docs/native-assemblies.md`](docs/native-assemblies.md): loading a precompiled C# assembly on the CLR via a loader namespace that scans `CLOJURE_LOAD_PATH`, and how to rebuild the committed native DLLs byte-stably - [#62](https://github.com/flybot-sg/magic/issues/62), [#74](https://github.com/flybot-sg/magic/issues/74).
+
 ## v0.10.0 - 2026-07-14
 
 Compilation is now deterministic, so rebuilding unchanged sources reproduces the committed DLLs byte-for-byte, and CI catches a stale binary with a plain byte diff. The `bb` tasks got simpler from it too.

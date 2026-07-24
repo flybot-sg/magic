@@ -31,8 +31,13 @@
 
 (defn fresh-type [module-builder name super interfaces attributes]
   (if *reusable-types*
-    (if-let [type (some #(type-match % super interfaces attributes) @*reusable-types*)]
-      (do 
+    ;; sibling fn types are indistinguishable to type-match, so the pick must
+    ;; not depend on set iteration order or rebuilds are not byte-identical
+    (if-let [type (->> @*reusable-types*
+                       (filter #(type-match % super interfaces attributes))
+                       (sort-by #(.Name %) #(String/CompareOrdinal %1 %2))
+                       first)]
+      (do
         (swap! *reusable-types* disj type)
         type)
       (do

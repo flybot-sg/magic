@@ -18,3 +18,6 @@
 (defmacro reset-gensym [keys & body]
   `(binding [*gensym-map* (atom (dissoc @*gensym-map* ~keys))]
      ~@body))
+
+(defn reset-gensym-map! []
+  (reset! *gensym-map* {}))

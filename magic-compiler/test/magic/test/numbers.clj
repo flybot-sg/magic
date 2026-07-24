@@ -7,6 +7,25 @@
   (is (unchecked-int (char 0xFFFF)))
   (is (let [c (char 0xFFFF)] (unchecked-int c))))
 
+(deftest widen-unsigned-to-long
+  (cljclr=magic (long UInt32/MaxValue))
+  (cljclr=magic (long (UInt32/Parse "2147483648")))
+  (cljclr=magic (long (UInt32/Parse "42"))))
+
+(deftest object-to-narrow-numeric-cast
+  (cljclr=magic (char (rand-nth [65])))
+  (cljclr=magic (int (rand-nth [7]))))
+
+(deftest promote-narrow-integer-arithmetic
+  (cljclr=magic (inc UInt32/MaxValue))
+  (cljclr=magic (inc UInt16/MaxValue))
+  (cljclr=magic (inc Int32/MaxValue))
+  (cljclr=magic (inc Int16/MaxValue))
+  (cljclr=magic (inc SByte/MaxValue))
+  (cljclr=magic (dec Int32/MinValue))
+  (cljclr=magic (+ Int32/MaxValue Int32/MaxValue))
+  (cljclr=magic (* Int32/MaxValue (int 2))))
+
 (defonce DELTA 1e-12)
 
 (deftest test-add

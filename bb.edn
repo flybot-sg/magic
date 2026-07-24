@@ -146,7 +146,7 @@
 
   coexist-noise
   {:doc "Headless coexistence-noise repro on unity-examples/magic-unity-coexist.
-         `bb coexist-noise` tests the dual variant (expect 0 narration lines, the shipped fix); `bb coexist-noise magic-only` tests the default variant (expect 46 lines, the problem).
+         `bb coexist-noise` tests the dual variant (expect 0 narration lines, the shipped fix); `bb coexist-noise magic-only` tests the default variant (expect 37 lines, the problem).
          Needs Unity 2022.3.62f3 with no GUI editor holding the project; details in magic.unity/coexist-noise!."
    :requires ([magic.unity :as unity])
    :depends [gen-unity-dual]
