@@ -77,5 +77,41 @@ namespace Magic
 
             return t;
         }
+
+        public static Type FindTypeOrThrow(string p)
+        {
+            Type t = FindType(p);
+            if (((Object)t) != null)
+                return t;
+            throw new InvalidOperationException("Could not find type " + p + " during import" + UnloadedDllHint(p));
+        }
+
+        // A DLL on the load path named after a namespace prefix of the type
+        // suggests an assembly that was never loaded. Failure path: must never throw.
+        static string UnloadedDllHint(string typeName)
+        {
+            try
+            {
+                var loadPath = Environment.GetEnvironmentVariable("CLOJURE_LOAD_PATH");
+                if (loadPath == null)
+                    return "";
+                var segments = typeName.Split('.');
+                for (int take = segments.Length - 1; take > 0; take--)
+                {
+                    var dllName = String.Join(".", segments, 0, take) + ".dll";
+                    foreach (var dir in loadPath.Split(System.IO.Path.PathSeparator))
+                    {
+                        var dll = System.IO.Path.Combine(dir, dllName);
+                        if (System.IO.File.Exists(dll))
+                            return "; found " + dll + " on the load path but no loaded assembly defines this type, load it before :import, see docs/native-assemblies.md in the MAGIC repo";
+                    }
+                }
+                return "";
+            }
+            catch (Exception)
+            {
+                return "";
+            }
+        }
     }
 }
