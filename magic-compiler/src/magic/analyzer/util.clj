@@ -30,7 +30,7 @@
            :let [dll (System.IO.Path/Combine (str dir) (str prefix ".dll"))]
            :when (System.IO.File/Exists dll)]
        (str "; found " dll " on the load path but no loaded assembly defines this type,"
-            " load it before :import, see docs/native-assemblies.md")))
+            " load it before :import, see docs/native-assemblies.md in the MAGIC repo")))
     (catch Exception _ nil)))
 
 (defn var-reference
