@@ -1,7 +1,7 @@
 (ns magic.core
   (:refer-clojure :exclude [compile])
   (:require [mage.core :as il]
-            [magic.analyzer.util :refer [var-interfaces var-type var-reference throw! unloaded-dll-hint]]
+            [magic.analyzer.util :refer [var-interfaces var-type var-reference throw!]]
             [magic.util :as u]
             [magic.analyzer.types :as types :refer [tag ast-type ast-type-ignore-tag non-void-ast-type]]
             [magic.analyzer.binder :refer [select-method]]
@@ -2290,29 +2290,15 @@
 ;; TODO this implementation tracks ClojureCLR's and will likely have to change
 (defn import-compiler
   [{:keys [class-name]} compilers]
-  (let [import-class-label (il/label)]
-    [(il/call (interop/getter clojure.lang.Compiler "CurrentNamespace"))
-     (if-let [t (types/resolve class-name)]
-       [(il/ldtoken t)
-        (il/call (interop/method Type "GetTypeFromHandle" RuntimeTypeHandle))]
-       ;; TODO should this be an error? just throw the exception here?
-       ;; The hint warns at compile time instead of extending the emitted
-       ;; message: the ldstr below is baked into the DLL, and a load-path
-       ;; string would make the bytes machine-dependent.
-       [(when-let [hint (unloaded-dll-hint class-name)]
-          (binding [*out* *err*]
-            (println (str "WARNING: could not resolve " class-name " during import" hint))))
-        (il/ldstr class-name)
-        (il/call (interop/method Magic.Runtime "FindType" String))
-        (il/dup)
-        (il/ldnull)
-        (il/ceq)
-        (il/brfalse import-class-label)
-        (il/ldstr (str "Could not find type " class-name " during import"))
-        (il/newobj (interop/constructor InvalidOperationException String))
-        (il/throw)])
-     import-class-label
-     (il/call (interop/method clojure.lang.Namespace "importClass" Type))]))
+  [(il/call (interop/getter clojure.lang.Compiler "CurrentNamespace"))
+   (if-let [t (types/resolve class-name)]
+     [(il/ldtoken t)
+      (il/call (interop/method Type "GetTypeFromHandle" RuntimeTypeHandle))]
+     ;; FindTypeOrThrow computes the unloaded-DLL hint at runtime; baked into
+     ;; an ldstr here it would make the bytes machine-dependent.
+     [(il/ldstr class-name)
+      (il/call (interop/method Magic.Runtime "FindTypeOrThrow" String))])
+   (il/call (interop/method clojure.lang.Namespace "importClass" Type))])
 
 (defn tagged-compiler
   [{:keys [expr tag]} compilers]
