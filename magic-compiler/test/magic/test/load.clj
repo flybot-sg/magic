@@ -27,6 +27,57 @@
     (recur inner)
     (.Message e)))
 
+(deftest loads-cljr-source
+  (let [dir (temp-dir)
+        sym (symbol (str "magic.test.tmp.plain" (gensym)))]
+    (try
+      (write-ns! dir sym ".cljr" (str "(ns " sym ")(def x :from-cljr)"))
+      (load-in dir sym)
+      (is (= :from-cljr @(ns-resolve (find-ns sym) 'x)))
+      (finally (Directory/Delete dir true)))))
+
+(deftest cljr-preferred-over-clj-and-cljc
+  (testing "a .cljr file wins over .clj, as on ClojureCLR"
+    (let [dir (temp-dir)
+          sym (symbol (str "magic.test.tmp.overclj" (gensym)))]
+      (try
+        (write-ns! dir sym ".cljr" (str "(ns " sym ")(def w :cljr)"))
+        (write-ns! dir sym ".clj" (str "(ns " sym ")(def w :clj)"))
+        (load-in dir sym)
+        (is (= :cljr @(ns-resolve (find-ns sym) 'w)))
+        (finally (Directory/Delete dir true)))))
+  (testing "a .cljr file wins over .cljc"
+    (let [dir (temp-dir)
+          sym (symbol (str "magic.test.tmp.overcljc" (gensym)))]
+      (try
+        (write-ns! dir sym ".cljr" (str "(ns " sym ")(def w :cljr)"))
+        (write-ns! dir sym ".cljc" (str "(ns " sym ")(def w :cljc)"))
+        (load-in dir sym)
+        (is (= :cljr @(ns-resolve (find-ns sym) 'w)))
+        (finally (Directory/Delete dir true))))))
+
+(deftest reader-conditional-rejected-in-cljr
+  (testing "a .cljr file is CLR-only, so a reader conditional is an error"
+    (let [dir (temp-dir)
+          sym (symbol (str "magic.test.tmp.cond" (gensym)))]
+      (try
+        (write-ns! dir sym ".cljr"
+                   (str "(ns " sym ")(def v #?(:cljr :a :clj :b))"))
+        (let [msg (try (load-in dir sym) nil
+                       (catch Exception e (root-message e)))]
+          (is (string? msg))
+          (is (string/includes? msg "Conditional read not allowed")))
+        (finally (Directory/Delete dir true)))))
+  (testing "a .cljc file still honours reader conditionals"
+    (let [dir (temp-dir)
+          sym (symbol (str "magic.test.tmp.condok" (gensym)))]
+      (try
+        (write-ns! dir sym ".cljc"
+                   (str "(ns " sym ")(def v #?(:cljr :a :clj :b))"))
+        (load-in dir sym)
+        (is (= :a @(ns-resolve (find-ns sym) 'v)))
+        (finally (Directory/Delete dir true))))))
+
 (deftest reader-failure-does-not-truncate-silently
   (testing "an unreadable form raises instead of ending the compilation unit"
     (let [dir (temp-dir)
