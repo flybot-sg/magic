@@ -96,9 +96,14 @@ namespace Nostrand
 			return GetVersionString(typeof(clojure.lang.RT).Assembly);
 		}
 
+		static readonly string[] SourceExtensions = { ".cljr", ".cljc", ".clj" };
+
 		public static string FileToRelativePath(string file)
 		{
-			return file.Replace(".clj", "").Replace(".cljc", "");
+			foreach (var ext in SourceExtensions)
+				if (file.EndsWith(ext, StringComparison.Ordinal))
+					return file.Substring(0, file.Length - ext.Length);
+			return file;
 		}
 
 		static void BootClojureAndNostrand()
