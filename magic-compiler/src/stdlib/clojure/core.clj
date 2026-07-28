@@ -6039,9 +6039,10 @@ Note that read can execute code (controlled by *read-eval*),
             (or (-try-load-init-type relative-path)
                 (recur (first code-sources) (rest code-sources)))
             
-            ;; load from embedded resource
+            ;; load from embedded resource: unsupported, fall through so the
+            ;; not-found branch reports what was actually searched
             (= code-source clojure.lang.RuntimeBootstrapFlag+CodeSource/EmbeddedResource)
-            (throw (NotSupportedException. "Loading from embedded resources is not supported")))))))
+            (recur (first code-sources) (rest code-sources)))))))
 
 #_
 (def ^:dynamic
