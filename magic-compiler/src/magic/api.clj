@@ -207,7 +207,7 @@
                  ;; an :eof sentinel keeps a genuine reader failure from looking
                  ;; like end of input, which would truncate the unit silently
                  read-opts (cond-> (assoc read-options :eof ::eof)
-                             (.EndsWith (str path) ".cljr") (dissoc :read-cond))
+                             (not (.EndsWith (str path) ".cljc")) (dissoc :read-cond))
                  read-1 (fn [] (read read-opts rdr))]
              (loop [expr (read-1) i 0]
                (when-not (= ::eof expr)

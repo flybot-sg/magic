@@ -56,19 +56,20 @@
         (is (= :cljr @(ns-resolve (find-ns sym) 'w)))
         (finally (Directory/Delete dir true))))))
 
-(deftest reader-conditional-rejected-in-cljr
-  (testing "a .cljr file is CLR-only, so a reader conditional is an error"
-    (let [dir (temp-dir)
-          sym (symbol (str "magic.test.tmp.cond" (gensym)))]
-      (try
-        (write-ns! dir sym ".cljr"
-                   (str "(ns " sym ")(def v #?(:cljr :a :clj :b))"))
-        (let [msg (try (load-in dir sym) nil
-                       (catch Exception e (root-message e)))]
-          (is (string? msg))
-          (is (string/includes? msg "Conditional read not allowed")))
-        (finally (Directory/Delete dir true)))))
-  (testing "a .cljc file still honours reader conditionals"
+(deftest reader-conditionals-only-in-cljc
+  (doseq [ext [".cljr" ".clj"]]
+    (testing (str ext " names one platform, so a reader conditional is an error")
+      (let [dir (temp-dir)
+            sym (symbol (str "magic.test.tmp.cond" (gensym)))]
+        (try
+          (write-ns! dir sym ext
+                     (str "(ns " sym ")(def v #?(:cljr :a :clj :b))"))
+          (let [msg (try (load-in dir sym) nil
+                         (catch Exception e (root-message e)))]
+            (is (string? msg))
+            (is (string/includes? msg "Conditional read not allowed")))
+          (finally (Directory/Delete dir true))))))
+  (testing "a .cljc file honours reader conditionals"
     (let [dir (temp-dir)
           sym (symbol (str "magic.test.tmp.condok" (gensym)))]
       (try
