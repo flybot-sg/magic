@@ -20,7 +20,8 @@
    magic.test.deterministic
    magic.test.flags
    magic.test.protocol
-   magic.test.errors)
+   magic.test.errors
+   magic.test.load)
   (:use clojure.test))
 
 (defn all []
@@ -45,7 +46,8 @@
    'magic.test.deterministic
    'magic.test.flags
    'magic.test.protocol
-   'magic.test.errors))
+   'magic.test.errors
+   'magic.test.load))
 
 (defn run [& namespaces]
   (apply run-tests namespaces))
