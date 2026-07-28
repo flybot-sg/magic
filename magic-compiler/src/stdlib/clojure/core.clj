@@ -5968,18 +5968,19 @@ Note that read can execute code (controlled by *read-eval*),
     (let [assy (System.Reflection.Assembly/LoadFrom full-path)]
       (clojure.lang.Compiler/InitAssembly assy relative-path))))
 
+(def ^:private source-extensions
+  "Source file extensions a namespace can resolve to, in precedence order."
+  [".cljr" ".clj" ".cljc"])
+
 ;; port of clojure.lang.RT.load
 (defn -load
   ([^String relative-path] (-load relative-path true))
   ([^String relative-path fail-of-not-found]
-   (let [clj-name (str relative-path ".clj")
-         cljc-name (str relative-path ".cljc")
-         clj-dll-name (str (.Replace relative-path "/" ".") ".clj.dll")
-         cljc-dll-name (str (.Replace relative-path "/" ".") ".cljc.dll")
-         ^System.IO.FileInfo clj-info (or (find-file clj-name)
-                                          (find-file cljc-name))
-         ^System.IO.FileInfo assy-info (or (find-file clj-dll-name)
-                                           (find-file cljc-dll-name))]
+   (let [dll-base (.Replace relative-path "/" ".")
+         source-names (map #(str relative-path %) source-extensions)
+         dll-names (map #(str dll-base % ".dll") source-extensions)
+         ^System.IO.FileInfo clj-info (some find-file source-names)
+         ^System.IO.FileInfo assy-info (some find-file dll-names)]
      (loop [code-source (first clojure.lang.RuntimeBootstrapFlag/CodeLoadOrder)
             code-sources (rest clojure.lang.RuntimeBootstrapFlag/CodeLoadOrder)]
        (cond
@@ -5988,7 +5989,7 @@ Note that read can execute code (controlled by *read-eval*),
           (when fail-of-not-found
                 (throw (System.IO.FileNotFoundException.
                         (str "Could not locate any of "
-                             [clj-name cljc-name clj-dll-name cljc-dll-name]
+                             (vec (concat source-names dll-names))
                              (str " on load path " *load-paths*)
                              (when (.Contains relative-path "_")
                                (str " Please check that namespaces with dashes "
