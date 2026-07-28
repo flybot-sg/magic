@@ -200,9 +200,12 @@
            (type-lookup-cache-clear!))
          (try
            (let [rdr    (LineNumberingTextReader. file)
-                 read-1 (fn [] (try (read read-options rdr) (catch Exception _ nil)))]
+                 ;; an :eof sentinel keeps a genuine reader failure from looking
+                 ;; like end of input, which would truncate the unit silently
+                 read-opts (assoc read-options :eof ::eof)
+                 read-1 (fn [] (read read-opts rdr))]
              (loop [expr (read-1) i 0]
-               (when expr
+               (when-not (= ::eof expr)
                  (compile-expression-top-level expr ctx opts)
                  (recur (read-1) (inc i))))
              (.Close rdr))
