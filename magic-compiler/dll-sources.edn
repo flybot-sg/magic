@@ -6,7 +6,7 @@
 {
  clojure.clr.io {:source "magic-compiler/src/stdlib/clojure/clr/io.clj", :sha256 "ef7ea7d3bf39644d06bdc85c68f59ba94e38deabe4db199837b85b2861ed073c"}
  clojure.clr.shell {:source "magic-compiler/src/stdlib/clojure/clr/shell.clj", :sha256 "22f036ad1d1dc4965324400d8e9d9663984ac13fc6a483539bf19a332633413a"}
- clojure.core {:source "magic-compiler/src/stdlib/clojure/core.clj", :sha256 "33435bc12bcc893ebe91319b5cefa21aa6cfb31254b5269c4cc687feedebb1d2"}
+ clojure.core {:source "magic-compiler/src/stdlib/clojure/core.clj", :sha256 "e35cb1fb72f9b69835fb9191bd8a761ac40993987eeea7d9eca671a1d387551f"}
  clojure.core.protocols {:source "magic-compiler/src/stdlib/clojure/core/protocols.clj", :sha256 "38490ad78ad6fabf2d0d965788d6b42b052748ce9d664e24f34033de7e90e378"}
  clojure.core.reducers {:source "magic-compiler/src/stdlib/clojure/core/reducers.clj", :sha256 "f3f10fef6c91217cf6780c37f358e0f9caecdb106fb5339ac3cdc28b46be950d"}
  clojure.core.server {:source "magic-compiler/src/stdlib/clojure/core/server.clj", :sha256 "7ba07179820a71f856dfd4c9e1a2a06dbad06eb6e9aeb9bcddeb268959cf82e2"}
@@ -21,7 +21,7 @@
  clojure.genclass {:source "magic-compiler/src/stdlib/clojure/genclass.clj", :sha256 "c2ca43c86ed5eb8cd55f539be68eec2ea8d8fb921c76ab863b3bd001d73e2e48"}
  clojure.gvec {:source "magic-compiler/src/stdlib/clojure/gvec.clj", :sha256 "65ea07f553c53d07c6442602b10fa4ef459c4c908d581b707e3f613da53621ec"}
  clojure.instant {:source "magic-compiler/src/stdlib/clojure/instant.clj", :sha256 "708a8367cd0ff7c529bc54e2f032b451607d474533975163e2cd1036fc54e2fa"}
- clojure.main {:source "magic-compiler/src/stdlib/clojure/main.clj", :sha256 "bb9bafdc567c46f3fb90d21dc8943c3819ff9d77e4707fd212ece989ae985e5a"}
+ clojure.main {:source "magic-compiler/src/stdlib/clojure/main.clj", :sha256 "a0160bbd68fde632bc71b670aced29cfdfb3913d3052b3ef044b9489932e7092"}
  clojure.pprint {:source "magic-compiler/src/stdlib/clojure/pprint.clj", :sha256 "a9ff9b336906ba64943de80038fa1a1ddad9aecedb518c16525c5838473ec90f"}
  clojure.pprint.cl_format {:source "magic-compiler/src/stdlib/clojure/pprint/cl_format.clj", :sha256 "d260fe991b3acc55c40e3c80fef1627e335f472329b9b4bd8d97d03179105ac5"}
  clojure.pprint.column_writer {:source "magic-compiler/src/stdlib/clojure/pprint/column_writer.clj", :sha256 "bd175e6d656adc69de69e231fd46e6aa00049e740bbe08ea826d11cb6f9cb8d1"}
@@ -30,7 +30,7 @@
  clojure.pprint.pretty_writer {:source "magic-compiler/src/stdlib/clojure/pprint/pretty_writer.clj", :sha256 "8d16c54647cbb97b0ddf4acefbca4a0566933b626ce23a6188a8526437d2496b"}
  clojure.pprint.print_table {:source "magic-compiler/src/stdlib/clojure/pprint/print_table.clj", :sha256 "9abdefc9a5ceeab44ce91d0c6d4816db7482fb100f3b70be6a88bd9132430a56"}
  clojure.pprint.utilities {:source "magic-compiler/src/stdlib/clojure/pprint/utilities.clj", :sha256 "85891c3656a9e877232302d2b8c2937bdbb1ebfb14794cd79dc94105dfc20b09"}
- clojure.repl {:source "magic-compiler/src/stdlib/clojure/repl.clj", :sha256 "360411354f0e854640e93f7cd9568d28a02d8542a506bdcdcefb651d682ded26"}
+ clojure.repl {:source "magic-compiler/src/stdlib/clojure/repl.clj", :sha256 "d12ade964f6a9dafe5d4227985c3b4faed14221db9886340abe9582634735c04"}
  clojure.set {:source "magic-compiler/src/stdlib/clojure/set.clj", :sha256 "1eebc2d19ad2c1a1f7c03fc53b5da9bff7eb00a5355609316f7b0f40897d8f0c"}
  clojure.spec.alpha {:source "magic-compiler/src/stdlib/clojure/spec/alpha.clj", :sha256 "8ba9e4e0d5826e64734cb58f986a680b9a09d328453c37db0f454cfb4a41ab90"}
  clojure.spec.gen.alpha {:source "magic-compiler/src/stdlib/clojure/spec/gen/alpha.clj", :sha256 "7529d23186c7622592fce537e119efb914dc54398bdbef45209a6a24ed54ebc4"}
@@ -59,7 +59,7 @@
  magic.analyzer.uniquify {:source "magic-compiler/src/magic/analyzer/uniquify.clj", :sha256 "8efe465c85094d3c1a788403231f5f84dde5c6a169ec66ca897da93bb4794d7a"}
  magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "19e7f4f2a357f2c265e373dcb1175f336baaf09b5d380744433a4d25f87c4a94"}
  magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "696020a2e8ae86c432ea83d2b783bc1a51fcc999972840889d76564b9a60e385"}
- magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "0ca4634ad93b01ff6cec5e8d04b022af1cd6b694d9a9529da46c704d89773df1"}
+ magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "c2a26cf825abe227633df0d4fe06583a4347e967cb1d10b1505f719ecb7a3a75"}
  magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "6107b25f2d94a51ebe26bb42173f4f57ffec1310786419a408077ef7b4fa444e"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
