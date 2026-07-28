@@ -78,6 +78,25 @@
         (is (= :a @(ns-resolve (find-ns sym) 'v)))
         (finally (Directory/Delete dir true))))))
 
+(deftest missing-namespace-names-what-was-searched
+  (let [dir (temp-dir)]
+    (try
+      (let [msg (try (load-in dir 'magic.test.tmp.absent) nil
+                     (catch Exception e (root-message e)))]
+        (is (string? msg))
+        (is (string/includes? msg "Could not locate"))
+        (testing "every candidate extension is listed"
+          (doseq [candidate ["magic/test/tmp/absent.cljr"
+                             "magic/test/tmp/absent.clj"
+                             "magic/test/tmp/absent.cljc"
+                             "magic.test.tmp.absent.clj.dll"
+                             "magic.test.tmp.absent.cljc.dll"
+                             "magic.test.tmp.absent.cljr.dll"]]
+            (is (string/includes? msg candidate))))
+        (testing "the embedded-resource source no longer masks the report"
+          (is (not (string/includes? msg "embedded resources")))))
+      (finally (Directory/Delete dir true)))))
+
 (deftest reader-failure-does-not-truncate-silently
   (testing "an unreadable form raises instead of ending the compilation unit"
     (let [dir (temp-dir)
