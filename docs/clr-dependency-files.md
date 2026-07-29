@@ -49,7 +49,9 @@ The main cost of `deps-clr.edn` is drift: a git dep used by both runtimes has it
 
 ## How `nos` chooses
 
-`deps-clr.edn` if present at the project root, else `deps.edn`. Project-root only: transitive git and local deps still read their own `deps.edn`. The `nos`-specific keys `:nos/aliases` and `:nos/submodule-paths` are read from whichever file `nos` uses, so move them into `deps-clr.edn` if you add one.
+`deps-clr.edn` if present, else `deps.edn`, both at the project root and for every git or local dep it resolves, the same preference `cljr` applies. A dependency contributes the `:paths` and `:deps` of whichever file it ships, so a library can declare a CLR-only path in its `deps-clr.edn`, the directory of a precompiled assembly for instance, and consumers get it without that path reaching its JVM `deps.edn`.
+
+The `nos`-specific keys `:nos/aliases` and `:nos/submodule-paths` are read from whichever file `nos` uses, so move them into `deps-clr.edn` if you add one.
 
 ## See also
 
