@@ -47,13 +47,17 @@
 (defn- lib-paths
   "Absolute source paths a resolved lib contributes, rooted at its checkout
   dir. Preference: an explicit :paths on the coord (for git/local deps whose
-  repo has no deps.edn or a non-src layout, e.g. a pom-only contrib lib under
-  src/main/clojure), else the lib's own deps.edn :paths, else [\"src\"]."
+  repo has no deps file or a non-src layout, e.g. a pom-only contrib lib under
+  src/main/clojure), else the lib's own deps file :paths, else [\"src\"]."
   [dir coord lib-deps-edn]
   (map #(str dir "/" %) (or (:paths coord) (:paths lib-deps-edn) default-paths)))
 
-(defn- read-deps-edn [dir]
-  (let [f (str dir "/deps.edn")]
+(defn- read-deps-edn
+  "A dependency's own deps map: deps-clr.edn if present, else deps.edn.
+  Same preference cljr applies to a dep's paths and deps."
+  [dir]
+  (let [clr (str dir "/deps-clr.edn")
+        f   (if (File/Exists clr) clr (str dir "/deps.edn"))]
     (when (File/Exists f)
       (edn/read-string (slurp f)))))
 
@@ -122,8 +126,7 @@
 
 (defn project-deps-file
   "deps-clr.edn if present, else deps.edn. Matches cljr, which reads
-  deps-clr.edn in place of deps.edn. Project root only; transitive deps keep
-  their own deps.edn."
+  deps-clr.edn in place of deps.edn."
   []
   (if (File/Exists "deps-clr.edn") "deps-clr.edn" "deps.edn"))
 
