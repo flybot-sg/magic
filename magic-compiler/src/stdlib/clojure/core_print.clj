@@ -131,7 +131,9 @@
 ;;; DM ADDED
 
 (defn fp-str [x]
-   (let [s (str x)]
+   ;; "R" round-trips: the default ToString emits 15 significant digits, so most doubles
+   ;; do not read back equal, and the default culture would use a comma separator.
+   (let [s (.ToString x "R" System.Globalization.CultureInfo/InvariantCulture)]
      (if (or (.Contains s ".") (.Contains s "E"))
        s
        (str s ".0"))))
