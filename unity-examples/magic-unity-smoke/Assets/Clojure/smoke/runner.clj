@@ -10,6 +10,7 @@
             [smoke.control-flow :as control-flow]
             [smoke.stdlib-1-10  :as stdlib-1-10]
             [smoke.interop      :as interop]
+            [smoke.read-print   :as read-print]
             [clojure.string :as str]))
 
 (defn- run []
@@ -18,7 +19,8 @@
                 ["polymorphism" (polymorphism/suite)]
                 ["control-flow" (control-flow/suite)]
                 ["stdlib-1.10"  (stdlib-1-10/suite)]
-                ["interop"      (interop/suite)]]
+                ["interop"      (interop/suite)]
+                ["read-print"   (read-print/suite)]]
         flat   (for [[group results] groups
                      r results]
                  (assoc r :group group))]
