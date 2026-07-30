@@ -13,7 +13,7 @@
  clojure.core.specs.alpha {:source "magic-compiler/src/stdlib/clojure/core/specs/alpha.clj", :sha256 "41d82e6e56c9165e806f931b0598a05def8388d9b7248d7d431d7e822527928b"}
  clojure.core_clr {:source "magic-compiler/src/stdlib/clojure/core_clr.clj", :sha256 "371b1553b349138b17e9741e37a134dc4193c621366b1f4b154abcdfa5c69f2e"}
  clojure.core_deftype {:source "magic-compiler/src/stdlib/clojure/core_deftype.clj", :sha256 "b643bf26b11cc6628116aedddf4569687bb8addff4cf6d0525cd11c4d815b8ad"}
- clojure.core_print {:source "magic-compiler/src/stdlib/clojure/core_print.clj", :sha256 "458d036fe8d8616c6f585164524fc25fc90cf1fb9178cbbeb79230f94c3273cd"}
+ clojure.core_print {:source "magic-compiler/src/stdlib/clojure/core_print.clj", :sha256 "43371f550ebb965398ded47161946b348326c827fa8fde90334b3769618796b8"}
  clojure.core_proxy {:source "magic-compiler/src/stdlib/clojure/core_proxy.clj", :sha256 "946aeb183fc90cbb1a52dceb325ed81816ed28cea5177ee6dd8b4e801c6cd9c2"}
  clojure.data {:source "magic-compiler/src/stdlib/clojure/data.clj", :sha256 "e60889339006b57f672c681892710164399ae281d0f37371886b1d9bc73ee8cd"}
  clojure.datafy {:source "magic-compiler/src/stdlib/clojure/datafy.clj", :sha256 "454d0d43ec60601d031bb62a48ece29f41f8c75648d0da34fe972abce72c56ea"}
