@@ -15,20 +15,49 @@ namespace Nostrand
 	{
 		public static ISeq ReadArguments(string[] args)
 		{
-			var list = PersistentVector.EMPTY; //PersistentList.EmptyList(null);
+			var forms = ReadForms(string.Join(" ", args));
 
-			var argString = string.Join(" ", args);
-			var pbtr = new PushbackTextReader(new StringReader(argString));
+			// A filesystem path is not a readable edn token. When the command line as
+			// a whole does not read, retry argument by argument and hand the ones that
+			// still do not read on verbatim as symbols.
+			if (forms == null)
+			{
+				forms = PersistentVector.EMPTY;
+				foreach (var arg in args)
+				{
+					var argForms = ReadForms(arg);
+					if (argForms == null)
+						forms = (PersistentVector)forms.cons(Symbol.intern(arg));
+					else
+						foreach (var form in argForms)
+							forms = (PersistentVector)forms.cons(form);
+				}
+			}
+
+			return forms.seq();
+		}
+
+		static readonly object EOFSentinel = new object();
+
+		// Null when the input does not read as edn, so the caller can fall back.
+		static PersistentVector ReadForms(string input)
+		{
+			var forms = PersistentVector.EMPTY;
+			var pbtr = new PushbackTextReader(new StringReader(input));
 			for (;;)
 			{
+				object form;
 				try
 				{
-					list = (PersistentVector)list.cons(ArgumentReader.read(pbtr, true, null, false, null));
+					form = EdnReader.read(pbtr, false, EOFSentinel, false, null);
 				}
-				catch (EndOfStreamException)
+				catch (Exception)
 				{
-					return list.seq();
+					return null;
 				}
+				if (form == EOFSentinel)
+					return forms;
+				forms = (PersistentVector)forms.cons(form);
 			}
 		}
 
