@@ -6,7 +6,7 @@
 {
  clojure.clr.io {:source "magic-compiler/src/stdlib/clojure/clr/io.clj", :sha256 "ef7ea7d3bf39644d06bdc85c68f59ba94e38deabe4db199837b85b2861ed073c"}
  clojure.clr.shell {:source "magic-compiler/src/stdlib/clojure/clr/shell.clj", :sha256 "22f036ad1d1dc4965324400d8e9d9663984ac13fc6a483539bf19a332633413a"}
- clojure.core {:source "magic-compiler/src/stdlib/clojure/core.clj", :sha256 "e35cb1fb72f9b69835fb9191bd8a761ac40993987eeea7d9eca671a1d387551f"}
+ clojure.core {:source "magic-compiler/src/stdlib/clojure/core.clj", :sha256 "2823a838f7e883b1653077388a7d2fcd37c47cf805be530401b4bff378cbc74c"}
  clojure.core.protocols {:source "magic-compiler/src/stdlib/clojure/core/protocols.clj", :sha256 "38490ad78ad6fabf2d0d965788d6b42b052748ce9d664e24f34033de7e90e378"}
  clojure.core.reducers {:source "magic-compiler/src/stdlib/clojure/core/reducers.clj", :sha256 "f3f10fef6c91217cf6780c37f358e0f9caecdb106fb5339ac3cdc28b46be950d"}
  clojure.core.server {:source "magic-compiler/src/stdlib/clojure/core/server.clj", :sha256 "7ba07179820a71f856dfd4c9e1a2a06dbad06eb6e9aeb9bcddeb268959cf82e2"}
@@ -59,7 +59,7 @@
  magic.analyzer.uniquify {:source "magic-compiler/src/magic/analyzer/uniquify.clj", :sha256 "8efe465c85094d3c1a788403231f5f84dde5c6a169ec66ca897da93bb4794d7a"}
  magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "19e7f4f2a357f2c265e373dcb1175f336baaf09b5d380744433a4d25f87c4a94"}
  magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "696020a2e8ae86c432ea83d2b783bc1a51fcc999972840889d76564b9a60e385"}
- magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "c2a26cf825abe227633df0d4fe06583a4347e967cb1d10b1505f719ecb7a3a75"}
+ magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "4b78b1f2b9eb22cfd2e6c32fbd2eec81aee87bd489ce48a738b46b54da8ed88c"}
  magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "6107b25f2d94a51ebe26bb42173f4f57ffec1310786419a408077ef7b4fa444e"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
