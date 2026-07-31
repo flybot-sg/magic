@@ -5970,17 +5970,20 @@ Note that read can execute code (controlled by *read-eval*),
 
 (def ^:private source-extensions
   "Source file extensions a namespace can resolve to, in precedence order."
-  [".cljr" ".clj" ".cljc"])
+  [".cljr" ".cljc" ".clj"])
 
 ;; port of clojure.lang.RT.load
 (defn -load
   ([^String relative-path] (-load relative-path true))
   ([^String relative-path fail-of-not-found]
    (let [dll-base (.Replace relative-path "/" ".")
+         dll-name #(str dll-base % ".dll")
          source-names (map #(str relative-path %) source-extensions)
-         dll-names (map #(str dll-base % ".dll") source-extensions)
+         dll-names (map dll-name source-extensions)
          ^System.IO.FileInfo clj-info (some find-file source-names)
-         ^System.IO.FileInfo assy-info (some find-file dll-names)]
+         ^System.IO.FileInfo assy-info (if clj-info
+                                         (find-file (dll-name (.Extension clj-info)))
+                                         (some find-file dll-names))]
      (loop [code-source (first clojure.lang.RuntimeBootstrapFlag/CodeLoadOrder)
             code-sources (rest clojure.lang.RuntimeBootstrapFlag/CodeLoadOrder)]
        (cond

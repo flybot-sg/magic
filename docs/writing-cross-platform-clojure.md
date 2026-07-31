@@ -12,6 +12,8 @@ This guide is about the *source patterns*: reader conditionals, type hints, host
 | `.cljr` | CLR only. |
 | `.cljc` | Both. Needed once the file has `#?(:clj ... :cljr ...)` branches. |
 
+When more than one of those files exists for the same namespace, the CLR loader takes the first of `.cljr`, `.cljc`, `.clj`, so a `.cljc` shadows the JVM `.clj` beside it. MAGIC and ClojureCLR apply the same order.
+
 MAGIC code runs on exactly two platforms, so a conditional needs only `:clj` and `:cljr`; there is no third platform to fall back to, and `:default` is unnecessary.
 
 ```clojure

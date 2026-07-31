@@ -34,7 +34,7 @@
 
 ;; not shared with clojure.core's copy: build.clj compiles this namespace
 ;; before clojure.core, against the previous one
-(def ^:private source-extensions [".cljr" ".clj" ".cljc"])
+(def ^:private source-extensions [".cljr" ".cljc" ".clj"])
 
 (defn compile-expression [expr ctx opts]
   (when-not (:suppress-print-forms opts)
@@ -168,20 +168,27 @@
   []
   (.SetValue rt-id-field nil (int 10000)))
 
+(defn assembly-name
+  "Module name for a compilation unit; the extension stays in it because -load
+   probes for <ns><ext>.dll."
+  [module extension]
+  (-> module
+      str
+      (string/replace "/" ".")
+      (str extension)))
+
 (defn compile-file
   ([path module]
    (compile-file path module nil))
   ([path module opts]
    (when-not (:suppress-print-forms opts)
      (println "[compile-file] start" path))
-   (let [module-name (-> module
-                         str
-                         (string/replace "/" ".")
-                         (str ".clj"))
+   (let [extension   (Path/GetExtension path)
+         module-name (assembly-name module extension)
          ;; *file* is load-relative like the JVM: an absolute path bakes the
          ;; checkout directory into the emitted bytes via :file var metadata
          source-path (str (string/replace (str module) "." "/")
-                          (Path/GetExtension path))]
+                          extension)]
      (binding [*print-meta*            false
                *ns*                    *ns*
                *file*                  source-path

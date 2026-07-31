@@ -1,6 +1,7 @@
 (ns magic.test.load
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [magic.api :as api])
   (:import [System.IO Directory File Path]))
 
 (defn- temp-dir []
@@ -16,6 +17,12 @@
         path (Path/Combine dir (str relative ext))]
     (Directory/CreateDirectory (Path/GetDirectoryName path))
     (File/WriteAllText path source)
+    path))
+
+(defn- write-unloadable-dll! [dir sym ext]
+  (let [path (Path/Combine dir (str (.Replace (str sym) "-" "_") ext ".dll"))]
+    (File/WriteAllText path "not an assembly")
+    (File/SetLastWriteTime path (.AddMinutes System.DateTime/Now 1))
     path))
 
 (defn- load-in [dir sym]
@@ -55,6 +62,59 @@
         (load-in dir sym)
         (is (= :cljr @(ns-resolve (find-ns sym) 'w)))
         (finally (Directory/Delete dir true))))))
+
+(deftest cljc-preferred-over-clj
+  (testing "a .cljc file wins over .clj, as on ClojureCLR"
+    (let [dir (temp-dir)
+          sym (symbol (str "magic.test.tmp.cljcoverclj" (gensym)))]
+      (try
+        (write-ns! dir sym ".cljc" (str "(ns " sym ")(def w :cljc)"))
+        (write-ns! dir sym ".clj" (str "(ns " sym ")(def w :clj)"))
+        (load-in dir sym)
+        (is (= :cljc @(ns-resolve (find-ns sym) 'w)))
+        (finally (Directory/Delete dir true))))))
+
+(deftest assembly-is-paired-with-the-resolved-source
+  (testing "a .clj.dll never stands in for the .cljc that resolved"
+    (let [dir (temp-dir)
+          sym (symbol (str "magic.test.tmp.unpaired" (gensym)))]
+      (try
+        (write-ns! dir sym ".cljc" (str "(ns " sym ")(def w :cljc)"))
+        (write-unloadable-dll! dir sym ".clj")
+        (load-in dir sym)
+        (is (= :cljc @(ns-resolve (find-ns sym) 'w)))
+        (finally (Directory/Delete dir true)))))
+  (testing "the .cljc.dll still wins over the .cljc source when newer"
+    (let [dir (temp-dir)
+          sym (symbol (str "magic.test.tmp.paired" (gensym)))]
+      (try
+        (write-ns! dir sym ".cljc" (str "(ns " sym ")(def w :cljc)"))
+        (write-unloadable-dll! dir sym ".cljc")
+        (is (thrown? Exception (load-in dir sym)))
+        (finally (Directory/Delete dir true))))))
+
+;; the list is duplicated because build.clj compiles magic.api against the
+;; previous clojure.core, so magic.api cannot read this one's copy
+(deftest compile-and-load-agree-on-extension-precedence
+  (testing "nos build compiles the file require would load"
+    (is (= @#'api/source-extensions
+           @#'clojure.core/source-extensions))))
+
+(deftest emitted-assembly-names-are-the-names-load-probes
+  (let [dir   (temp-dir)
+        sym   'magic.test.tmp.probe
+        names (map #(str (api/assembly-name (str sym) %) ".dll")
+                   [".cljr" ".cljc" ".clj"])]
+    (try
+      (testing "each source extension gets its own assembly name"
+        (is (= 3 (count (distinct names)))))
+      (testing "and -load searches for exactly those"
+        (let [msg (try (load-in dir sym) nil
+                       (catch Exception e (root-message e)))]
+          (is (string? msg))
+          (doseq [n names]
+            (is (string/includes? msg n)))))
+      (finally (Directory/Delete dir true)))))
 
 (deftest reader-conditionals-only-in-cljc
   (doseq [ext [".cljr" ".clj"]]
