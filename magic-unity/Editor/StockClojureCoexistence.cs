@@ -61,7 +61,7 @@ namespace Magic.Unity
                 : "[Magic.Unity/StockClojureCoexistence] no foreign Clojure.dll present, reimporting fork clj.dll plugins with their pristine settings");
             foreach (var importer in PluginImporter.GetAllImporters())
             {
-                if (!importer.isNativePlugin && importer.assetPath.EndsWith(".clj.dll", StringComparison.OrdinalIgnoreCase))
+                if (!importer.isNativePlugin && PlayerCljAssemblies.IsCljAssembly(importer.assetPath))
                 {
                     AssetDatabase.ImportAsset(importer.assetPath);
                 }
@@ -165,7 +165,7 @@ namespace Magic.Unity
     {
         void OnPreprocessAsset()
         {
-            if (!assetPath.EndsWith(".clj.dll", StringComparison.OrdinalIgnoreCase))
+            if (!PlayerCljAssemblies.IsCljAssembly(assetPath))
             {
                 return;
             }
