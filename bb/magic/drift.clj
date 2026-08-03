@@ -96,8 +96,9 @@
     (println "recorded" manifest-path "-" (count entries) "sources")))
 
 (defn check!
-  "After the regen tasks have run, fail if any checked path differs from HEAD. Committed DLLs are byte-diffed, except
-   Export's Clojure.dll and Magic.Runtime.dll: they embed a git-describe
+  "After the regen tasks have run, fail if any checked path differs from HEAD.
+   Committed DLLs are byte-diffed, except Export's Clojure.dll and
+   Magic.Runtime.dll: they embed a git-describe
    SourceRevisionId (csproj SetSourceRevisionId target), so their bytes are
    commit-dependent by design and are restored from HEAD instead. skip-dlls?
    restores all committed DLLs and relies on the dll-sources.edn source
@@ -105,14 +106,15 @@
   [skip-dlls?]
   (let [checked-paths (cond-> ["magic-runtime/Magic.Runtime/Generated"
                                manifest-path
-                               "magic-unity/package.json"]
+                               "magic-unity/package.json"
+                               "magic-unity/Runtime/Infrastructure/Stock"] ; ClojureCLR DLLs are downloaded, not compiled
                         (not skip-dlls?)
                         (conj "nostrand/references"
                               "magic-unity/Runtime/Infrastructure/Export"))
         _ (apply shell "git" "checkout" "--"
                  (if skip-dlls?
                    ["nostrand/references/"
-                    "magic-unity/Runtime/Infrastructure/Export/"]
+                    "magic-unity/Runtime/Infrastructure/Export/*.dll"] ; Export/ has meta files too
                    ["magic-unity/Runtime/Infrastructure/Export/Clojure.dll"
                     "magic-unity/Runtime/Infrastructure/Export/Magic.Runtime.dll"]))
         {:keys [out]} (apply shell {:continue true :out :string}
