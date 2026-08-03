@@ -64,20 +64,13 @@
    :requires ([magic.unity :as unity])
    :task (unity/sync-upm-version!)}
 
-  gen-unity-dual
-  {:doc "Regenerate the magic-unity-dual UPM package from magic-unity: byte-identical except the runtime *.clj.dll are constrained to !UNITY_EDITOR and the package is renamed.
-         Run after any magic-unity change; the output is committed and drift-checked. See docs/unity-integration.md."
-   :requires ([magic.unity :as unity])
-   :task (println "Generated magic-unity-dual -" (unity/gen-dual!)
-                  "runtime plugins constrained to !UNITY_EDITOR")}
-
   sync-clojure-clr
   {:doc "Add the latest release of stock ClojureCLR into magic-unity."
    :requires ([magic.clojure-clr :as clojure-clr])
    :task (clojure-clr/sync! (first *command-line-args*))}
 
   check-drift
-  {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version, dual variant) and fail if any checked path differs from HEAD.
+  {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version) and fail if any checked path differs from HEAD.
          Committed DLLs are byte-diffed; run after a fresh `bb build` so the bootstrap set is covered too, as CI does.
          `bb check-drift skip-dlls` checks the dll-sources.edn source hashes instead: the fallback for an environment that fails to reproduce the bytes.
          See docs/deterministic-compilation.md."
@@ -154,7 +147,6 @@
          `bb coexist-noise` tests the dual variant (expect 0 narration lines, the shipped fix); `bb coexist-noise magic-only` tests the default variant (expect 37 lines, the problem).
          Needs Unity 2022.3.62f3 with no GUI editor holding the project; details in magic.unity/coexist-noise!."
    :requires ([magic.unity :as unity])
-   :depends [gen-unity-dual]
    :task (unity/coexist-noise! (or (first *command-line-args*) "dual"))}
 
   ;; ============================================================

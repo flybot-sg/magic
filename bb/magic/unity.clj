@@ -1,7 +1,6 @@
 (ns magic.unity
-  "Babashka helpers for the two MAGIC Unity package variants: generate the
-   editor-excluded `magic-unity-dual` from `magic-unity`, and drive the
-   `magic-unity-coexist` repro that proves the dual variant is silent."
+  "Babashka helpers for the MAGIC Unity package: sync its UPM version and drive
+   the `magic-unity-coexist` repro."
   (:require [babashka.fs :as fs]
             [babashka.tasks :refer [shell]]
             [clojure.edn :as edn]
@@ -9,34 +8,9 @@
             [clojure.string :as str]))
 
 (def ^:private default-pkg "magic-unity")
-(def ^:private dual-pkg "magic-unity-dual")
 (def ^:private coexist-proj "unity-examples/magic-unity-coexist")
 (def ^:private unity
   "/Applications/Unity/Hub/Editor/2022.3.62f3/Unity.app/Contents/MacOS/Unity")
-
-;;; Dual variant generation
-
-(defn- exclude-from-editor [meta-yaml]
-  (str/replace meta-yaml
-               "  defineConstraints: []"
-               "  defineConstraints:\n  - '!UNITY_EDITOR'"))
-
-(defn- rename-package [package-json]
-  (-> package-json
-      (str/replace "\"name\": \"sg.flybot.magic.unity\""
-                   "\"name\": \"sg.flybot.magic.unity.dual\"")
-      (str/replace "\"displayName\": \"MAGIC Unity Integration\""
-                   "\"displayName\": \"MAGIC Unity Integration (dual: stock editor + MAGIC players)\"")))
-
-(defn- edit-file!
-  "Rewrite path through f. Throws when f changes nothing, the signal that the
-   source format drifted from what the generator expects."
-  [path f]
-  (let [content (slurp path)
-        edited  (f content)]
-    (when (= content edited)
-      (throw (ex-info (str "gen-unity-dual: no substitution applied to " path) {:path path})))
-    (spit path edited)))
 
 (defn sync-upm-version!
   "Sync magic-unity/package.json version with version.edn. UPM manifests are
@@ -52,20 +26,6 @@
       (println "magic-unity/package.json version already in sync (" version ")")
       (do (spit path updated)
           (println "Updated magic-unity/package.json version to" version)))))
-
-(defn gen-dual!
-  "Regenerate magic-unity-dual as a verbatim copy of magic-unity with the runtime
-   clj.dll plugins constrained to !UNITY_EDITOR and the package renamed. Returns
-   the number of constrained plugins."
-  []
-  (fs/delete-tree dual-pkg)
-  (shell "cp" "-R" default-pkg dual-pkg)
-  (let [metas (fs/glob (str dual-pkg "/Runtime/Infrastructure/Export") "*.clj.dll.meta")]
-    (when (empty? metas)
-      (throw (ex-info "gen-unity-dual: no runtime *.clj.dll.meta in copy" {})))
-    (run! #(edit-file! (str %) exclude-from-editor) metas)
-    (edit-file! (str dual-pkg "/package.json") rename-package)
-    (count metas)))
 
 ;;; Coexistence repro
 

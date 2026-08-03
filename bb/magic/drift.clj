@@ -9,8 +9,7 @@
             [babashka.tasks :refer [shell]]
             [clojure.edn]
             [clojure.string :as str]
-            [magic.log :as log]
-            [magic.unity :as unity])
+            [magic.log :as log])
   (:import [java.security MessageDigest]))
 
 (def manifest-path "magic-compiler/dll-sources.edn")
@@ -97,8 +96,7 @@
     (println "recorded" manifest-path "-" (count entries) "sources")))
 
 (defn check!
-  "After the regen tasks have run, regenerate the dual variant and fail if any
-   checked path differs from HEAD. Committed DLLs are byte-diffed, except
+  "After the regen tasks have run, fail if any checked path differs from HEAD. Committed DLLs are byte-diffed, except
    Export's Clojure.dll and Magic.Runtime.dll: they embed a git-describe
    SourceRevisionId (csproj SetSourceRevisionId target), so their bytes are
    commit-dependent by design and are restored from HEAD instead. skip-dlls?
@@ -107,8 +105,7 @@
   [skip-dlls?]
   (let [checked-paths (cond-> ["magic-runtime/Magic.Runtime/Generated"
                                manifest-path
-                               "magic-unity/package.json"
-                               "magic-unity-dual"]
+                               "magic-unity/package.json"]
                         (not skip-dlls?)
                         (conj "nostrand/references"
                               "magic-unity/Runtime/Infrastructure/Export"))
@@ -118,7 +115,6 @@
                     "magic-unity/Runtime/Infrastructure/Export/"]
                    ["magic-unity/Runtime/Infrastructure/Export/Clojure.dll"
                     "magic-unity/Runtime/Infrastructure/Export/Magic.Runtime.dll"]))
-        _ (unity/gen-dual!)
         {:keys [out]} (apply shell {:continue true :out :string}
                              "git" "status" "--porcelain" "--" checked-paths)]
     (when-not (str/blank? out)
