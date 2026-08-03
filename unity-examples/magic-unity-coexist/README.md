@@ -11,7 +11,7 @@ editor (for REPL and hot-reload) while shipping the MAGIC fork runtime in player
 builds prints one ERROR line per package Export `*.clj.dll`:
 
 ```
-Assembly 'Packages/sg.flybot.magic.unity/Runtime/Infrastructure/Export/clojure.core_clr.clj.dll' will not be loaded due to errors:
+Assembly 'Packages/sg.flybot.magic.unity/Runtime/magic/clojure.core_clr.clj.dll' will not be loaded due to errors:
 Assembly is incompatible with the editor
 ```
 

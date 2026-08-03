@@ -173,8 +173,7 @@
    :task (release/outdated!)}
 
   verify-dist
-  {:doc "Verify release artifacts are present and `nos version` works.
-         Run before tagging."
+  {:doc "Smoke-test the built dist with `nos version`."
    :requires ([magic.release :as release])
    :task (release/verify-dist!)}
 

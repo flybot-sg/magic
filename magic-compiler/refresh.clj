@@ -1,7 +1,7 @@
 (ns refresh
   "Recompile every committed stdlib clojure.*.clj.dll from its source file and
    redeploy to nostrand/references/, nostrand/bin/Release/net471/, and
-   magic-unity/Runtime/Infrastructure/Export/. Use after editing any
+   magic-unity/Runtime/magic/. Use after editing any
    magic-compiler/src/stdlib/**/*.clj.
 
    Invoke with: nos refresh/stdlib  (or `bb refresh-stdlib`)
@@ -19,7 +19,7 @@
 
 (def ^:private refs "../nostrand/references")
 (def ^:private bin "../nostrand/bin/Release/net471")
-(def ^:private unity "../magic-unity/Runtime/Infrastructure/Export")
+(def ^:private unity "../magic-unity/Runtime/magic")
 (def ^:private stdlib-root "src/stdlib")
 
 (def ^:private bootstrap-namespaces

@@ -38,7 +38,7 @@ namespace Magic.Unity
                 {
                     if (IsCljAssembly(reference))
                     {
-                        paths.Add(PackageExportPath.PhysicalPath(reference));
+                        paths.Add(PackageRuntimePath.PhysicalPath(reference));
                     }
                 }
             }

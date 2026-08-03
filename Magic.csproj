@@ -1,7 +1,7 @@
 <Project DefaultTargets="All">
     <PropertyGroup>
         <NostrandExeNet4x>nostrand/bin/Release/net471/NostrandMain.exe</NostrandExeNet4x>
-        <MagicUnityInfrastructureExport>magic-unity/Runtime/Infrastructure/Export</MagicUnityInfrastructureExport>
+        <MagicUnityMagicRuntimeDir>magic-unity/Runtime/magic</MagicUnityMagicRuntimeDir>
         <ClojureRuntimeDllNet471>clojure-runtime/bin/Release/net471/Clojure.dll</ClojureRuntimeDllNet471>
         <ClojureRuntimeDllNetStandard>clojure-runtime/bin/Release/netstandard2.0/Clojure.dll</ClojureRuntimeDllNetStandard>
         <MagicRuntimeDllNet471>magic-runtime/Magic.Runtime/bin/Release/net471/Magic.Runtime.dll</MagicRuntimeDllNet471>
@@ -29,9 +29,9 @@
         <Exec WorkingDirectory="magic-compiler" Command="mono ../$(NostrandExeNet4x) build/bootstrap" />
     </Target>
     <Target Name="MagicUnity" DependsOnTargets="Magic">
-        <Copy SourceFiles="@(MagicRuntimeBinaries)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
-        <Copy SourceFiles="$(ClojureRuntimeDllNet471)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
-        <Copy SourceFiles="$(MagicRuntimeDllNet471)" DestinationFolder="$(MagicUnityInfrastructureExport)" />
+        <Copy SourceFiles="@(MagicRuntimeBinaries)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
+        <Copy SourceFiles="$(ClojureRuntimeDllNet471)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
+        <Copy SourceFiles="$(MagicRuntimeDllNet471)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
     </Target>
     <Target Name="Bootstrap" DependsOnTargets="Magic">
         <Copy SourceFiles="@(MagicAllBinaries)" DestinationFolder="$(NostrandReferences)" />

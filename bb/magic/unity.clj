@@ -60,7 +60,7 @@
   []
   (fs/delete-tree dual-pkg)
   (shell "cp" "-R" default-pkg dual-pkg)
-  (let [metas (fs/glob (str dual-pkg "/Runtime/Infrastructure/Export") "*.clj.dll.meta")]
+  (let [metas (fs/glob (str dual-pkg "/Runtime/magic") "*.clj.dll.meta")]
     (when (empty? metas)
       (throw (ex-info "gen-unity-dual: no runtime *.clj.dll.meta in copy" {})))
     (run! #(edit-file! (str %) exclude-from-editor) metas)
