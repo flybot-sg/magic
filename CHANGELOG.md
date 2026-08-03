@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Unity — BREAKING: the Editor's Clojure runtime is now stock ClojureCLR by default
+
+`sg.flybot.magic.unity` now ships **both** Clojure runtimes and a scripting define symbol, `MAGIC_RUNTIME_IN_EDITOR`, decides which one the **Editor** loads. Player builds are unchanged and always run MAGIC.
+
+**Migration.** If MAGIC runs in your Editor (Play mode, edit-mode tooling), set the symbol — `MAGIC > Editor Runtime > Use MAGIC in the Editor`, or `Magic.Unity.EditorRuntime.UseMagic()` from CI — to keep today's behaviour. If you were on `sg.flybot.magic.unity.dual`, switch the manifest pin to `?path=magic-unity#<tag>` and set nothing: stock-in-Editor with MAGIC in players is the new default. Delete any stock `Clojure.dll` you vendored under `Assets` — the package ships one now, and an unconstrained copy of yours wins Unity's file-name dedup and breaks the selection.
+
+The polarity is not a preference: Unity ANDs negated terms inside a `||` group, so "default MAGIC, opt in to stock" cannot be expressed as a define constraint at all, and attempting it also drops the runtime from **player** builds. Derivation in [`docs/dual-runtimes.md`](docs/dual-runtimes.md).
+
+- The package vendors stock ClojureCLR 1.11.0 (net462) plus the DLR under `Runtime/Infrastructure/Stock/`, Editor-only, under EPL-1.0 / Apache-2.0 with notices in the package. This is what makes the default state self-sufficient: with the symbol unset, that is the only `Clojure.dll` the Editor has.
+- Every shipped DLL of both sets carries a define constraint, so exactly one `Clojure.dll` is ever Editor-eligible. Both states are now **silent** — no `Assembly is incompatible with the editor` narration, no `Duplicate assembly 'Clojure.dll'` line.
+- Your own compiled `*.clj.dll` under `Assets` get the MAGIC constraint stamped on import, so they follow the Editor runtime instead of loading silently against a runtime that is not there.
+- `StockClojureCoexistence` is **removed** — the guard, its `[InitializeOnLoad]` bootstrap, the `userData` markers and `Library/MagicUnityCoexistenceState.txt`. It reacted to filesystem state and could override the runtime you asked for; the constraints subsume all of it.
+- `sg.flybot.magic.unity.dual` is **retired**, along with `bb gen-unity-dual`.
+- **The Editor needs API Compatibility Level `.NET Framework`** in the default state: stock ClojureCLR always initialises through the DLR, which references `System.Configuration`, `System.Runtime.Remoting` and `System.Xaml`. The package warns when it is wrong; set it in `Project Settings > Player`.
+
+### Tooling
+- `bb coexist-noise` is re-keyed on Editor runtime state (`bb coexist-noise stock` / `magic`, or both by default) and asserts each state's expectations, instead of one hardcoded outcome that could only describe the retired dual variant.
+- New `bb check-constraints` (run by `bb check-drift`) fails if any DLL under `Runtime/Infrastructure/{Export,Stock}/` loses its runtime-selection constraint — a newly added DLL arrives with an unconstrained `.meta` from Unity and nothing else would notice.
+- `bb verify-dist` is now only the `nos version` smoke test. Booting the runtime already fails on a missing launcher, runtime DLL or stdlib `.clj.dll`, and the `magic-unity` DLLs it used to check for are tracked in git and byte-diffed by `bb check-drift` on every PR — so the file-existence checks duplicated a gate that runs earlier.
+
 ## v0.11.0 - 2026-07-24
 
 Mostly compiler fixes: never-returning branches emitted invalid IL, protocol-hinted parameters threw `InvalidCastException`, a named fn was not `identical?` to its own self-reference, several numeric literals and integer operations emitted wrong bytes or overflowed instead of promoting, and the last known sources of nondeterministic DLL bytes are gone.

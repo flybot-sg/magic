@@ -45,15 +45,15 @@ flowchart TD
     build["bb build<br/>(fresh full build)"] --> drift["bb check-drift"]
     drift --> regen["regen callsite .g.cs"]
     drift --> stdlib["recompile + redeploy<br/>stdlib .clj.dll"]
-    drift --> dual["sync UPM version,<br/>regen magic-unity-dual"]
+    drift --> upm["sync UPM version,<br/>check Unity define constraints"]
     regen --> diff{"git status over<br/>committed dirs"}
     stdlib --> diff
-    dual --> diff
+    upm --> diff
     diff -->|clean| green["green: everything current"]
     diff -->|differs| red["red: stale files listed,<br/>refreshed versions in the tree"]
 ```
 
-The stdlib DLLs are recompiled by the check itself. The bootstrap set (`clojure.core`, `magic.*`, `mage`) is redeployed by the fresh `bb build` that precedes the check, both in CI and in the pre-PR sequence from [CONTRIBUTING.md](../CONTRIBUTING.md), so its drift shows up in the same diff. Run the check without a fresh build and you still cover callsites, stdlib, version, and the dual variant; you just lose the bootstrap coverage.
+The stdlib DLLs are recompiled by the check itself. The bootstrap set (`clojure.core`, `magic.*`, `mage`) is redeployed by the fresh `bb build` that precedes the check, both in CI and in the pre-PR sequence from [CONTRIBUTING.md](../CONTRIBUTING.md), so its drift shows up in the same diff. Run the check without a fresh build and you still cover callsites, stdlib, version, and the Unity define constraints; you just lose the bootstrap coverage.
 
 Byte-identity also holds across machines: a Linux container (mono 6.12) reproduces every committed DLL byte-for-byte from a macOS checkout (mono 6.14) at a different filesystem path. Three mechanisms originally tied the bytes to the environment, each found by diffing the IL of the same namespace compiled on both systems, and each is now fixed in the compiler:
 
