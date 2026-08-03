@@ -17,9 +17,11 @@
   build
   {:doc "Full build: runtimes → nostrand → magic-compiler bootstrap → magic-unity. Slow (minutes) on first run.
          Normalizes committed-DLL mtimes first, so use this rather than raw `dotnet build` after a fresh clone (byte reproducibility depends on it)."
-   :requires ([magic.drift :as drift])
+   :requires ([magic.drift :as drift]
+              [magic.unity :as unity])
    :task (do (drift/touch-dlls!)
-             (shell "dotnet build"))}
+             (shell "dotnet build")
+             (unity/write-metas!))}
 
   build-runtime
   {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand. No magic-compiler bootstrap. Fast."
@@ -30,7 +32,8 @@
          Extra args go to nos build/bootstrap, e.g. `bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'`.
          Self-hosting: after compiler changes run twice; the second pass is the fixpoint."
    :requires ([babashka.fs :as fs]
-              [magic.drift :as drift])
+              [magic.drift :as drift]
+              [magic.unity :as unity])
    :depends [-check-nostrand]
    :task (do
            (drift/touch-dlls!)
@@ -39,16 +42,19 @@
            (fs/delete-tree (fs/file "magic-compiler" "bootstrap"))
            (apply nos/nos! "build/bootstrap" *command-line-args*)
            (shell "dotnet build -t:Bootstrap;MagicUnity")
+           (unity/write-metas!)
            (drift/record!))}
 
   refresh-stdlib
   {:doc "Recompile every committed stdlib clojure.*.clj.dll from source, redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity Export, then re-record dll-sources.edn.
          Use after editing any magic-compiler/src/stdlib/**/*.clj: this owns every stdlib namespace outside the clojure.core family, clojure.string, clojure.set and clojure.walk included, and produces the same bytes the bootstrap would.
          The clojure.core family (core, its 6 (in-ns 'clojure.core) sub-files, core.protocols, clr.io) needs `bb bootstrap`, as do the compiler's own magic.* and mage DLLs."
-   :requires ([magic.drift :as drift])
+   :requires ([magic.drift :as drift]
+              [magic.unity :as unity])
    :depends [-check-nostrand]
    :task (do (drift/touch-dlls!)
              (nos/nos! "refresh/stdlib")
+             (unity/write-metas!)
              (drift/record!))}
 
   ;; ============================================================
@@ -66,17 +72,32 @@
 
   sync-clojure-clr
   {:doc "Add the latest release of stock ClojureCLR into magic-unity."
-   :requires ([magic.clojure-clr :as clojure-clr])
-   :task (clojure-clr/sync! (first *command-line-args*))}
+   :requires ([magic.clojure-clr :as clojure-clr]
+              [magic.unity :as unity])
+   :task (do (clojure-clr/sync! (first *command-line-args*))
+             (unity/write-metas!))}
+
+  write-metas
+  {:doc "Create a Unity .meta for every magic-unity DLL that lacks one."
+   :requires ([magic.unity :as unity])
+   :task (do (unity/write-metas!)
+             (unity/check-constraints!))}
+
+  check-constraints
+  {:doc "Verify every magic-unity DLL .meta carries its define constraints."
+   :requires ([magic.unity :as unity])
+   :task (unity/check-constraints!)}
 
   check-drift
-  {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version) and fail if any checked path differs from HEAD.
+  {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version), verify the runtime-selection constraints, and fail if any checked path differs from HEAD.
          Committed DLLs are byte-diffed; run after a fresh `bb build` so the bootstrap set is covered too, as CI does.
          `bb check-drift skip-dlls` checks the dll-sources.edn source hashes instead: the fallback for an environment that fails to reproduce the bytes.
          See docs/deterministic-compilation.md."
-   :requires ([magic.drift :as drift])
+   :requires ([magic.drift :as drift]
+              [magic.unity :as unity])
    :depends [regen-callsites refresh-stdlib sync-upm-version]
-   :task (drift/check! (= "skip-dlls" (first *command-line-args*)))}
+   :task (do (unity/check-constraints!) ; run after refresh-stdlib has written the metas
+             (drift/check! (= "skip-dlls" (first *command-line-args*))))}
 
   ;; ============================================================
   ;; Test + dev loops
@@ -139,15 +160,15 @@
    :task (nos/prepl-eval! *command-line-args*)}
 
   ;; ============================================================
-  ;; Unity coexistence repro
+  ;; Unity dual-runtime regression
   ;; ============================================================
 
   coexist-noise
-  {:doc "Headless coexistence-noise repro on unity-examples/magic-unity-coexist.
-         `bb coexist-noise` tests the dual variant (expect 0 narration lines, the shipped fix); `bb coexist-noise magic-only` tests the default variant (expect 37 lines, the problem).
-         Needs Unity 2022.3.62f3 with no GUI editor holding the project; details in magic.unity/coexist-noise!."
-   :requires ([magic.unity :as unity])
-   :task (unity/coexist-noise! (or (first *command-line-args*) "dual"))}
+  {:doc "Headless Editor-runtime regression on unity-examples/magic-unity-coexist: one package, both Clojure runtimes, MAGIC_RUNTIME_IN_EDITOR selecting between them.
+         `bb coexist-noise` runs both states; `bb coexist-noise stock` / `bb coexist-noise magic` runs one. Every state must be silent and report its own runtime; details in magic.coexist/coexist-noise!.
+         Needs Unity 2022.3.62f3 with no GUI editor holding the project."
+   :requires ([magic.coexist :as coexist])
+   :task (coexist/coexist-noise! (first *command-line-args*))}
 
   ;; ============================================================
   ;; Hygiene + release
