@@ -38,3 +38,8 @@ Assets/Plugins/Magic/
 Assets/Plugins/Magic.meta
 Assets/link.xml
 Assets/link.xml.meta
+
+# Package output, not fixture input; `bb coexist-noise` deletes these before
+# each import so the constraint stamp is re-derived. Rationale in README.md.
+Assets/Plugins/Consumer/*.meta
+Assets/Plugins/Consumer.meta
