@@ -198,7 +198,7 @@ namespace Magic.Unity
             {
                 return;
             }
-            if (!StockClojureCoexistence.ReferencesForkClojure(PackageExportPath.PhysicalPath(importer.assetPath)))
+            if (!StockClojureCoexistence.ReferencesForkClojure(PackageRuntimePath.PhysicalPath(importer.assetPath)))
             {
                 return;
             }

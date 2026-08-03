@@ -55,7 +55,7 @@ public static class CoexistenceProbe
         var forkExportCljEditorOff = PluginImporter.GetAllImporters()
             .Count(i => !i.isNativePlugin
                         && i.assetPath.EndsWith(".clj.dll", StringComparison.OrdinalIgnoreCase)
-                        && i.assetPath.Contains("/Runtime/Infrastructure/Export/")
+                        && i.assetPath.Contains("/Runtime/magic/")
                         && !i.GetCompatibleWithEditor());
 
         Debug.Log($"[CoexistenceProbe] preloaded-clj={preloaded.Length} "

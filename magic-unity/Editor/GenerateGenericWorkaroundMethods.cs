@@ -122,7 +122,7 @@ namespace Magic.Unity
             {
                 foreach (var reference in assembly.allReferences)
                 {
-                    var physical = System.IO.Path.GetFullPath(PackageExportPath.PhysicalPath(reference));
+                    var physical = System.IO.Path.GetFullPath(PackageRuntimePath.PhysicalPath(reference));
                     if (!physical.StartsWith(editorInstall, StringComparison.OrdinalIgnoreCase))
                     {
                         directories.Add(System.IO.Path.GetDirectoryName(physical));
@@ -144,7 +144,7 @@ namespace Magic.Unity
             seen.Add(assydef);
             var resolver = assydef.MainModule.AssemblyResolver as DefaultAssemblyResolver;
             resolver.AddSearchDirectory("Library/ScriptAssemblies");
-            resolver.AddSearchDirectory(PackageExportPath.ExportDirectory);
+            resolver.AddSearchDirectory(PackageRuntimePath.MagicRuntimeDirectory);
             resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(string).Assembly.Location));
             resolver.AddSearchDirectory(System.IO.Path.GetDirectoryName(typeof(UnityEngine.GameObject).Assembly.Location));
             foreach (var directory in PlayerReferenceDirectories)
@@ -204,7 +204,7 @@ namespace Magic.Unity
                          .ToList();
 
             MagicRuntimeDelegateHelpers = AssemblyDefinition
-                                            .ReadAssembly(PackageExportPath.MagicRuntimeDll)
+                                            .ReadAssembly(PackageRuntimePath.MagicRuntimeDll)
                                             .MainModule
                                             .Types
                                             .Where(t => t.FullName == "Magic.DelegateHelpers").Single();

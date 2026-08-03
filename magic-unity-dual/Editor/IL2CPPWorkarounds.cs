@@ -37,7 +37,7 @@ namespace Magic.Unity
 
         static void RewriteAssembly(string file)
         {
-            var runtimeLocation = PackageExportPath.ExportDirectory;
+            var runtimeLocation = PackageRuntimePath.MagicRuntimeDirectory;
             Debug.LogFormat($"[Magic.Unity] runtime location {runtimeLocation}");
 
             var resolver = new DefaultAssemblyResolver();

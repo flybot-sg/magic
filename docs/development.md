@@ -26,7 +26,7 @@ A compiler change needs two bootstrap passes, hence the convenience task `bb dev
 bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'
 ```
 
-**`bb refresh-stdlib`** recompiles every committed stdlib namespace outside the `clojure.core` family into `nostrand/references/`, the built host, and the Unity package's `Export/`.
+**`bb refresh-stdlib`** recompiles every committed stdlib namespace outside the `clojure.core` family into `nostrand/references/`, the built host, and the Unity package's `magic/`.
 
 **`bb build`** is the fresh-clone path and the one CI runs. It cleans first, so the bootstrap is always redone from scratch. **`bb clean`** removes the `bin/` directories and `magic-compiler/bootstrap/`.
 

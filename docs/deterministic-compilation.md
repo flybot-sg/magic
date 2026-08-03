@@ -4,7 +4,7 @@ MAGIC compiles deterministically since v0.10.0, with the last two nondeterminism
 
 That is what makes the drift check simple. After a bootstrap reaches its fixpoint (two passes when the compiler changed, [the bootstrap](./bootstrap.md)), `git status` names exactly the committed DLLs a fix affected, and CI byte-diffs every one of them against a fresh rebuild. A committed DLL whose bytes no longer match that rebuild has **drifted**. Before the bytes were reproducible there was nothing to compare, so the check hashed sources instead, and a whole class of staleness got through.
 
-Two directories hold those committed binaries: `nostrand/references/`, the 73 `.clj.dll` that are the compiler and stdlib themselves, and `magic-unity/Runtime/Infrastructure/Export/`, the 37 stdlib `.clj.dll` plus the two C# runtime DLLs that Unity ships. What each holds and why is in [the bootstrap](./bootstrap.md#what-is-committed-and-why).
+Two directories hold those committed binaries: `nostrand/references/`, the 73 `.clj.dll` that are the compiler and stdlib themselves, and `magic-unity/Runtime/magic/`, the 37 stdlib `.clj.dll` plus the two C# runtime DLLs that Unity ships. What each holds and why is in [the bootstrap](./bootstrap.md#what-is-committed-and-why).
 
 ## A DLL can go stale without its source changing
 
@@ -179,9 +179,9 @@ The callsite templates are the easy case: five Mustache templates, one per calls
 
 A refresh that fails to compile anything deploys nothing and exits non-zero, so a half-written set of committed DLLs is not a state you can reach. And a red run already holds its remedy: the regeneration happens before the diff, so the refreshed files are sitting in the working tree, ready for the paired refresh commit ([CONTRIBUTING.md](../CONTRIBUTING.md)).
 
-## The one exception: the two C# DLLs in `Export/`
+## The one exception: the two C# DLLs in `magic/`
 
-`Export/Clojure.dll` and `Export/Magic.Runtime.dll` are built by csproj, and their csproj stamps a `SourceRevisionId` from `git describe` into the assembly. Their bytes change with every commit by design, and no rebuild reproduces the committed ones. `check-drift` restores those two from HEAD, and maintainers refresh them deliberately.
+`magic/Clojure.dll` and `magic/Magic.Runtime.dll` are built by csproj, and their csproj stamps a `SourceRevisionId` from `git describe` into the assembly. Their bytes change with every commit by design, and no rebuild reproduces the committed ones. `check-drift` restores those two from HEAD, and maintainers refresh them deliberately.
 
 ## Where it came from
 

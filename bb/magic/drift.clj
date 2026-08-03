@@ -43,7 +43,7 @@
 
 (def ^:private dll-dirs
   [references-dir
-   "magic-unity/Runtime/Infrastructure/Export"
+   "magic-unity/Runtime/magic"
    "nostrand/bin/Release/net471"])
 
 (defn touch-dlls!
@@ -108,10 +108,10 @@
                        "magic-unity/package.json"
                        "magic-unity-dual"
                        "nostrand/references"
-                       "magic-unity/Runtime/Infrastructure/Export"]
+                       "magic-unity/Runtime/magic"]
         _ (shell "git" "checkout" "--"
-                 "magic-unity/Runtime/Infrastructure/Export/Clojure.dll"
-                 "magic-unity/Runtime/Infrastructure/Export/Magic.Runtime.dll")
+                 "magic-unity/Runtime/magic/Clojure.dll"
+                 "magic-unity/Runtime/magic/Magic.Runtime.dll")
         _ (unity/gen-dual!)
         {:keys [out]} (apply shell {:continue true :out :string}
                              "git" "status" "--porcelain" "--" checked-paths)]

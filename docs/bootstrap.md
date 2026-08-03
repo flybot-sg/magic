@@ -46,7 +46,7 @@ Two directories hold committed `.clj.dll`, and only one of them holds a compiler
 | Directory | Holds | Loaded by |
 |---|---|---|
 | `nostrand/references/` | 73 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), and the stdlib (37 `clojure.*`) | `nos`, at every startup |
-| `magic-unity/Runtime/Infrastructure/Export/` | the same 37 stdlib `.clj.dll`, plus `Clojure.dll` and `Magic.Runtime.dll` | Unity, at play time and in players |
+| `magic-unity/Runtime/magic/` | the same 37 stdlib `.clj.dll`, plus `Clojure.dll` and `Magic.Runtime.dll` | Unity, at play time and in players |
 
 No compiler ships to Unity, because Unity never compiles Clojure. You compile with `nos` first, and Unity loads the result as ordinary .NET assemblies ([Unity integration](./unity-integration.md)).
 
@@ -101,7 +101,7 @@ sequenceDiagram
     participant host as nostrand host
     participant rt as runtime bin/
     participant boot as bootstrap/
-    participant exp as Export/
+    participant exp as magic/
 
     Note over refs,exp: bb build stamps every committed DLL's mtime, then -t:Clean wipes bin/ and bootstrap/
     refs->>host: -t:Nostrand builds NostrandMain.exe against the committed 73
@@ -153,7 +153,7 @@ Three tasks write committed DLLs, and each owns a different slice of the 73.
 
 Use `bb build` after a fresh clone, when there is no host to run yet. Use `bb bootstrap` for compiler work, which is most of the time. The forwarded arguments are how the `sparse-case` pass below is requested.
 
-`bb refresh-stdlib` owns 28, every namespace under `magic-compiler/src/stdlib/**/*.clj` outside the `clojure.core` family, and is what to run after editing one. It recompiles them and copies each into `references/`, the host's `bin/Release/net471/`, and `Export/` in one go. When a namespace fails to compile it deploys nothing and exits non-zero, so a partial refresh cannot pass for a complete one.
+`bb refresh-stdlib` owns 28, every namespace under `magic-compiler/src/stdlib/**/*.clj` outside the `clojure.core` family, and is what to run after editing one. It recompiles them and copies each into `references/`, the host's `bin/Release/net471/`, and `magic/` in one go. When a namespace fails to compile it deploys nothing and exits non-zero, so a partial refresh cannot pass for a complete one.
 
 `bb check-drift` therefore runs `refresh-stdlib` itself, and wants a fresh `bb build` in front of it. Between them, that is the only way to cover all 73.
 
@@ -316,15 +316,15 @@ The loader picks between `clojure/set.clj` and `clojure.set.clj.dll` by which is
 
 **The rule:** never a raw `dotnet build` after a fresh clone, because it skips the stamping step. The loader's decision tree, the stamping diagram and `MAGIC_DEBUG_LOAD=1` are in [deterministic compilation](./deterministic-compilation.md).
 
-### A Unity player build rewrites Export/ in place
+### A Unity player build rewrites magic/ in place
 
-After a Unity player build, the DLLs in `Export/` are no longer the bytes the compiler wrote.
+After a Unity player build, the DLLs in `magic/` are no longer the bytes the compiler wrote.
 
 The pre-build hook hands each assembly to Mono.Cecil ([Unity integration](./unity-integration.md) covers why), so those files come out as Cecil output rather than compiler output. It happens under both scripting backends, and the bytes differ even when no instruction changed. A Unity run can also flip the exec bit, so compare mode as well as bytes.
 
-To get back to a clean state, restore the directory from HEAD (`git checkout -- magic-unity/Runtime/Infrastructure/Export/`) or regenerate it with `bb refresh-stdlib` or `bb build`. `magic-unity-dual` holds a Unity-untouched copy if you need one.
+To get back to a clean state, restore the directory from HEAD (`git checkout -- magic-unity/Runtime/magic/`) or regenerate it with `bb refresh-stdlib` or `bb build`. `magic-unity-dual` holds a Unity-untouched copy if you need one.
 
-**The rule:** never commit `Export/` straight after a player build. And when a C# runtime fix means `Export/Clojure.dll` genuinely has to be committed, mind the order. `bb check-drift` restores `Clojure.dll` and `Magic.Runtime.dll` from HEAD, because both embed a `git describe` `SourceRevisionId` no rebuild can reproduce. So run `bb check-drift` **first**, then `dotnet build -t:MagicUnity` and `bb gen-unity-dual`, then commit. The other order looks clean and ships the old DLL.
+**The rule:** never commit `magic/` straight after a player build. And when a C# runtime fix means `magic/Clojure.dll` genuinely has to be committed, mind the order. `bb check-drift` restores `Clojure.dll` and `Magic.Runtime.dll` from HEAD, because both embed a `git describe` `SourceRevisionId` no rebuild can reproduce. So run `bb check-drift` **first**, then `dotnet build -t:MagicUnity` and `bb gen-unity-dual`, then commit. The other order looks clean and ships the old DLL.
 
 ### A mono crash during assembly save
 

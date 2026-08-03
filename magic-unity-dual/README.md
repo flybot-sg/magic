@@ -18,7 +18,7 @@ Install exactly one variant; picking between this default and `.dual` is [Packag
 
 ## What the package ships
 
-- `Runtime/Infrastructure/Export/` - prebuilt Clojure runtime: `Clojure.dll`, `Magic.Runtime.dll`, and 37 stdlib `*.clj.dll` (`clojure.core.clj.dll`, `clojure.pprint.clj.dll`, ...). Unity loads these as regular .NET assemblies at play time. The compiler's own DLLs are not among them; the package ships no compiler.
+- `Runtime/magic/` - prebuilt Clojure runtime: `Clojure.dll`, `Magic.Runtime.dll`, and 37 stdlib `*.clj.dll` (`clojure.core.clj.dll`, `clojure.pprint.clj.dll`, ...). Unity loads these as regular .NET assemblies at play time. The compiler's own DLLs are not among them; the package ships no compiler.
 - `Runtime/Magic.Unity.cs` - the `Magic.Unity.Clojure` API (Boot/Require/GetVar) that C# scripts call to drive the Clojure runtime. Sets the platform-appropriate code-load order (`InitType` only on IL2CPP, `InitType` + `FileSystem` in the Editor).
 - `Editor/MagicPreprocessor.cs` - an `IPreprocessBuildWithReport` hook that runs on every build and drives the IL2CPP-specific rewrites below.
 - `Editor/IL2CPPWorkarounds.cs` - walks each candidate assembly with Mono.Cecil and applies `EliminateUnreachableInstructions` (removes dead IL the AOT linker chokes on) and `GenerateGenericWorkaroundMethods` (synthesises reachable instantiations of generic delegate helpers so IL2CPP's generic-sharing pass can find them).
@@ -27,13 +27,13 @@ Install exactly one variant; picking between this default and `.dual` is [Packag
 ## How it works
 
 1. You compile your own Clojure namespaces outside Unity with `nos build`, writing them into `Assets/Plugins/Magic/`. A `.clj` source becomes `foo.clj.dll`, a `.cljc` becomes `foo.cljc.dll` and a `.cljr` becomes `foo.cljr.dll`; the Editor hooks below match all three. A project needing build steps the built-in task does not cover writes its own instead, as [magic-unity-smoke](../unity-examples/magic-unity-smoke/dotnet.clj) does.
-2. Unity opens the project. The prebuilt runtime + stdlib from `Runtime/Infrastructure/Export/` and your own `.clj.dll`s are both loaded as plain .NET assemblies. `Magic.Unity.Clojure.Boot()` initialises the runtime; `Require` / `GetVar` let C# scripts call into Clojure.
+2. Unity opens the project. The prebuilt runtime + stdlib from `Runtime/magic/` and your own `.clj.dll`s are both loaded as plain .NET assemblies. `Magic.Unity.Clojure.Boot()` initialises the runtime; `Require` / `GetVar` let C# scripts call into Clojure.
 3. On every build, `MagicPreprocessor` runs first. When the build target uses IL2CPP, it rewrites the `.clj.dll` bodies in place so the IL2CPP transpiler can consume them (and writes `link.xml` entries); on a Mono build the preprocessor only sweeps any leftover IL2CPP-only workarounds from a previous build. The runtime DLLs are loaded the same way under either backend.
 4. Coexistence with ClojureCLR: if a strong-named `Clojure.dll` is found under `Assets` (projects that keep ClojureCLR for Editor work and MAGIC for shipped builds), every MAGIC-compiled assembly is imported with Editor loading off. The reason is assembly enumeration order: ClojureCLR resolves a namespace by scanning the loaded assemblies for a `<ns>__Init` type and taking the first match, so a MAGIC `.clj.dll` sitting in the Editor domain can answer for a `clojure.*` namespace, and its answer throws. Keeping them out of the domain, rather than off the filesystem, is what fixes it. With this default variant the runtime ships Editor-loadable, so on an immutable (PackageCache) install the Editor logs `Assembly '...clj.dll' will not be loaded due to errors: Assembly is incompatible with the editor` for the package's `Export` DLLs on every domain reload. These lines are benign (Unity reporting the intended exclusion, not a failure), and player builds are unaffected. To silence them, use the [`.dual` variant](#package-variants), which ships the runtime excluded from the Editor by construction.
 
 ## Package variants
 
-The package is shipped in two variants. They are identical except for one thing: whether the runtime `Runtime/Infrastructure/Export/*.clj.dll` plugins carry a `!UNITY_EDITOR` define constraint. That single difference decides whether the MAGIC runtime is visible to the Editor.
+The package is shipped in two variants. They are identical except for one thing: whether the runtime `Runtime/magic/*.clj.dll` plugins carry a `!UNITY_EDITOR` define constraint. That single difference decides whether the MAGIC runtime is visible to the Editor.
 
 | | `sg.flybot.magic.unity` (default) | `sg.flybot.magic.unity.dual` |
 |---|---|---|
