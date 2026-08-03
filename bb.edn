@@ -71,6 +71,11 @@
    :task (println "Generated magic-unity-dual -" (unity/gen-dual!)
                   "runtime plugins constrained to !UNITY_EDITOR")}
 
+  sync-clojure-clr
+  {:doc "Add the latest release of stock ClojureCLR into magic-unity."
+   :requires ([magic.clojure-clr :as clojure-clr])
+   :task (clojure-clr/sync! (first *command-line-args*))}
+
   check-drift
   {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version, dual variant) and fail if any checked path differs from HEAD.
          Committed DLLs are byte-diffed; run after a fresh `bb build` so the bootstrap set is covered too, as CI does.
