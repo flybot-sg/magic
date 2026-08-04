@@ -72,6 +72,29 @@
         p   (Path/Combine stdlib-root (str rel ".clj"))]
     (when (File/Exists p) (FileInfo. p))))
 
+(defn- compile-namespaces!
+  "Compile each namespace into tmp-dir, printing progress. Returns a vector of
+   [ns message] for the ones that threw, empty when all of them compiled."
+  [namespaces tmp-dir]
+  (binding [clojure.core/*eval-form-fn*       api/eval
+            clojure.core/*compile-file-fn*    api/runtime-compile-file
+            clojure.core/*load-file-fn*       api/runtime-load-file
+            clojure.core/*warn-on-reflection* true
+            clojure.core/*compile-path*       tmp-dir
+            clojure.core/*compile-files*      true]
+    (reduce (fn [failed ns]
+              (print (str "compiling " ns " ... "))
+              (flush)
+              (try
+                (api/compile-namespace ns {:write-files true :suppress-print-forms true})
+                (println "ok")
+                failed
+                (catch Exception e
+                  (println "FAILED:" (.Message e))
+                  (conj failed [ns (.Message e)]))))
+            []
+            namespaces)))
+
 (defn stdlib [& _args]
   ;; ordinal sort: compile order feeds the gensym stream, and the default
   ;; culture-sensitive string compare orders differently across OS collations
@@ -109,20 +132,16 @@
     (when (Directory/Exists tmp-dir) (Directory/Delete tmp-dir true))
     (Directory/CreateDirectory tmp-dir)
 
-    (binding [clojure.core/*eval-form-fn*       api/eval
-              clojure.core/*compile-file-fn*    api/runtime-compile-file
-              clojure.core/*load-file-fn*       api/runtime-load-file
-              clojure.core/*warn-on-reflection* true
-              clojure.core/*compile-path*       tmp-dir
-              clojure.core/*compile-files*      true]
-      (doseq [ns (concat top-level-nss subfile-nss)]
-        (print (str "compiling " ns " ... "))
-        (flush)
-        (try
-          (api/compile-namespace ns {:write-files true :suppress-print-forms true})
-          (println "ok")
-          (catch Exception e
-            (println "FAILED:" (.Message e))))))
+    (let [to-compile (concat top-level-nss subfile-nss)]
+      ;; a half-refreshed set of committed DLLs is what this task exists to prevent
+      (when-let [failures (seq (compile-namespaces! to-compile tmp-dir))]
+        (println (str (count failures) " of " (count to-compile)
+                      " namespaces failed to compile, so nothing was deployed"
+                      " and the committed DLLs are untouched:"))
+        (doseq [[ns message] failures]
+          (println (str "  " ns " - " message)))
+        (throw (ex-info "refresh/stdlib did not compile every namespace"
+                        {:failed (mapv first failures)}))))
 
     (let [produced (->> (Directory/EnumerateFiles tmp-dir "clojure.*.clj.dll")
                         (map #(Path/GetFileName ^String %))
