@@ -23,31 +23,21 @@
 (def ^:private stdlib-root "src/stdlib")
 
 (def ^:private bootstrap-namespaces
-  "Namespaces compiled by build.clj's bootstrap chain. We must NOT re-compile
-   these here because their source re-defines runtime vars like *load-paths*
-   that would break subsequent compiles in the same process. They are kept
-   in sync via `bb bootstrap`."
+  "Namespaces this task must not recompile: clojure.core plus the eight units
+   build.clj compiles with it. Recompiling core.clj re-executes its top-level
+   forms here, rebinding *load-paths* so nothing compiled afterwards resolves
+   its source. The six `(in-ns 'clojure.core)` sub-files and the two namespaces
+   core.clj pulls in are that same unit, and recompiling one of them re-emits
+   clojure.core, which this task cannot write."
   '#{clojure.core
      clojure.core-clr
      clojure.core-proxy
      clojure.core-print
      clojure.core-deftype
-     clojure.string
-     clojure.set
-     clojure.walk
      clojure.clr.io
      clojure.gvec
      clojure.genclass
-     clojure.core.protocols
-     clojure.tools.analyzer
-     clojure.tools.analyzer.ast
-     clojure.tools.analyzer.env
-     clojure.tools.analyzer.utils
-     clojure.tools.analyzer.passes
-     clojure.tools.analyzer.passes.cleanup
-     clojure.tools.analyzer.passes.elide-meta
-     clojure.tools.analyzer.passes.source-info
-     clojure.tools.analyzer.passes.trim})
+     clojure.core.protocols})
 
 (defn- top-level-ns?
   "True if the file's first non-comment, non-blank line starts with `(ns`.
