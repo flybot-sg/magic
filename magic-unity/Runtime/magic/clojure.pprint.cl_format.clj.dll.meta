@@ -1,11 +1,12 @@
 fileFormatVersion: 2
-guid: 1bc4a08fbcea95e70b98721785de4484
+guid: 74111e47baabfdb24009652afd4a5ce4
 PluginImporter:
   externalObjects: {}
   serializedVersion: 2
   iconMap: {}
   executionOrder: {}
-  defineConstraints: []
+  defineConstraints:
+  - '!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR'
   isPreloaded: 0
   isOverridable: 0
   isExplicitlyReferenced: 0
