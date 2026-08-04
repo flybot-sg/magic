@@ -8,7 +8,7 @@
      [types :refer [ast-type numeric integer]]])
   (:import [System.Reflection BindingFlags]))
 
-(def intrinsic-forms (atom {}))
+(defonce intrinsic-forms (atom {}))
 
 (defn register-intrinsic-form [sym type-fn il-fn]
   (if (namespace sym)
