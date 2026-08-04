@@ -19,7 +19,7 @@ The polarity is not a preference: Unity ANDs negated terms inside a `||` group, 
 
 ### Tooling
 - `bb coexist-noise` is re-keyed on Editor runtime state (`bb coexist-noise stock` / `magic`, or both by default) and asserts each state's expectations, instead of one hardcoded outcome that could only describe the retired dual variant.
-- New `bb check-constraints` (run by `bb check-drift`) fails if any DLL under `Runtime/Infrastructure/{Export,Stock}/` loses its runtime-selection constraint — a newly added DLL arrives with an unconstrained `.meta` from Unity and nothing else would notice.
+- `bb check-drift` (and `bb write-metas`) now fails if any DLL under `Runtime/Infrastructure/{Export,Stock}/` loses its runtime-selection constraint — a newly added DLL arrives with an unconstrained `.meta` from Unity and nothing else would notice. The check is `magic.unity/check-constraints!`; run it alone with `bb -e "(require '[magic.unity :as u]) (u/check-constraints!)"`.
 - `bb verify-dist` is now only the `nos version` smoke test. Booting the runtime already fails on a missing launcher, runtime DLL or stdlib `.clj.dll`, and the `magic-unity` DLLs it used to check for are tracked in git and byte-diffed by `bb check-drift` on every PR — so the file-existence checks duplicated a gate that runs earlier.
 
 ## v0.11.0 - 2026-07-24

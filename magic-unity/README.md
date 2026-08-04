@@ -13,14 +13,14 @@ Consume as a UPM package via git URL in `Packages/manifest.json`, pinned to a ta
 "sg.flybot.magic.unity": "https://github.com/flybot-sg/magic.git?path=magic-unity#<tag>"
 ```
 
-That is the whole install, for every project. **Player builds always run MAGIC.** In the **Editor**, this package loads *stock ClojureCLR* by default; if you want MAGIC in the Editor too (Play mode, edit-mode tooling), turn it on from `MAGIC > Editor Runtime > Use MAGIC in the Editor` — see [Choosing the Editor runtime](#choosing-the-editor-runtime).
+**Player builds always run MAGIC.** In the **Editor**, this package loads *stock ClojureCLR* by default; if you want MAGIC in the Editor too (Play mode, edit-mode tooling), turn it on from `MAGIC > Editor Runtime > Use MAGIC in the Editor` — see [Choosing the Editor runtime](#choosing-the-editor-runtime).
 
 See [magic-unity-smoke](../unity-examples/magic-unity-smoke) for a working IL2CPP regression project that uses this integration.
 
 ## What the package ships
 
 - `Runtime/Infrastructure/Export/` - prebuilt MAGIC Clojure runtime: `Clojure.dll`, `Magic.Runtime.dll`, and the full stdlib as `*.clj.dll` (e.g. `clojure.core.clj.dll`, `clojure.pprint.clj.dll`, ...). Unity loads these as regular .NET assemblies at play time.
-- `Runtime/Infrastructure/Stock/` - stock ClojureCLR 1.11.0 (net462) and the DLR it needs, Editor-only. This is what the Editor loads unless you opt into MAGIC. Third-party, under EPL-1.0 / Apache-2.0; see [Third Party Notices.md](./Third%20Party%20Notices.md).
+- `Runtime/Infrastructure/Stock/` - stock ClojureCLR 1.11.0 (net462). This is what the Editor loads unless you opt into MAGIC.
 - `Runtime/Magic.Unity.cs` - the `Magic.Unity.Clojure` API (Boot/Require/GetVar) that C# scripts call to drive the Clojure runtime. Sets the platform-appropriate code-load order (`InitType` only on IL2CPP, `InitType` + `FileSystem` in the Editor).
 - `Editor/MagicPreprocessor.cs` - an `IPreprocessBuildWithReport` hook that runs on every build and drives the IL2CPP-specific rewrites below.
 - `Editor/IL2CPPWorkarounds.cs` - walks each candidate assembly with Mono.Cecil and applies `EliminateUnreachableInstructions` (removes dead IL the AOT linker chokes on) and `GenerateGenericWorkaroundMethods` (synthesises reachable instantiations of generic delegate helpers so IL2CPP's generic-sharing pass can find them).
@@ -35,7 +35,7 @@ See [magic-unity-smoke](../unity-examples/magic-unity-smoke) for a working IL2CP
 
 ## Choosing the Editor runtime
 
-One package, both runtimes. A single scripting define symbol, `MAGIC_RUNTIME_IN_EDITOR`, decides which one the **Editor** loads:
+A scripting define symbol, `MAGIC_RUNTIME_IN_EDITOR`, decides which runtime the **Editor** loads:
 
 | | symbol unset (default) | symbol set | player build |
 |---|---|---|---|

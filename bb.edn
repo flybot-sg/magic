@@ -78,15 +78,11 @@
              (unity/write-metas!))}
 
   write-metas
-  {:doc "Create a Unity .meta for every magic-unity DLL that lacks one."
+  {:doc "Create a Unity .meta for every magic-unity DLL that lacks one, then fail unless every one of them carries its runtime-selection constraint block.
+         Existing metas are never rewritten, so a wrong block is reported rather than silently corrected."
    :requires ([magic.unity :as unity])
    :task (do (unity/write-metas!)
              (unity/check-constraints!))}
-
-  check-constraints
-  {:doc "Verify every magic-unity DLL .meta carries its define constraints."
-   :requires ([magic.unity :as unity])
-   :task (unity/check-constraints!)}
 
   check-drift
   {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version), verify the runtime-selection constraints, and fail if any checked path differs from HEAD.

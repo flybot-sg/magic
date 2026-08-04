@@ -1,165 +1,80 @@
 (ns magic.unity
-  "Babashka helpers for the MAGIC Unity package: author and check the
-   runtime-selection define constraints that decide which Clojure runtime the
-   Editor loads. See docs/dual-runtimes.md. The headless regression that proves
-   both Editor states work lives in magic.coexist."
+  "Helpers for the MAGIC Unity package: write and check the
+   constraints for the runtime DLLs."
   (:require [babashka.fs :as fs]
             [clojure.edn :as edn]
             [clojure.string :as str]
             [magic.log :as log])
   (:import [java.security MessageDigest]))
 
-(def default-pkg "magic-unity")
+(def ^:private default-pkg "magic-unity")
 
 ;;; Runtime-selection constraints
 
-;; The whole Editor/player runtime policy, as plugin metadata. Entries in a
-;; block are AND-ed; within an entry `||` means "every negated term absent, or
-;; any plain term present", which is why the selector appears un-negated in the
-;; MAGIC block. Players define no UNITY_EDITOR, so MAGIC is satisfied there
-;; whatever the symbol says and Stock never is. See docs/dual-runtimes.md.
 (def ^:private constraint-blocks
-  {"Export" ["'!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR'"]
-   "Stock"  ["UNITY_EDITOR" "'!MAGIC_RUNTIME_IN_EDITOR'"]})
+  {"Export" ["!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR"]
+   "Stock"  ["UNITY_EDITOR" "!MAGIC_RUNTIME_IN_EDITOR"]})
+
+(def ^:private bare-symbol
+  "An entry YAML reads plainly. Unity quotes the rest; a leading `!` is a tag."
+  #"[A-Za-z_][A-Za-z0-9_]*")
+
+(defn- yaml-entry [entry]
+  (if (re-matches bare-symbol entry)
+    entry
+    (str "'" entry "'")))
 
 (defn- define-constraints
-  "The defineConstraints entries a plugin meta declares, verbatim."
+  "The entries a plugin meta declares, unquoted. Absent and empty both read none."
   [meta-yaml]
   (->> (str/split-lines meta-yaml)
-       (drop-while #(not= "  defineConstraints:" (str/trim-newline %)))
+       (drop-while #(not (re-find #"^\s*defineConstraints:" %)))
        rest
-       (take-while #(str/starts-with? % "  - "))
-       (mapv #(str/trim (subs % 4)))))
+       ;; map, not keep: the nil from the first non-item line is what stops
+       ;; take-while. keep drops it and runs on into platformData's `- first:`.
+       (map #(second (re-matches #"\s*-\s+(.*)" %)))
+       (take-while some?)
+       (mapv #(or (second (re-matches #"'(.*)'" (str/trim %)))
+                  (str/trim %)))))
 
-;; The Include Platforms panel, serialized. Redundant with the constraints, but
-;; Unity shows both in the Inspector and they read as a contradiction if only
-;; one is set. Whatever is written here is permanent: Unity re-normalizes a
-;; plugin importer only where the meta is writable, never inside an immutable
-;; UPM package. Export therefore copies its committed sibling
-;; clojure.core.clj.dll -- a fossil of being authored under Assets/ years ago --
-;; rather than the equivalent minimal `Any: enabled: 1`.
-(def ^:private platform-data
-  {"Export" ["  - first:"
-             "      : Any"
-             "    second:"
-             "      enabled: 0"
-             "      settings:"
-             "        Exclude Android: 0"
-             "        Exclude Editor: 0"
-             "        Exclude Linux64: 0"
-             "        Exclude OSXUniversal: 0"
-             "        Exclude WebGL: 0"
-             "        Exclude Win: 0"
-             "        Exclude Win64: 0"
-             "  - first:"
-             "      Android: Android"
-             "    second:"
-             "      enabled: 1"
-             "      settings: {}"
-             "  - first:"
-             "      Any: "
-             "    second:"
-             "      enabled: 1"
-             "      settings: {}"
-             "  - first:"
-             "      Editor: Editor"
-             "    second:"
-             "      enabled: 1"
-             "      settings:"
-             "        DefaultValueInitialized: true"
-             "  - first:"
-             "      Standalone: Linux64"
-             "    second:"
-             "      enabled: 1"
-             "      settings: {}"
-             "  - first:"
-             "      Standalone: OSXUniversal"
-             "    second:"
-             "      enabled: 1"
-             "      settings: {}"
-             "  - first:"
-             "      Standalone: Win"
-             "    second:"
-             "      enabled: 1"
-             "      settings: {}"
-             "  - first:"
-             "      Standalone: Win64"
-             "    second:"
-             "      enabled: 1"
-             "      settings: {}"
-             "  - first:"
-             "      WebGL: WebGL"
-             "    second:"
-             "      enabled: 1"
-             "      settings: {}"
-             "  - first:"
-             "      Windows Store Apps: WindowsStoreApps"
-             "    second:"
-             "      enabled: 0"
-             "      settings:"
-             "        CPU: AnyCPU"]
-   "Stock"  ["  - first:"
-             "      Any: "
-             "    second:"
-             "      enabled: 0"
-             "      settings: {}"
-             "  - first:"
-             "      Editor: Editor"
-             "    second:"
-             "      enabled: 1"
-             "      settings:"
-             "        DefaultValueInitialized: true"]})
-
-(defn- infrastructure-dir [set-name]
+(defn infrastructure-dir
+  "Where a runtime set's DLLs live in the package."
+  [set-name]
   (str default-pkg "/Runtime/Infrastructure/" set-name))
 
 (defn- infrastructure-dlls [set-name]
   (sort (fs/glob (infrastructure-dir set-name) "*.dll")))
 
-;; A third copy of the MAGIC entry: the Editor postprocessor stamps it onto
-;; consumer *.clj.dll under Assets/. Renaming the symbol here but not in the
-;; metas would constrain consumer DLLs on a symbol nothing defines, excluding
-;; them from the Editor in *both* states, silently.
-(def ^:private stamper-path "magic-unity/Editor/CljPluginConstraints.cs")
+(def ^:private stamper-path (str default-pkg "/Editor/CljPluginConstraints.cs"))
 
 (defn- stamper-agrees?
-  "Whether the import-time stamper's C# constant is the Export entry, unquoted."
+  "Whether the import-time stamper's C# constant is the Export entry."
   []
-  (let [entry (str/replace (first (constraint-blocks "Export")) #"^'|'$" "")]
-    (str/includes? (slurp stamper-path) (str "\"" entry "\""))))
+  (str/includes? (slurp stamper-path)
+                 (str "\"" (first (constraint-blocks "Export")) "\"")))
 
 ;;; Authoring the metas
 
 (defn- guid
-  "Deterministic 32-hex asset GUID, so a meta that has to be recreated keeps the
-   GUID Unity already recorded."
-  [set-name name]
+  "Deterministic 32-hex GUID, so a recreated meta keeps the one Unity recorded."
+  [set-name asset-name]
   (->> (.digest (MessageDigest/getInstance "MD5")
-                (.getBytes (str "sg.flybot.magic.unity/" set-name "/" name) "UTF-8"))
+                (.getBytes (str "sg.flybot.magic.unity/" set-name "/" asset-name) "UTF-8"))
        (map #(format "%02x" (bit-and % 0xff)))
        (apply str)))
 
-;; isExplicitlyReferenced: 0 (auto-referenced) is load-bearing for Stock: in the
-;; symbol-unset default state Magic.Unity.cs compiles against that Clojure.dll.
-(defn- plugin-meta [set-name name]
-  (str "fileFormatVersion: 2\n"
-       "guid: " (guid set-name name) "\n"
-       "PluginImporter:\n"
-       "  externalObjects: {}\n"
-       "  serializedVersion: 2\n"
-       "  iconMap: {}\n"
-       "  executionOrder: {}\n"
-       "  defineConstraints:\n"
-       (str/join (for [entry (constraint-blocks set-name)] (str "  - " entry "\n")))
-       "  isPreloaded: 0\n"
-       "  isOverridable: 0\n"
-       "  isExplicitlyReferenced: 0\n"
-       "  validateReferences: 1\n"
-       "  platformData:\n"
-       (str/join (for [line (platform-data set-name)] (str line "\n")))
-       "  userData: \n"
-       "  assetBundleName: \n"
-       "  assetBundleVariant: \n"))
+;; Real Unity-written metas with the two authored fields punched out.
+;; Both sets are auto-referenced (isExplicitlyReferenced: 0): Magic.Unity.asmdef
+;; names no precompiled references, so it binds whichever Clojure.dll the
+;; constraints admit -- Stock in the default Editor, Export otherwise.
+(def ^:private template-dir "bb/templates/plugin-meta")
+
+(defn- plugin-meta [set-name dll-name]
+  (-> (slurp (str template-dir "/" set-name ".meta.tmpl"))
+      (str/replace "{{guid}}" (guid set-name dll-name))
+      (str/replace "{{defineConstraints}}"
+                   (str/join "\n" (for [entry (constraint-blocks set-name)]
+                                    (str "  - " (yaml-entry entry)))))))
 
 (defn- folder-meta [set-name]
   (str "fileFormatVersion: 2\n"
@@ -172,77 +87,69 @@
        "  assetBundleVariant: \n"))
 
 (defn- write-missing-meta!
-  "Never overwrites: the constraint block is policy and the GUID must not churn
-   under a consumer, so a wrong-but-present meta is check-constraints!'s to
-   report. Returns path when it wrote."
+  "Does not overwrite, as existing files and GUIDs shouldn't change. A wrong
+   meta will be reported by check-constraints!. Returns path when it wrote."
   [path content]
   (when-not (fs/exists? path)
     (spit path content)
     path))
 
 (defn write-metas!
-  "Create a plugin .meta for every shipped DLL that lacks one, and a folder meta
-   per set directory. Run after vendoring or adding a DLL: one Unity cannot
-   import is one with no runtime-selection constraint on it."
+  "Create a plugin .meta for every shipped DLL that lacks one, plus a folder meta
+   per set."
   []
-  (let [created (doall
-                 (concat
-                  (for [[set-name] constraint-blocks
-                        :let [dir (infrastructure-dir set-name)]
-                        :when (fs/exists? dir)
-                        :let [path (write-missing-meta! (str dir ".meta")
-                                                        (folder-meta set-name))]
-                        :when path]
-                    path)
-                  (for [[set-name] constraint-blocks
-                        dll (infrastructure-dlls set-name)
-                        :let [path (write-missing-meta! (str dll ".meta")
-                                                        (plugin-meta set-name (fs/file-name dll)))]
-                        :when path]
-                    path)))]
+  (let [sets     (keys constraint-blocks)
+        ;; What should exist, as [path content] pairs.
+        folders  (for [set-name sets
+                       :let [dir (infrastructure-dir set-name)]
+                       :when (fs/exists? dir)]
+                   [(str dir ".meta") (folder-meta set-name)])
+        plugins  (for [set-name sets
+                       dll      (infrastructure-dlls set-name)]
+                   [(str dll ".meta") (plugin-meta set-name (fs/file-name dll))])
+        created  (into [] (keep #(apply write-missing-meta! %))
+                       (concat folders plugins))]
     (if (seq created)
-      (do (doseq [path created] (println "  created" path))
+      (do (run! #(println "  created" %) created)
           (println (count created) "meta files created."))
       (println "Every shipped DLL already has a .meta."))))
 
 ;;; Checking them
 
 (defn check-constraints!
-  "Fail unless every shipped DLL has a meta carrying its set's constraint block,
-   and the import-time stamper agrees. Leaving one unconstrained is not
-   cosmetic: two Editor-eligible Clojure.dll hand runtime selection back to
-   Unity's file-name dedup, and an unconstrained *.clj.dll loads into a stock
-   Editor with no log line at all.
-
-   Iterates the DLLs, not the metas: a missing meta is the one case a sweep over
-   *.dll.meta cannot see, and the likeliest way a vendored file goes
-   unconstrained."
+  "Fail unless every shipped DLL's meta carries its set's constraint block and
+   the stamper agrees. Two unconstrained Clojure.dlls in the Editor are
+   de-duplicated by Unity's file-name mechanism. Finds missing metas too."
   []
-  (let [wrong (for [[set-name expected] constraint-blocks
-                    dll (infrastructure-dlls set-name)
-                    :let [meta-file (str dll ".meta")]
-                    :when (or (not (fs/exists? meta-file))
-                              (not= expected (define-constraints (slurp meta-file))))]
-                (if-not (fs/exists? meta-file)
+  (let [sets  (mapv (fn [[set-name expected]]
+                      [set-name expected (infrastructure-dlls set-name)])
+                    constraint-blocks)
+        wrong (for [[_ expected dlls] sets
+                    dll dlls
+                    ;; nil = no meta; [] = meta declaring none. `expected` is not empty,
+                    ;; so nil or empty metas are caught
+                    :let [meta-file (str dll ".meta")
+                          found     (when (fs/exists? meta-file)
+                                      (define-constraints (slurp meta-file)))]
+                    :when (not= expected found)]
+                (if (nil? found)
                   (str "  " dll "\n"
                        "    has no .meta at all; run `bb write-metas`")
                   (str "  " meta-file "\n"
                        "    expected " (pr-str expected) "\n"
-                       "    found    " (pr-str (define-constraints (slurp meta-file))))))]
+                       "    found    " (pr-str found))))]
     (when (seq wrong)
       (apply log/fail! "define constraints are wrong"
-             (concat ["" "These shipped DLLs do not carry the runtime-selection block"
-                      "documented in docs/dual-runtimes.md:" ""]
+             (concat ["" "These shipped DLLs do not carry the runtime-selection block" ""]
                      wrong)))
     (when-not (stamper-agrees?)
       (log/fail! "define constraints are wrong"
                  ""
                  (str "  " stamper-path " does not stamp the Export entry")
-                 (str "  " (pr-str (first (constraint-blocks "Export"))) " onto consumer *.clj.dll.")
-                 "  Consumer DLLs would be constrained on a symbol nothing defines."))
+                 (str "  " (pr-str (first (constraint-blocks "Export"))) " onto consumer *.clj.dll.")))
     (println "define constraints OK -"
-             (str/join ", " (for [[set-name] constraint-blocks]
-                              (str (count (infrastructure-dlls set-name)) " in " set-name "/")))
+             (str/join ", " (for [[set-name _ dlls] sets]
+                              (str (count dlls) " in " set-name "/")))
              "+ the import-time stamper")))
 
 (defn sync-upm-version!
