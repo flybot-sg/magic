@@ -1,11 +1,12 @@
 fileFormatVersion: 2
-guid: 5cf4cbc1b276f89b1adaf1e50eab5b07
+guid: 128e4f68f630e08c626fe815d0bb5c56
 PluginImporter:
   externalObjects: {}
   serializedVersion: 2
   iconMap: {}
   executionOrder: {}
-  defineConstraints: []
+  defineConstraints:
+  - '!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR'
   isPreloaded: 0
   isOverridable: 0
   isExplicitlyReferenced: 0
@@ -27,8 +28,7 @@ PluginImporter:
       Android: Android
     second:
       enabled: 1
-      settings:
-        CPU: ARMv7
+      settings: {}
   - first:
       Any: 
     second:
@@ -39,33 +39,27 @@ PluginImporter:
     second:
       enabled: 1
       settings:
-        CPU: AnyCPU
         DefaultValueInitialized: true
-        OS: AnyOS
   - first:
       Standalone: Linux64
     second:
       enabled: 1
-      settings:
-        CPU: AnyCPU
+      settings: {}
   - first:
       Standalone: OSXUniversal
     second:
       enabled: 1
-      settings:
-        CPU: x86_64
+      settings: {}
   - first:
       Standalone: Win
     second:
       enabled: 1
-      settings:
-        CPU: x86
+      settings: {}
   - first:
       Standalone: Win64
     second:
       enabled: 1
-      settings:
-        CPU: x86_64
+      settings: {}
   - first:
       WebGL: WebGL
     second:
