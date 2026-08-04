@@ -43,8 +43,8 @@
 
   refresh-stdlib
   {:doc "Recompile every committed stdlib clojure.*.clj.dll from source, redeploy to nostrand/references/, nostrand/bin/Release/net471/, and magic-unity Export, then re-record dll-sources.edn.
-         Use after editing any magic-compiler/src/stdlib/**/*.clj.
-         Bootstrap namespaces (clojure.core etc.) are skipped; those need `bb bootstrap`."
+         Use after editing any magic-compiler/src/stdlib/**/*.clj: this owns every stdlib namespace outside the clojure.core family, clojure.string, clojure.set and clojure.walk included, and produces the same bytes the bootstrap would.
+         The clojure.core family (core, its 6 (in-ns 'clojure.core) sub-files, core.protocols, clr.io) needs `bb bootstrap`, as do the compiler's own magic.* and mage DLLs."
    :requires ([magic.drift :as drift])
    :depends [-check-nostrand]
    :task (do (drift/touch-dlls!)
