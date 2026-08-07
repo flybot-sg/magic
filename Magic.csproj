@@ -1,7 +1,6 @@
-<Project>
+<Project DefaultTargets="All">
     <PropertyGroup>
         <NostrandExeNet4x>nostrand/bin/Release/net471/NostrandMain.exe</NostrandExeNet4x>
-        <NostrandExeNet5>nostrand/bin/Release/net5.0/NostrandMain.dll</NostrandExeNet5>
         <MagicUnityInfrastructureExport>magic-unity/Runtime/Infrastructure/Export</MagicUnityInfrastructureExport>
         <ClojureRuntimeDllNet471>clojure-runtime/bin/Release/net471/Clojure.dll</ClojureRuntimeDllNet471>
         <ClojureRuntimeDllNetStandard>clojure-runtime/bin/Release/netstandard2.0/Clojure.dll</ClojureRuntimeDllNetStandard>
@@ -21,7 +20,9 @@
         <Exec Command="dotnet build -t:MagicUnity" />
     </Target>
 
-    <Target Name="Nostrand" Condition="!Exists('$(NostrandExeNet4x)') Or !Exists('$(NostrandExeNet5)')">
+    <!-- Do not guard on Exists(): dotnet build is incremental by timestamp, and an
+         existence check keeps a stale host after a C# edit. -->
+    <Target Name="Nostrand">
         <Exec WorkingDirectory="nostrand" Command="dotnet build -c Release" />
     </Target>
     <Target Name="Magic" DependsOnTargets="Nostrand" Condition="!Exists('$(MagicBootstrap)')">
@@ -38,6 +39,6 @@
     </Target>
 
     <Target Name="Clean">
-        <RemoveDir Directories="clojure-runtime/bin;nostrand/bin;magic-runtime/bin;magic-compiler/bootstrap" />
+        <RemoveDir Directories="clojure-runtime/bin;nostrand/bin;magic-runtime/Magic.Runtime/bin;magic-runtime/Magic.Runtime.Callsites/bin;magic-compiler/bootstrap" />
     </Target>
 </Project>

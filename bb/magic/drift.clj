@@ -1,10 +1,10 @@
 (ns magic.drift
   "The drift check and its dll-sources.edn manifest: the SHA256 of the .clj
    source behind each committed reference DLL, re-recorded by refresh-stdlib /
-   bootstrap. check-drift fails when it differs from HEAD, meaning a source
-   was edited without refreshing its DLL. The check hashes sources only, no
-   compiler run, so it also works in an environment whose toolchain cannot
-   reproduce the committed DLL bytes (the check-drift skip-dlls fallback)."
+   bootstrap. check-drift fails when a checked path differs from HEAD, meaning
+   a source was edited without refreshing its DLL. This namespace also stamps
+   the DLL mtimes from that manifest: a source that still hashes gets its DLL
+   stamped newer, so the loader takes the committed bytes over recompiling."
   (:require [babashka.fs :as fs]
             [babashka.tasks :refer [shell]]
             [clojure.edn]
@@ -101,23 +101,17 @@
    checked path differs from HEAD. Committed DLLs are byte-diffed, except
    Export's Clojure.dll and Magic.Runtime.dll: they embed a git-describe
    SourceRevisionId (csproj SetSourceRevisionId target), so their bytes are
-   commit-dependent by design and are restored from HEAD instead. skip-dlls?
-   restores all committed DLLs and relies on the dll-sources.edn source
-   hashes: the fallback for an environment that fails to reproduce the bytes."
-  [skip-dlls?]
-  (let [checked-paths (cond-> ["magic-runtime/Magic.Runtime/Generated"
-                               manifest-path
-                               "magic-unity/package.json"
-                               "magic-unity-dual"]
-                        (not skip-dlls?)
-                        (conj "nostrand/references"
-                              "magic-unity/Runtime/Infrastructure/Export"))
-        _ (apply shell "git" "checkout" "--"
-                 (if skip-dlls?
-                   ["nostrand/references/"
-                    "magic-unity/Runtime/Infrastructure/Export/"]
-                   ["magic-unity/Runtime/Infrastructure/Export/Clojure.dll"
-                    "magic-unity/Runtime/Infrastructure/Export/Magic.Runtime.dll"]))
+   commit-dependent by design and are restored from HEAD instead."
+  []
+  (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
+                       manifest-path
+                       "magic-unity/package.json"
+                       "magic-unity-dual"
+                       "nostrand/references"
+                       "magic-unity/Runtime/Infrastructure/Export"]
+        _ (shell "git" "checkout" "--"
+                 "magic-unity/Runtime/Infrastructure/Export/Clojure.dll"
+                 "magic-unity/Runtime/Infrastructure/Export/Magic.Runtime.dll")
         _ (unity/gen-dual!)
         {:keys [out]} (apply shell {:continue true :out :string}
                              "git" "status" "--porcelain" "--" checked-paths)]
