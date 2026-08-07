@@ -1,9 +1,11 @@
 (ns magic.nos
-  "Invocation of the repo-built Nostrand binary, plus the prepl client."
+  "Invocation of the repo-built Nostrand binary, the bootstrap pass, and the
+   prepl client."
   (:require [babashka.fs :as fs]
             [babashka.tasks :refer [shell]]
             [clojure.java.io :as io]
             [clojure.string :as str]
+            [magic.drift :as drift]
             [magic.log :as log]))
 
 (def exe "nostrand/bin/Release/net471/NostrandMain.exe")
@@ -19,6 +21,20 @@
   "Run a Nostrand task from magic-compiler/ with the repo-built binary."
   [task & args]
   (apply shell {:dir "magic-compiler"} "mono" (str "../" exe) task args))
+
+(defn bootstrap!
+  "One bootstrap pass: compile the compiler with whatever compiler is currently
+   in references/, deploy the result over it, re-record the manifest. The
+   compiler that ran was the previous one, so one pass is not the fixpoint and
+   a compiler change needs two calls."
+  [args]
+  (drift/touch-dlls!)
+  ;; magic.api/compile-file skips DLLs that already exist on disk, so
+  ;; delete bootstrap/ first to force re-compilation.
+  (fs/delete-tree (fs/file "magic-compiler" "bootstrap"))
+  (apply nos! "build/bootstrap" args)
+  (shell "dotnet build -t:Bootstrap;MagicUnity")
+  (drift/record!))
 
 (defn prepl-eval!
   "Send one form to a running prepl server and print the reply maps until :ret."

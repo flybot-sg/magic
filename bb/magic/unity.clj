@@ -54,9 +54,9 @@
           (println "Updated magic-unity/package.json version to" version)))))
 
 (defn gen-dual!
-  "Regenerate magic-unity-dual as a verbatim copy of magic-unity with the runtime
-   clj.dll plugins constrained to !UNITY_EDITOR and the package renamed. Returns
-   the number of constrained plugins."
+  "Regenerate magic-unity-dual as a byte-for-byte copy of magic-unity with the
+   runtime clj.dll plugins constrained to !UNITY_EDITOR and the package renamed.
+   Returns the number of constrained plugins."
   []
   (fs/delete-tree dual-pkg)
   (shell "cp" "-R" default-pkg dual-pkg)
