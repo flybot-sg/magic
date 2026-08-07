@@ -5,13 +5,12 @@ using UnityEditor.Compilation;
 
 namespace Magic.Unity
 {
-    // The pre-build rewrite and the link.xml generator used to discover clj
-    // assemblies by scanning the loaded AppDomain. In a coexisting editor
-    // the fork runtime DLLs are excluded from the editor domain (see
-    // StockClojureCoexistence), which would turn that scan into a silent
-    // no-op: no workarounds generated, no link.xml entries, devices fail at
-    // runtime. Discover them from player compilation references instead;
-    // that is the set that actually ships, independent of editor state.
+    // Discovers clj assemblies from player compilation references, never by
+    // scanning the loaded AppDomain: when the Editor runs ClojureCLR
+    // (the default), the MAGIC runtime is excluded from the editor domain
+    // (see EditorRuntime) and that scan is a silent no-op -- no workarounds
+    // generated, no link.xml entries, devices fail at runtime. The player
+    // references are the set that actually ships, independent of editor state.
     internal static class PlayerCljAssemblies
     {
         // Mirrors source-extensions in magic-compiler; nothing enforces the match.

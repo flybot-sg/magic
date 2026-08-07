@@ -28,7 +28,6 @@ namespace Magic.Unity
 
             try
             {
-                StockClojureCoexistence.Reconcile();
                 IL2CPPWorkarounds.RewriteAssemblies();
                 LinkXmlGenerator.BuildLinkXml();
             } catch (Exception e)
