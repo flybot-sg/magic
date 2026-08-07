@@ -13,7 +13,7 @@ The compiler is feature-complete against Clojure 1.10 and used in production (Fl
 MAGIC is a compiler for Clojure written in Clojure targeting the Common Language Runtime. Its goals are to:
 
 1. Take full advantage of the CLR's features to produce better byte code
-2. Leverage Clojure's functional programming and data structures to be more tunable, composeable, and maintainable
+2. Use Clojure's functional programming and data structures to be more tunable, composeable, and maintainable
 
 ## Building and testing
 
@@ -90,7 +90,7 @@ A *spell* is one such map rewrite packaged as a `(fn [compilers] compilers')`, a
 
 ## Configuration
 
-Every knob that controls compilation is a dynamic var in [`src/magic/flags.clj`](src/magic/flags.clj), the single configuration surface: you `binding` the flags, the compiler reads them.
+Every option that controls compilation is a dynamic var in [`src/magic/flags.clj`](src/magic/flags.clj), the single configuration surface: you `binding` the flags, the compiler reads them.
 
 Clients bind the optimization vars to control the codegen their build ships, chiefly `*direct-linking*` and `*strongly-typed-invokes*`. Compiler developers also bind the build-shaping options when needed: `*sparse-case*` for runtime-stable hashing (the `bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'` pass), plus `*legacy-dynamic-callsites*` and `*elide-meta*`. Spells (`*lift-vars*`, `*lift-keywords*`, `*sparse-case*`) are flags too, so toggling one is the same idiom as any other:
 
@@ -110,6 +110,7 @@ MAGIC stands for "Morgan And Grand Iron Clojure" (originally "Morgan And Grand I
 
 ## Legal
 
-Copyright © 2015-2020 Ramsey Nasser and contributors.
+Copyright © 2015-2023 Ramsey Nasser and contributors.
+Copyright © 2026 Flybot Pte. Ltd.
 
 Licensed under the Apache License, Version 2.0.

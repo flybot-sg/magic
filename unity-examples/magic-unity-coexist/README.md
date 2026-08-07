@@ -1,14 +1,14 @@
 # magic-unity-coexist
 
-A minimal Unity project that reproduces the **stock-ClojureCLR coexistence
-noise** in-repo, so the magic repository can validate fixes to that bug class
-without the private consumer project where it was first observed.
+A minimal Unity project that reproduces the **ClojureCLR coexistence noise**
+in-repo, so this repository can validate fixes to that bug class without the
+consumer project where it was first observed.
 
 ## What it reproduces
 
-On every editor open or domain reload, a consumer that keeps stock ClojureCLR
-in the editor (for REPL and hot-reload) while shipping the MAGIC fork runtime in
-player builds prints one ERROR line per package Export `*.clj.dll`:
+On every editor open or domain reload, a consumer that keeps ClojureCLR in the
+editor (for REPL and hot-reload) while shipping the MAGIC fork runtime in player
+builds prints one ERROR line per package Export `*.clj.dll`:
 
 ```
 Assembly 'Packages/sg.flybot.magic.unity/Runtime/Infrastructure/Export/clojure.core_clr.clj.dll' will not be loaded due to errors:
@@ -17,22 +17,23 @@ Assembly is incompatible with the editor
 
 plus one benign `Duplicate assembly 'Clojure.dll'` dedup line. The baseline is
 one narration line per runtime `.clj.dll` in Export, currently **37**. They are
-benign: Unity is narrating the
-intended editor exclusion from issue #25, not a real failure. This project
-exists to make that narration measurable and to let a silencing patch prove it
-went to zero without regressing the exclusion.
+benign: Unity is narrating the intended editor exclusion, not a real failure.
+This project exists to make that narration measurable and to let a silencing
+patch prove it went to zero without regressing the exclusion.
 
 ## Why the noise happens (and why this setup is the only way to see it)
 
 Two ingredients are both required:
 
-1. **A foreign stock `Clojure.dll` under `Assets/`.** `StockClojureCoexistence`
+1. **A foreign ClojureCLR `Clojure.dll` under `Assets/`.** The coexistence guard
    scans the filesystem for a strong-named `Clojure.dll`; finding one flips
-   every fork `*.clj.dll` plugin to editor-loading-off (issue #25: stock
-   `RT` probe-loads `clojure.core.clj` at init and a fork DLL answering that
-   probe throws a `TypeLoadException` storm). This project vendors the exact
-   stock layout under `Assets/Plugins/clojure-clr/` (Clojure 1.11.0 net462 +
-   DLR 1.3.2 + spec packages), marked Editor-only, identical to the consumer.
+   every fork `*.clj.dll` plugin to editor-loading-off. The hazard is assembly
+   enumeration order, not a name probe: `Compiler.TryLoadInitType` walks
+   `AppDomain.CurrentDomain.GetAssemblies()` and takes the first one exposing a
+   `<ns>__Init` type, so a fork DLL in the editor domain can answer for a
+   `clojure.*` namespace and throw. This project vendors that layout under
+   `Assets/Plugins/clojure-clr/` (Clojure 1.11.0 net462 + DLR 1.3.2 + spec
+   packages), marked Editor-only, identical to a real consumer.
 
 2. **An immutable (PackageCache) install of the package.** The narration is a
    *mismatch*: Unity reads the shipped `.meta` (editor-compatible) to decide the
@@ -43,9 +44,8 @@ Two ingredients are both required:
    install) never shows this, and why `bb coexist-noise` installs the package
    from a repacked tarball, which Unity resolves into a read-only PackageCache.
 
-The standalone `magic-unity-smoke` project deliberately has no stock ClojureCLR,
-so it has no coexistence and never narrates. This project is its coexistence
-counterpart.
+The standalone `magic-unity-smoke` project deliberately has no ClojureCLR, so it
+has no coexistence and never narrates. This project is its counterpart.
 
 ## Running it
 
@@ -87,8 +87,8 @@ problem is present). Watch `~/Library/Logs/Unity/Editor.log` on a domain reload
 
 - **Dual variant** (`bb coexist-noise`): **0** narration lines, and the probe
   still reports `core-clj-loadable=false` with `preloaded-clj=0` (the runtime
-  `clj.dll`s stay out of the editor domain, so a stock `RT` init cannot resolve
-  them: issue #25 stays fixed). The `Duplicate assembly 'Clojure.dll'` dedup
+  `clj.dll`s stay out of the editor domain, so a ClojureCLR `RT` init cannot
+  resolve them, and the exclusion holds). The `Duplicate assembly 'Clojure.dll'` dedup
   line remains (benign, and confirms the package actually resolved). A run that
   reports 0 narration but no probe line is INCONCLUSIVE, not a pass: the package
   likely failed to resolve.
