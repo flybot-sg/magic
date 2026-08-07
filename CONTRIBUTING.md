@@ -90,4 +90,4 @@ When a change affects the committed `.clj.dll`s under `nostrand/references/` and
 
     chore(bootstrap): refresh <name> DLL for <short reason> (#<issue>)
 
-Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so only genuinely affected DLLs show up in `git status`, and `bb check-drift` fails if a stale one is left uncommitted.
+Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so only genuinely affected DLLs show up in `git status`, and `bb check-drift` fails if a stale one is left uncommitted. If binaries you did not expect appear after a rebuild, that is a real change worth understanding before reverting anything.

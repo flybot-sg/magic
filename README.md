@@ -1,7 +1,6 @@
 # MAGIC
 
 [![Build](https://img.shields.io/github/actions/workflow/status/flybot-sg/magic/ci.yml?label=build&branch=main)](https://github.com/flybot-sg/magic/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/github/actions/workflow/status/flybot-sg/magic/ci.yml?label=tests&branch=main)](https://github.com/flybot-sg/magic/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/flybot-sg/magic)](https://github.com/flybot-sg/magic/releases/latest)
 [![Clojure](https://img.shields.io/badge/clojure-1.10-blue.svg?logo=clojure&logoColor=white)](https://clojure.org/)
 [![.NET](https://img.shields.io/badge/.NET-Framework%204.7.1%20%2F%20netstandard%202.0-512BD4.svg?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
@@ -15,9 +14,9 @@ A Clojure compiler targeting the Common Language Runtime (.NET). MAGIC compiles 
 
 Flybot uses MAGIC in production to ship Clojure game logic on Unity, including iOS via IL2CPP. The compiler is feature-complete against the Clojure 1.10 language and standard library, and still maturing (not yet as battle-tested as JVM Clojure). Concretely:
 
-- **Clojure 1.10 stdlib parity.** The marked-1.10 surface runs on the CLR (`ex-message`, `tap>`, `read+string`, `Throwable->map`, the `prepl` family, ...). MAGIC targets 1.10; the later releases (1.11 and the current 1.12) are not ported ([details](./docs/writing-cross-platform-clojure.md)).
+- **Clojure 1.10 stdlib parity.** The marked-1.10 surface runs on the CLR (`ex-message`, `tap>`, `read+string`, `Throwable->map`, the `prepl` family, ...). MAGIC targets 1.10; 1.11 and 1.12 are not ported ([details](./docs/writing-cross-platform-clojure.md)).
 - **Runs in Unity, including IL2CPP and iOS.** MAGIC emits fully static MSIL, so it survives AOT compilation where the DLR-based ClojureCLR cannot ([why and how](./docs/why-magic.md)). Ships as a UPM package in two variants (see [Install](#install)).
-- **Same source on JVM and CLR.** A clean `.cljc` library within the 1.10 stdlib compiles unchanged on both MAGIC and ClojureCLR, with no MAGIC-specific patches.
+- **Same source on JVM and CLR.** A clean `.cljc` library within the 1.10 stdlib compiles unchanged on both MAGIC and ClojureCLR. `nos` reads `deps-clr.edn` and `.cljr` sources the way `cljr` does, so a library ported the ClojureCLR way needs no MAGIC-specific setup ([details](./docs/clr-dependency-files.md)).
 - **IL2CPP-tested.** A standalone Unity smoke project exercises AOT-only regressions on the verified Unity version; green on Mono and Standalone IL2CPP ([smoke suite](./unity-examples/magic-unity-smoke)).
 
 ## About this version
@@ -28,20 +27,24 @@ This monorepo bundles the six MAGIC repositories ([magic](https://github.com/nas
 
 This is not a replacement of Ramsey's MAGIC. It's the version Flybot maintains.
 
-## Rationale
-
-The JVM Clojure compiler targets the Java Virtual Machine. MAGIC targets .NET instead, taking full advantage of the CLR's features to produce better bytecode. This enables Clojure in environments where the JVM cannot run, notably Unity game engine (including iOS via IL2CPP).
-
-MAGIC is a self-hosting compiler: it is written in Clojure and compiles itself through Nostrand, its task runner.
-
 ## Documentation
 
 - [Why MAGIC](./docs/why-magic.md): why a static CLR compiler is needed (iOS forbids the runtime code generation ClojureCLR's DLR relies on; IL2CPP only AOT-compiles IL that already exists).
+- [MAGIC architecture](./docs/architecture.md): the components, what each one does, and how they fit together.
+
+Using MAGIC on your own library:
+
+- [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md): the four steps, then testing and CI.
 - [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md): `.cljc` source patterns for code that runs on both the JVM and the CLR.
-- [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md): `deps.edn`, `magic.edn`, and CI for a CLR build.
 - [Declaring CLR dependencies](./docs/clr-dependency-files.md): `deps-clr.edn` vs a `:clr` alias, when the CLR needs different deps than the JVM.
+- [The `nos` CLI](./docs/nos-cli.md): how a task is found, `nos build` and `nos test`, and the `magic.edn` surface.
 - [Loading precompiled native assemblies](./docs/native-assemblies.md): loading a committed C# DLL on the CLR, where `:import` alone does not.
 - [Unity integration](./docs/unity-integration.md): compile `.clj.dll` and load them in a Unity project.
+
+Working on MAGIC itself:
+
+- [Development](./docs/development.md): every `bb` task in depth, which rebuild your edit needs, and the tools for inspecting a form.
+- [The bootstrap](./docs/bootstrap.md): what is committed and why, which task owns which DLL, and how many passes a change needs.
 - [Deterministic compilation and the drift check](./docs/deterministic-compilation.md): why the committed DLLs are byte-diffed against a rebuild, and the contributor workflows that follow.
 
 Per-component reference lives in each component's own README, linked from [Components](#components) below. To contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
@@ -50,38 +53,19 @@ Per-component reference lives in each component's own README, linked from [Compo
 
 | Component | Description | Language |
 |-----------|-------------|----------|
-| [clojure-runtime](./clojure-runtime) | Persistent data structures, Keywords, Vars, reader | C# |
-| [magic-runtime](./magic-runtime) | Fast dynamic call sites | C# |
-| [mage](./mage) | Symbolic MSIL bytecode emitter | Clojure |
-| [magic-compiler](./magic-compiler) | The compiler (s-expressions to MSIL) | Clojure |
-| [nostrand](./nostrand) | Task runner, dependency manager, REPL | C# + Clojure |
-| [magic-unity](./magic-unity) | Unity integration package (IL2CPP support), default variant | C# |
-| [magic-unity-dual](./magic-unity-dual) | Coexistence variant of magic-unity with the runtime excluded from the Editor (for projects that keep stock ClojureCLR). Generated by `bb gen-unity-dual`; see [Unity integration](./docs/unity-integration.md). | C# |
-| [magic-unity-smoke](./unity-examples/magic-unity-smoke) | Standalone Unity project that exercises MAGIC under IL2CPP. Regression suite for AOT-only bugs, runs by hand on the verified Unity version (`2022.3.62f3`). | Clojure + C# |
+| [clojure-runtime](./clojure-runtime) | Clojure's data model in C#: persistent collections, keywords, vars, the reader. Every compiled DLL runs on it. | C# |
+| [magic-runtime](./magic-runtime) | Resolves the interop calls whose types are only known at run time, caching each call site. Emits no IL at run time, which is what IL2CPP requires. | C# |
+| [mage](./mage) | MSIL as Clojure data, so bytecode can be built and rewritten as plain values before it is emitted. | Clojure |
+| [magic-compiler](./magic-compiler) | The compiler: Clojure forms to MSIL. Also holds the standard library sources it compiles. | Clojure |
+| [nostrand](./nostrand) | The `nos` CLI: hosts the compiler, resolves dependencies, runs the build, test and REPL tasks. | C# + Clojure |
+| [magic-unity](./magic-unity) | The UPM package Unity loads at play time: the prebuilt runtime plus the IL2CPP pre-build step. Default variant, MAGIC runs in the Editor too. | C# |
+| [magic-unity-dual](./magic-unity-dual) | The same package with the runtime hidden from the Editor, for projects that keep ClojureCLR there. Generated by `bb gen-unity-dual`; see [Unity integration](./docs/unity-integration.md). | C# |
+| [magic-unity-smoke](./unity-examples/magic-unity-smoke) | Unity project that drives compiled output through IL2CPP, catching the AOT-only bugs Mono cannot reach. Run by hand on Unity `2022.3.62f3`. | Clojure + C# |
+| [magic-unity-coexist](./unity-examples/magic-unity-coexist) | Unity project that vendors ClojureCLR to reproduce the Editor console noise of running both runtimes. Driven by `bb coexist-noise`. | C# |
 
-Each component has its own README with detailed documentation.
+Each component has its own README with detailed documentation, and [MAGIC architecture](./docs/architecture.md) shows how they fit together.
 
 `clojure-runtime/` is forked from [ClojureCLR](https://github.com/clojure/clojure-clr) (a .NET port of Clojure maintained by David Miller). Its full commit history is preserved here, so David Miller and other ClojureCLR contributors appear in the GitHub contributors view.
-
-## Architecture
-
-```
-Runtimes (C#, ship as DLLs)
-  clojure-runtime   Clojure data: PersistentMap, Vars, Keywords (forked ClojureCLR)
-  magic-runtime     dynamic call sites for Clojure-on-CLR
-
-Compiler (Clojure, AOT-compiles .clj -> .clj.dll)
-  mage              symbolic MSIL emitter
-  magic-compiler    Clojure compiler proper (uses mage)
-
-Host (C#)
-  nostrand          CLI task runner; links the runtimes, hosts the compiler
-
-Packaging
-  magic-unity       UPM package: bundles runtime + compiler DLLs for Unity
-```
-
-`bootstrap` is a build phase, not a component: compile `magic-compiler` with the previous `nos`, copy the resulting `.clj.dll`s back into `nostrand/references/`, rebuild `nos` against them. See [Development](#development).
 
 ## Install
 
@@ -89,14 +73,14 @@ Two shippable artifacts; pick the one(s) your project needs.
 
 **`nos` CLI**: a build-time task runner that compiles Clojure to MSIL. Used by Unity projects (before opening Unity) and by non-Unity Clojure libs that want CLR test runs.
 
-- Built from `nostrand/` + `clojure-runtime/` + `magic-runtime/` + `magic-compiler/`.
+- Built from `nostrand/` + `clojure-runtime/` + `magic-runtime/` + `magic-compiler/` + `mage/`.
 - Ships as a GitHub Releases tarball, cut on every `v*` tag by [`release.yml`](.github/workflows/release.yml).
 - Consumers install it with `install/nos.sh` (one-line curl; needs `mono`, no .NET SDK).
 
 **`magic-unity` UPM package**: the play-time Clojure runtime plus the IL2CPP build pre-processor, loaded by Unity inside a project. It ships in **two variants**, and picking one is the first decision:
 
-- **`sg.flybot.magic.unity`** (default): MAGIC runs everywhere, including the Editor's Play mode. Pin `?path=magic-unity#<tag>`. Use this unless your Editor already runs stock ClojureCLR.
-- **`sg.flybot.magic.unity.dual`**: the runtime is excluded from the Editor (`!UNITY_EDITOR`), so the Editor keeps stock ClojureCLR (REPL / hot-reload) and MAGIC ships only in player builds. Pin `?path=magic-unity-dual#<tag>`.
+- **`sg.flybot.magic.unity`** (default): MAGIC runs everywhere, including the Editor's Play mode. Pin `?path=magic-unity#<tag>`. Use this unless your Editor already runs ClojureCLR.
+- **`sg.flybot.magic.unity.dual`**: the runtime is excluded from the Editor (`!UNITY_EDITOR`), so the Editor keeps ClojureCLR (REPL / hot-reload) and MAGIC ships only in player builds. Pin `?path=magic-unity-dual#<tag>`.
 
 Player builds are identical either way. Both are pinned by git tag and added as a UPM git URL in `Packages/manifest.json`; full comparison in [Unity integration](./docs/unity-integration.md).
 
@@ -116,176 +100,56 @@ You need three things: the `nos` CLI (build-time), the `magic-unity` UPM package
 
    Defaults install to `$HOME/.local/nostrand/` with the launcher symlinked to `$HOME/.local/bin/nos`. Override with `INSTALL_DIR=` / `INSTALL_LINK=` env vars if needed.
 
-2. **Add the package, compile, open Unity.** The [Unity integration guide](./docs/unity-integration.md) covers the `Packages/manifest.json` pin (and which of the two variants to pick: default, or `.dual` for projects that keep stock ClojureCLR in the Editor), the `deps.edn` / `magic.edn` setup, `nos build`, and IL2CPP.
+2. **Add the package, compile, open Unity.** The [Unity integration guide](./docs/unity-integration.md) covers the `Packages/manifest.json` pin (and which of the two variants to pick: default, or `.dual` for projects that keep ClojureCLR in the Editor), the `deps.edn` / `magic.edn` setup, `nos build`, and IL2CPP.
 
 ### Use `nos` for non-Unity Clojure-on-CLR
 
-Same `install/nos.sh` line, no Unity needed. Drop a `deps.edn` at your library root (CLR-specific deps go in a `deps-clr.edn` or a `:clr` alias, see [Declaring CLR dependencies](./docs/clr-dependency-files.md)), add an optional `magic.edn`, then `nos build` and `nos test`. Tests execute under Mono via the `nos` you just installed. [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) walks through the whole workflow: reader conditionals, `deps.edn` / `deps-clr.edn`, and the `magic.edn` build/test configuration. [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md) covers the `.cljc` source patterns themselves: type hints, host interop, records and protocols, and the Clojure 1.10 stdlib surface.
+Same `install/nos.sh` line, no Unity needed. Declare the CLR coordinates in a `deps-clr.edn` (or a `deps.edn` with a `:clr` alias), state what differs from the defaults in an optional `magic.edn`, then `nos build` and `nos test`, which run under the `mono` that hosts `nos`. [Porting a Clojure library to MAGIC](./docs/porting-libraries-to-magic.md) is the ordered walkthrough.
 
-## Prerequisites for working on MAGIC itself
+## Development
 
-Consumer install needs `bash`, `curl`, `tar`, and `mono` runtime. Contributing to MAGIC needs:
+Consuming MAGIC needs `bash`, `curl`, `tar` and `mono`. Working on it needs:
 
 - [`git`](https://git-scm.com/)
-- [`dotnet`](https://dotnet.microsoft.com/en-us/download) (v7+)
-- [`mono`](https://www.mono-project.com/) (only needed at build time to host Nostrand; will go away once we drop net471)
-- [`bb`](https://github.com/babashka/babashka) (optional, for the dev workflows in [Development](#development))
+- [`dotnet`](https://dotnet.microsoft.com/en-us/download) SDK 7 and 8 (what CI installs; the callsite generator targets `net8.0`)
+- [`mono`](https://www.mono-project.com/) (hosts Nostrand at build time)
+- [`bb`](https://github.com/babashka/babashka) (the build tasks stamp the committed DLL timestamps before compiling, so a correct build goes through them)
 
 ```bash
 git clone https://github.com/flybot-sg/magic.git
 cd magic
-bb build         # or: dotnet build
+bb build
 ```
 
-The full build takes a few minutes on first run. Subsequent builds are incremental. Day-to-day workflows are in [Development](#development) below.
+That takes a few minutes, every time: `bb build` cleans first, so the bootstrap is always redone from scratch. Day to day you want the task that matches your edit instead.
 
-## Development
+This repo mixes C# (runtimes + host) and Clojure (compiler + stdlib), and the two rebuild on very different timescales. `bb.edn` encodes which rebuild matches which edit:
 
-This repo mixes C# (runtimes + host) and Clojure (compiler + stdlib). Different edits need different rebuilds; doing the wrong one wastes minutes per iteration. The `bb` task runner encodes which rebuild matches which edit.
+| You changed | Run | What it costs |
+|---|---|---|
+| any C# in `clojure-runtime/`, `magic-runtime/` or `nostrand/` | `bb build-runtime` | a C# build |
+| a callsite `.mustache` template | `bb dev-callsites` | regen, then a C# build |
+| `magic-compiler/src/stdlib/`, outside the `clojure.core` family | `bb refresh-stdlib` | one compile pass over the stdlib |
+| `magic-compiler/src/magic/`, `mage/src/`, or the `clojure.core` family | `bb dev-compiler` | two bootstrap passes |
 
-### What needs what
+[The development guide](./docs/development.md) covers every task in depth: what each one rebuilds, why they all go through `bb`, how the drift check works, and the `bb pipeline` and prepl tools for inspecting a form.
 
-| You changed                          | Run                | Why                                                                                  |
-|--------------------------------------|--------------------|--------------------------------------------------------------------------------------|
-| `clojure-runtime/**/*.cs`            | `bb dev-runtime`   | `.clj.dll` references runtime DLLs by name; new bodies load without re-bootstrap     |
-| `magic-runtime/Magic.Runtime/*.cs`   | `bb dev-runtime`   | Same                                                                                 |
-| `*.mustache` (callsite templates)    | `bb dev-callsites` | Regenerates `.g.cs` first, then rebuilds runtime                                     |
-| `nostrand/*.cs` (host code)          | `bb build-runtime` | Rebuilds nostrand (and runtimes transitively via `ProjectReference`)                 |
-| `magic-compiler/src/**/*.clj`        | `bb dev-compiler`  | Compiler is bootstrapped; cold tests need re-bootstrap                               |
-| `magic-compiler/src/stdlib/**/*.clj` | `bb dev-compiler`  | Same                                                                                 |
-| Fresh checkout                       | `bb build`         | Full bootstrap                                                                       |
+### The committed binaries
 
-For interactive iteration on compiler `.clj` files, prefer `bb repl` plus `(require '... :reload)` over re-running `bb dev-compiler` each time.
+MAGIC is self-hosting, so compiling the compiler needs a working compiler. Two folders of pre-built binaries are tracked in git to break that circle:
 
-### The bootstrap chicken-and-egg
+- `nostrand/references/*.clj.dll`: 73 DLLs, the compiler and stdlib Nostrand loads at startup. They are what compiles the next compiler.
+- `magic-unity/Runtime/Infrastructure/Export/`: the two runtime DLLs plus 37 stdlib `.clj.dll`, what Unity loads at play time
 
-MAGIC is self-hosting: the compiler is Clojure code that emits CLR bytecode, and it needs a previous version of itself to compile. The repo ships pre-built `.clj.dll` files in `nostrand/references/` for this reason. They ARE the compiler that compiles the new compiler.
+That is why a C# edit is cheap and a compiler edit is not. Compiled `.clj.dll` name `Clojure.dll` and `Magic.Runtime.dll` in their assembly references and pick up new bodies at load time, so a C# change never needs a bootstrap. Only the compiler's own source and the `clojure.core` family take the slow path.
 
-Practical consequence: `bb dev-runtime` does not need a bootstrap. Already-compiled `.clj.dll` files reference `Magic.Runtime.dll` and `Clojure.dll` by name and pick up new bodies at load time. Only `bb dev-compiler` (changes to compiler or stdlib `.clj` source) triggers the slow re-bootstrap path.
+Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so `git status` after a rebuild shows only the DLLs a change really affected, and those get committed in a paired refresh commit alongside the source fix. `bb check-drift` byte-diffs the whole set against a rebuild. [The bootstrap](./docs/bootstrap.md) has the ownership rules, and [Deterministic compilation and the drift check](./docs/deterministic-compilation.md) covers what makes the byte diff work.
 
-### Refreshing the bootstrap binaries
+### Testing
 
-Two folders of pre-built binaries are tracked in git:
+`bb test` runs the compiler suite, `magic-compiler/test/magic/test/*.clj`, entered through the `test/all` var in [magic-compiler/test.clj](magic-compiler/test.clj). Pass namespace names to run a subset. Downstream projects run `nos test` instead ([the `nos` CLI](./docs/nos-cli.md)).
 
-- `nostrand/references/*.clj.dll`: the compiler Nostrand loads at startup
-- `magic-unity/Runtime/Infrastructure/Export/*.dll`: the prebuilt runtime that Unity loads at play time
-
-Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so `git status` after a rebuild shows only the DLLs a change really affected, and those get committed together with the source fix. A maintainer refreshes them by running either `bb build` (full path) or `bb bootstrap` (faster: re-bootstrap + deploy). For stdlib-only edits (any `magic-compiler/src/stdlib/**/*.clj`), `bb refresh-stdlib` recompiles only the affected `.clj.dll` files. Both paths refresh `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` together, and `bb check-drift` byte-diffs the compiled `.clj.dll` binaries against a rebuild to catch stale ones. The design and its edge cases are covered in [Deterministic compilation and the drift check](./docs/deterministic-compilation.md).
-
-### Common workflows
-
-```bash
-bb tasks         # list all tasks with their docs
-bb build         # full build (minutes, first time)
-bb build-runtime # incremental C# runtimes + nostrand (seconds)
-bb test          # run magic-compiler test suite
-bb dev-runtime   # build-runtime + test  (after C# runtime edits)
-bb dev-callsites # regen + build-runtime + test  (after .mustache edits)
-bb dev-compiler  # bootstrap + test  (after compiler .clj edits)
-bb check-drift   # regen + rebuild stdlib, fail if generated files or committed DLLs are stale (CI uses this after a fresh build)
-bb repl          # nostrand CLI REPL in magic-compiler/
-bb clean         # remove bin/ and bootstrap/
-```
-
-### Inspecting the compiler pipeline
-
-Walk a form through the stages: form → macroexpand → AST → symbolic IL.
-
-```bash
-bb pipeline '(let [x 1] (+ x 1))'
-```
-
-Prints to stdout:
-
-| Section          | What it shows                                                                                                                             |
-|------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| `FORM`           | The input                                                                                                                                 |
-| `MACROEXPAND`    | Shown only when expansion differs from input                                                                                              |
-| `AST (skeleton)` | Analyzer output with bookkeeping keys (`:env`, source-position, `:raw-forms`) stripped                                                    |
-| `TYPES`          | Every AST node carrying type info; useful for diagnosing intrinsic rewrites, static vs dynamic call-site selection, and numeric promotion |
-| `SYMBOLIC IL`    | Flat instruction listing in emission order                                                                                                |
-
-Also writes EDN dumps under `magic-compiler/target/`:
-
-| File                   | What it is                                                                                                                                                                        |
-|------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `pipeline-ast.edn`     | Full AST, pprinted                                                                                                                                                                |
-| `pipeline-il.edn`      | Flat instruction list, pprinted (usually what you want)                                                                                                                           |
-| `pipeline-il-tree.edn` | Nested IL tree as mage emits it. The `nil` placeholders are structural alignment that mage filters at byte-emit time; the flat dump is the same instructions without the nesting. |
-
-Forms that synthesize CLR types (`fn`, `defn`, `deftype`, `defrecord`) work too. No destination assembly is needed.
-
-Options (`:key value` pairs after the form):
-
-| Key         | Default                                 | Effect                                                                                              |
-|-------------|-----------------------------------------|-----------------------------------------------------------------------------------------------------|
-| `:out`      | `target`                                | Output directory for EDN dumps                                                                      |
-| `:sections` | all eight                               | Subset of `#{:form :macroexpand :ast :types :il :ast-edn :il-edn :tree-edn}` controlling what renders |
-
-```bash
-bb pipeline '(let [x 1] x)' :out /tmp/inspect
-bb pipeline '(let [x 1] x)' :sections '#{:ast :il}'           # stdout-only, no files
-bb pipeline '(.Length "hi")' :sections '#{:il-edn}' :out /tmp # just dump the flat IL
-```
-
-### Evaluating against a live runtime (prepl)
-
-`bb pipeline` shows the *compiled IL* for a form but never runs it. To see what
-a form actually returns at runtime, evaluate it against a warm MAGIC runtime
-over a socket prepl (the MAGIC analogue of a Clojure nREPL). Complementary to
-`bb pipeline`: pipeline answers "how does this compile", prepl answers "what
-does this do".
-
-Start the server in one shell (it blocks, serving connections):
-
-```bash
-bb prepl-server            # listens on 127.0.0.1:5555 (override: bb prepl-server 5560)
-```
-
-Send forms from another shell. Each prints the structured reply map:
-
-```bash
-bb prepl-eval '(+ 1 2)'
-#=> {:tag :ret, :val "3", :ns "user", :ms 1.3, :form "(+ 1 2)"}
-
-bb prepl-eval '(def answer 42)'   # global defs persist across calls
-bb prepl-eval '(* answer 2)'      #=> {:tag :ret, :val "84", ...}
-
-bb prepl-eval '(/ 1 0)'           # errors come back as data, not a text dump
-#=> {:tag :ret, :exception true, :val "{... :cause \"Divide by zero\" :phase :execution}", ...}
-```
-
-Reply tags: `:ret` (eval result + `:ms` timing), `:out`/`:err` (captured
-stdout/stderr during eval), `:tap` (values from `tap>`); an `:exception true`
-`:ret` carries the `Throwable->map` data. The server is MAGIC Clojure
-(`clojure.core.server/io-prepl`); the `bb prepl-eval` client is plain babashka,
-so each call is fast. This runs only under Mono/nostrand: prepl evaluates at
-runtime, so it has no IL2CPP/AOT path.
-
-### MSBuild targets (underlying)
-
-The actual build is orchestrated by `Magic.csproj`. The `bb` tasks call into these; invoke them directly if you'd rather not install bb.
-
-| Target                       | Description                                              |
-|------------------------------|----------------------------------------------------------|
-| `dotnet build`               | Full build (all components in dependency order)          |
-| `dotnet build -t:Nostrand`   | Build task runner only                                   |
-| `dotnet build -t:Magic`      | Magic compiler bootstrap (requires mono)                 |
-| `dotnet build -t:Bootstrap`  | Copy compiler DLLs into Nostrand, rebuild                |
-| `dotnet build -t:MagicUnity` | Unity package                                            |
-| `dotnet build -t:Clean`      | Remove build artifacts                                   |
-
-## Testing
-
-```bash
-bb test
-# or directly:
-cd magic-compiler && mono ../nostrand/bin/Release/net471/NostrandMain.exe test/all
-```
-
-The MAGIC compiler itself uses the `test/all` entrypoint in [magic-compiler/test.clj](magic-compiler/test.clj). Downstream projects run `nos test` (see the Getting Started section above for the pattern).
-
-For IL2CPP-specific regressions (AOT-only bugs that the Mono editor cannot catch), [magic-unity-smoke](./unity-examples/magic-unity-smoke) drives MAGIC's compile output through Unity's IL2CPP pipeline and reports pass/fail in the built player. Run by hand on the verified Unity version after touching the compiler, the runtimes, or `magic-unity` itself.
+The suite runs with the production flags off, bar a few direct-linking cases in `magic.test.fn`, so it tells you little about how a compiler change behaves under `*direct-linking*` and `*strongly-typed-invokes*` ([what they change](./docs/nos-cli.md#compiler-flags)); build a real consumer project as well. AOT-only bugs need a real Unity build: [magic-unity-smoke](./unity-examples/magic-unity-smoke) drives MAGIC's output through IL2CPP and reports pass/fail in the built player. Run it by hand on the verified Unity version after touching the compiler, the runtimes, or `magic-unity`.
 
 ## Contributing
 

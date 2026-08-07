@@ -39,27 +39,29 @@ This is the consumer-side guide. For what the package contains and how its inter
 
 ## Choosing a variant
 
+> **Being retired:** an upcoming release replaces the two variants with a single package that embeds the ClojureCLR runtime and excludes MAGIC's DLLs from the Editor through `defineConstraints` in committed `.meta` files. The variant choice below, `magic-unity-dual`, and `bb gen-unity-dual` all disappear with it.
+
 The package ships in two variants, identical except for whether the runtime `.clj.dll` plugins are visible to the Editor:
 
 | | `sg.flybot.magic.unity` (default) | `sg.flybot.magic.unity.dual` |
 |---|---|---|
 | Runtime in the Editor | loadable | excluded (`!UNITY_EDITOR`) |
-| MAGIC in Editor Play mode | works | not available (Editor uses stock ClojureCLR) |
-| Alongside stock ClojureCLR | benign console noise, handled by the guard | silent (runtime absent from the Editor) |
+| MAGIC in Editor Play mode | works | not available (Editor uses ClojureCLR) |
+| Alongside ClojureCLR | benign console noise, handled by the guard | silent (runtime absent from the Editor) |
 | Player builds (Mono / IL2CPP) | identical | identical |
 
-- **Default** if MAGIC runs in your Editor (Play mode, edit-mode tooling) and there is no stock ClojureCLR.
-- **`.dual`** if your Editor runs stock ClojureCLR (REPL / hot-reload) and MAGIC ships only in player builds. Pin `?path=magic-unity-dual#<tag>`.
+- **Default** if MAGIC runs in your Editor (Play mode, edit-mode tooling) and there is no ClojureCLR.
+- **`.dual`** if your Editor runs ClojureCLR (REPL / hot-reload) and MAGIC ships only in player builds. Pin `?path=magic-unity-dual#<tag>`.
 
 Full comparison and rationale: [magic-unity, Package variants](../magic-unity/README.md#package-variants).
 
-## Coexistence with stock ClojureCLR
+## Coexistence with ClojureCLR
 
-A project that keeps stock ClojureCLR in the Editor and ships MAGIC in players runs both runtimes. With the **default** variant the Editor prints one benign `Assembly is incompatible with the editor` line per runtime `.clj.dll` on each domain reload (Unity narrating the intended exclusion; player builds are unaffected). The **`.dual`** variant excludes the runtime from the Editor by construction, so those lines never appear. Either way the stock probe for `clojure.core.clj` is kept away from the fork assemblies ([#25](https://github.com/flybot-sg/magic/issues/25)).
+A project that keeps ClojureCLR in the Editor and ships MAGIC in players runs both runtimes. With the **default** variant the Editor prints one benign `Assembly is incompatible with the editor` line per runtime `.clj.dll` on each domain reload (Unity narrating the intended exclusion; player builds are unaffected). The **`.dual`** variant excludes the runtime from the Editor by construction, so those lines never appear. Either way the fork assemblies stay out of the Editor domain, which is what stops ClojureCLR's namespace resolution from reaching them ([#25](https://github.com/flybot-sg/magic/issues/25)).
 
 The in-repo reproduction is [`unity-examples/magic-unity-coexist`](../unity-examples/magic-unity-coexist): `bb coexist-noise` checks that the dual variant is silent, `bb coexist-noise magic-only` reproduces the noise on the default variant.
 
 ## Examples
 
 - [`unity-examples/magic-unity-smoke`](../unity-examples/magic-unity-smoke): standalone IL2CPP regression suite. The reference pattern for `deps.edn` and a custom `dotnet.clj`, with a `MAGIC -> Smoke -> Build & Run IL2CPP` menu. Run by hand on Unity 2022.3.62f3.
-- [`unity-examples/magic-unity-coexist`](../unity-examples/magic-unity-coexist): coexistence repro that vendors stock ClojureCLR, driven by `bb coexist-noise`.
+- [`unity-examples/magic-unity-coexist`](../unity-examples/magic-unity-coexist): coexistence repro that vendors ClojureCLR, driven by `bb coexist-noise`.

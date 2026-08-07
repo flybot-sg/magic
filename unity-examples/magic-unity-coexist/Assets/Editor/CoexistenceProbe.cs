@@ -4,14 +4,19 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
-// Headless assertion helper for the coexistence repro. Reproduces the exact
-// init-time probe stock ClojureCLR's RT runs (Assembly.Load("clojure.core.clj"))
-// and reports the editor-domain state the #25 guard is responsible for.
+// Headless assertion helper for the coexistence repro. Reports the editor-domain
+// state the coexistence guard is responsible for.
+//
+// The Assembly.Load below is a canary, not a reproduction of what ClojureCLR
+// does: ClojureCLR resolves a namespace by scanning the loaded assemblies for a
+// <ns>__Init type and taking the first match, never by simple name. Both routes
+// need the same thing though, so resolving the fork clojure.core.clj here means
+// it is in the domain and can win that scan.
 //
 // In a correctly guarded coexisting editor the expected steady state is:
 //   preloaded-clj=0  core-clj-loadable=false  clojure-versions=[1.11.0.0]
 // i.e. the fork clj.dll plugins are excluded from the editor domain, so the
-// stock probe fails (the fork DLL is not there to answer it) and only stock
+// load fails (the fork DLL is not there to answer it) and only ClojureCLR
 // 1.11.0 wins the Clojure.dll dedup. If the guard regresses, the probe
 // resolves the fork clojure.core.clj and the TypeLoadException storm returns.
 //
