@@ -6,10 +6,10 @@ namespace Magic.Unity
 {
     // The pre-build rewrite must read the package's own runtime DLLs. They
     // cannot be located through typeof(...).Assembly.Location or
-    // Assembly.Load: when a consumer keeps a stock ClojureCLR in Assets,
-    // Unity dedups Clojure.dll by file name and those anchors bind to the
-    // stock copy. Resolve the package install path instead; resolvedPath is
-    // the physical location for git, registry, local and embedded packages.
+    // Assembly.Load: when a consumer keeps a ClojureCLR Clojure.dll in
+    // Assets, Unity dedups Clojure.dll by file name and those anchors bind
+    // to that copy. Resolve the package install path instead; resolvedPath
+    // is the physical location for git, registry, local and embedded packages.
     internal static class PackageRuntimePath
     {
         static PackageInfo Package => PackageInfo.FindForAssembly(typeof(PackageRuntimePath).Assembly);
