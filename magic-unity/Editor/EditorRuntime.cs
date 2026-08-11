@@ -71,7 +71,7 @@ namespace Magic.Unity
         // Dedicated Server shares Standalone's group but has its own settings
         // slot, and the wrong slot reads back a plausible default rather than
         // throwing.
-        static NamedBuildTarget NamedTargetFor(BuildTarget platform)
+        public static NamedBuildTarget NamedTargetFor(BuildTarget platform)
         {
             var group = BuildPipeline.GetBuildTargetGroup(platform);
             return
