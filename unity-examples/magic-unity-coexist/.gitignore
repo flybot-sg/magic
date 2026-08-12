@@ -24,10 +24,7 @@ UserSettings/
 *.opendb
 *.VC.db
 
-# The immutable package tarball: a build artifact repacked from magic-unity by
-# `bb coexist-noise`. The PackageCache install of this tgz is what reproduces
-# the noise (a mutable file: install writes the editor-off flip back and the
-# narration never appears).
+# Repacked from magic-unity by `bb coexist-noise` for the immutable PackageCache install.
 /magic-unity.tgz
 
 # Resolved against the repacked tgz hash; regenerated every run.
@@ -38,3 +35,7 @@ Assets/Plugins/Magic/
 Assets/Plugins/Magic.meta
 Assets/link.xml
 Assets/link.xml.meta
+
+# Package output, not fixture input; deleted by `bb coexist-noise` before each import.
+Assets/Plugins/Consumer/*.meta
+Assets/Plugins/Consumer.meta
