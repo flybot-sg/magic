@@ -1,6 +1,0 @@
-obj
-bin
-# Unity writes a .meta for these ignored build dirs; ignore those too
-# (asset .meta files are still committed).
-obj.meta
-bin.meta
