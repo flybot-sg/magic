@@ -2,13 +2,13 @@
 
 How to use MAGIC in a Unity project: compile your Clojure to `.clj.dll` with the `nos` CLI outside Unity, then load it at play time through the `magic-unity` UPM package. The package also rewrites MAGIC's IL during IL2CPP builds (iOS, Android, consoles).
 
-This is the consumer-side guide. For what the package contains and how its internals work, see [magic-unity](../magic-unity). For the `deps.edn` / `magic.edn` compile workflow in depth, see [Porting a Clojure library to MAGIC](./porting-libraries-to-magic.md).
+This is the consumer-side guide. For the package's C# API and install reference, see [magic-unity/README.md](../magic-unity/README.md). For the `deps.edn` / `magic.edn` compile workflow in depth, see [Porting a Clojure library to MAGIC](./porting-libraries-to-magic.md).
 
 ## Steps
 
-1. **Install `nos`** (build-time only; needs the `mono` runtime, no .NET SDK). See [Install](../README.md#install) in the root README for the one-line installer.
+1. **Install `nos`** (build-time only; needs the `mono` runtime, no .NET SDK). See [Install](../README.md#install) in the root README.
 
-2. **Add the package** to `Packages/manifest.json`, pinned to a tag from the [releases page](https://github.com/flybot-sg/magic/releases). Pick one variant (see [Choosing a variant](#choosing-a-variant)):
+2. **Add the package** to `Packages/manifest.json`, pinned to a tag from the [releases page](https://github.com/flybot-sg/magic/releases):
 
    ```json
    {
@@ -25,7 +25,7 @@ This is the consumer-side guide. For what the package contains and how its inter
    {:build {:namespaces [my.game.core] :out "Assets/Plugins/Magic"}}
    ```
 
-   A project with custom build/test steps can still hand-write a `dotnet.clj` instead (see [the porting guide](./porting-libraries-to-magic.md)); `unity-examples/magic-unity-smoke` does, because its test runner is not `clojure.test`.
+   A project with custom build/test steps can hand-write a `dotnet.clj` instead; see [the porting guide](./porting-libraries-to-magic.md).
 
 4. **Compile before opening Unity:**
 
@@ -35,33 +35,39 @@ This is the consumer-side guide. For what the package contains and how its inter
 
    This drops your `.clj.dll` into `Assets/Plugins/Magic/`, where Unity loads them.
 
-5. **Open Unity and hit Play.** For CI, `nos test` runs the Mono-side `clojure.test` suites without Unity. IL2CPP-only regressions need a real Unity build.
+5. **Write a loader, then Play.** Unity doesn't know which DLLs are Clojure or which var is the entry point, so a `MonoBehaviour` has to require and invoke it (pattern: [`SmokeTestRunner.cs`](../unity-examples/magic-unity-smoke/Assets/Scripts/SmokeTestRunner.cs)):
 
-## Choosing a variant
+   ```csharp
+   using Magic.Unity;
 
-> **Being retired:** an upcoming release replaces the two variants with a single package that embeds the ClojureCLR runtime and excludes MAGIC's DLLs from the Editor through `defineConstraints` in committed `.meta` files. The variant choice below, `magic-unity-dual`, and `bb gen-unity-dual` all disappear with it.
+   void Start() {
+       Clojure.Require("my.game.core");
+       Clojure.GetVar("my.game.core", "start!").invoke();
+   }
+   ```
 
-The package ships in two variants, identical except for whether the runtime `.clj.dll` plugins are visible to the Editor:
+   Editor Play mode needs MAGIC as the Editor runtime (see below); otherwise these calls drive ClojureCLR instead.
 
-| | `sg.flybot.magic.unity` (default) | `sg.flybot.magic.unity.dual` |
-|---|---|---|
-| Runtime in the Editor | loadable | excluded (`!UNITY_EDITOR`) |
-| MAGIC in Editor Play mode | works | not available (Editor uses ClojureCLR) |
-| Alongside ClojureCLR | benign console noise, handled by the guard | silent (runtime absent from the Editor) |
-| Player builds (Mono / IL2CPP) | identical | identical |
+6. **Build a player to exercise the IL2CPP / AOT path.** Editor Play runs under Mono and can't surface IL2CPP-only regressions. The smoke example wires this to a one-click menu; see the [smoke README](../unity-examples/magic-unity-smoke/README.md#run). For CI without Unity, `nos test` runs the Mono-side tests headless but doesn't exercise IL2CPP.
 
-- **Default** if MAGIC runs in your Editor (Play mode, edit-mode tooling) and there is no ClojureCLR.
-- **`.dual`** if your Editor runs ClojureCLR (REPL / hot-reload) and MAGIC ships only in player builds. Pin `?path=magic-unity-dual#<tag>`.
+## Choosing the Editor runtime
 
-Full comparison and rationale: [magic-unity, Package variants](../magic-unity/README.md#package-variants).
+The package ships both MAGIC (the default for the player build) and ClojureCLR (the default for the Unity editor); set the Editor runtime via `Project Settings > MAGIC`, or from a script through `Magic.Unity.EditorRuntime` ([package README](../magic-unity/README.md#editor-api)). ClojureCLR is the default because it hot-reloads from source; MAGIC-in-Editor is for reproducing player behaviour before a build.
 
-## Coexistence with ClojureCLR
+Note that:
 
-A project that keeps ClojureCLR in the Editor and ships MAGIC in players runs both runtimes. With the **default** variant the Editor prints one benign `Assembly is incompatible with the editor` line per runtime `.clj.dll` on each domain reload (Unity narrating the intended exclusion; player builds are unaffected). The **`.dual`** variant excludes the runtime from the Editor by construction, so those lines never appear. Either way the fork assemblies stay out of the Editor domain, which is what stops ClojureCLR's namespace resolution from reaching them ([#25](https://github.com/flybot-sg/magic/issues/25)).
+- **API Compatibility Level must be `.NET Framework`** (`Project Settings > Player`) for ClojureCLR, as it needs assemblies the .NET Standard profile lacks.
+- In the default state, `Clojure.Require`/`GetVar` drive ClojureCLR, not MAGIC. These are identical call sites for different runtime. Editor `Require` needs your sources on ClojureCLR's load path.
 
-The in-repo reproduction is [`unity-examples/magic-unity-coexist`](../unity-examples/magic-unity-coexist): `bb coexist-noise` checks that the dual variant is silent, `bb coexist-noise magic-only` reproduces the noise on the default variant.
+## Shipping your own compiled DLLs
+
+Your `.clj.dll` / `.cljc.dll` / `.cljr.dll` need the same define constraint as the package's DLLs, or they stay Editor-eligible against a runtime that isn't loaded: Unity unloads most of them as broken assemblies (`Unloading broken assembly <name>, this assembly can cause crashes in the runtime`) and silently binds the rest to ClojureCLR, whose `Clojure.dll` satisfies the MAGIC reference by name. The package applies the constraint automatically on import under `Assets/**` and in embedded/local packages, and reloads scripts when it lands on a DLL the running Editor had already seen unconstrained, so the session recovers in place; the error lines from that first load stay in the Console.
+
+Packages of your own that resolve into the immutable `Library/PackageCache` (registry, git, or tarball deps) need the constraint baked into the `.meta` at publish time.
+
+Existing `Clojure.dll` in your project will conflict with the ones in this package, so they should be deleted or accompanied by additional new constraints.
 
 ## Examples
 
-- [`unity-examples/magic-unity-smoke`](../unity-examples/magic-unity-smoke): standalone IL2CPP regression suite. The reference pattern for `deps.edn` and a custom `dotnet.clj`, with a `MAGIC -> Smoke -> Build & Run IL2CPP` menu. Run by hand on Unity 2022.3.62f3.
-- [`unity-examples/magic-unity-coexist`](../unity-examples/magic-unity-coexist): coexistence repro that vendors ClojureCLR, driven by `bb coexist-noise`.
+- [`unity-examples/magic-unity-smoke`](../unity-examples/magic-unity-smoke): standalone IL2CPP regression suite, with a `MAGIC -> Smoke -> Build & Run IL2CPP` menu. Run by hand on Unity 2022.3.62f3.
+- [`unity-examples/magic-unity-coexist`](../unity-examples/magic-unity-coexist): headless regression for both Editor-runtime states, driven by `bb coexist-noise`.

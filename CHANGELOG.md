@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Unity
+
+`sg.flybot.magic.unity` now ships **both** Clojure runtimes, and the `MAGIC_RUNTIME_IN_EDITOR` scripting define symbol decides which one the **Editor** loads: unset (the default), ClojureCLR; set, MAGIC. Player builds always run MAGIC and are identical either way; ClojureCLR-as-default is the only polarity Unity's constraint grammar can express - [#120](https://github.com/flybot-sg/magic/issues/120).
+
+Upgrading does not break existing projects: a project that kept ClojureCLR in the Editor gets exactly that by default. Coming from `sg.flybot.magic.unity.dual` (retired, along with `bb gen-unity-dual`), repin to `?path=magic-unity#<tag>` and set nothing. To run MAGIC in the Editor, set the symbol from `Project Settings > MAGIC` or `Magic.Unity.EditorRuntime.UseMagic()`. Delete any ClojureCLR `Clojure.dll` you vendored under `Assets`; an unconstrained copy overrides the selection.
+
+- The package vendors ClojureCLR 1.11.0 (net462) plus the DLR under `Runtime/clojure-clr/`, Editor-only, with EPL-1.0 / Apache-2.0 notices.
+- Both Editor states are silent: no `Assembly is incompatible with the editor` narration, no `Duplicate assembly 'Clojure.dll'` line.
+- Your own compiled `*.clj.dll` under `Assets` get the constraint applied on import, so they follow the Editor runtime.
+- When the constraint lands on assemblies the running Editor had already seen unconstrained - a cold start on stale metas, or upgrading to this package version - the package requests a script reload and the session converges in place. The first load's `Unloading broken assembly` lines stay in the Console.
+- `StockClojureCoexistence` is removed; it reacted to filesystem state and could override the runtime you asked for. The constraints subsume it.
+- The default state needs API Compatibility Level `.NET Framework`; the package warns and `Project Settings > MAGIC` offers a fix button.
+
+### Tooling
+- `bb coexist-noise` asserts both Editor runtime states (`clojure-clr` / `magic`, or both by default), the upgrade path, and the toggle round-trip, replacing the dual-variant noise count.
+- New `bb sync-clojure-clr` vendors a [`flybot-sg/clojure-clr`](https://github.com/flybot-sg/clojure-clr) release into the package; `bb write-metas` creates missing constrained `.meta`s.
+- `bb check-drift` (and `bb write-metas`) fails if any shipped DLL loses its runtime-selection constraint.
+- `bb verify-dist` is reduced to the `nos version` smoke test; its file-existence checks duplicated what runtime boot and `bb check-drift` already fail on.
+
 ## v0.11.0 - 2026-07-24
 
 Mostly compiler fixes: never-returning branches emitted invalid IL, protocol-hinted parameters threw `InvalidCastException`, a named fn was not `identical?` to its own self-reference, several numeric literals and integer operations emitted wrong bytes or overflowed instead of promoting, and the last known sources of nondeterministic DLL bytes are gone.

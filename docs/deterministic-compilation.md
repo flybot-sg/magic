@@ -166,7 +166,7 @@ flowchart TD
     subgraph cd["bb check-drift"]
         regen["regen-callsites<br/>the 5 Mustache templates into<br/>the 97 .g.cs in Magic.Runtime/Generated/"]
         regen --> stdlib["refresh-stdlib<br/>recompile 28 stdlib .clj.dll into<br/>both dirs, re-record dll-sources.edn"]
-        stdlib --> upm["sync-upm-version, gen-unity-dual<br/>version.edn to package.json,<br/>magic-unity-dual/"]
+        stdlib --> upm["sync-upm-version, check-constraints<br/>version.edn to package.json,<br/>runtime-selection define constraints"]
         upm --> diff["git status over the checked paths:<br/>any difference from HEAD fails,<br/>naming what drifted"]
     end
 ```
