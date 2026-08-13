@@ -216,7 +216,7 @@ You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic
 
 ```mermaid
 flowchart TD
-    nos["nos dotnet/build,<br/>outside Unity"] --> asm
+    nos["nos build,<br/>outside Unity"] --> asm
 
     subgraph asm["What Unity loads"]
         yours["your .clj.dll"]
@@ -240,7 +240,7 @@ Three passes do the work. `EliminateUnreachableInstructions` strips dead IL the 
 
 That rewrite happens in place. `IL2CPPWorkarounds` writes a temporary file, deletes the original and moves the new bytes over it, so after any player build the DLLs in `magic/` are Cecil output rather than compiler output. This is unconditional, and it happens on Mono builds too: reading and writing an assembly with Cecil rebuilds its metadata tables and layout, so the bytes differ even when no instruction changed. Deterministic compilation says nothing about it, because the mutation happens downstream of the compiler. Committing that directory after a build, without restoring it first, ships the wrong bytes. [The bootstrap](./bootstrap.md) covers getting back to a clean state.
 
-A project can also keep ClojureCLR in the editor for hot reload and run MAGIC only in players. The package detects that on its own: when a strong-named `Clojure.dll` sits under `Assets`, every `.clj.dll` referencing the fork, the package's and yours, is reimported with editor loading off, and restored once the foreign copy leaves. What the two runtimes need from each other, and how a project sets that up, is [Unity integration](./unity-integration.md).
+A project can also keep ClojureCLR in the editor for hot reload and run MAGIC only in players, which is in fact the default. The package ships both runtimes, MAGIC's fork under `Runtime/magic/` and ClojureCLR under `Runtime/clojure-clr/`, and a define constraint on every shipped DLL decides which set the editor is allowed to load. Consumer setup is [Unity integration](./unity-integration.md#choosing-the-editor-runtime).
 
 ## The example Unity projects
 
@@ -252,9 +252,9 @@ The point is the comparison. `nos dotnet/run-tests` runs the suites under Mono i
 
 [`magic-unity-coexist`](../unity-examples/magic-unity-coexist) shows how to run both compilers in one Unity project, which is what a shipping game actually wants.
 
-The reason is hot reload. MAGIC compiles ahead of time, so changing a function means recompiling and reloading the domain. ClojureCLR loads `.clj` from disk and can redefine a var the moment you save. ClojureCLR in turn cannot ship to iOS, which is the whole reason MAGIC exists. So each runs where it is strong: ClojureCLR drives the editor, MAGIC compiles what players run. The project vendors ClojureCLR and its dependencies, the DLR included, so that arrangement can be exercised here instead of only inside a consumer project, and it runs headless from a `bb` task.
+The reason is hot reload. MAGIC compiles ahead of time, so changing a function means recompiling and reloading the domain. ClojureCLR loads `.clj` from disk and can redefine a var the moment you save. ClojureCLR in turn cannot ship to iOS, which is the whole reason MAGIC exists. So each runs where it is strong: ClojureCLR drives the editor, MAGIC compiles what players run. The package ships ClojureCLR and its dependencies, the DLR included, so that arrangement is exercised here instead of only inside a consumer project, and it runs headless from a `bb` task.
 
-Making the two share a project also took fixes on the ClojureCLR side, carried by [`flybot-sg/clojure-clr`](https://github.com/flybot-sg/clojure-clr), a maintained 1.11 fork that the Unity package will soon embed.
+Making the two share a project also took fixes on the ClojureCLR side, carried by [`flybot-sg/clojure-clr`](https://github.com/flybot-sg/clojure-clr), the maintained 1.11 fork the Unity package embeds.
 
 ## The bootstrap
 

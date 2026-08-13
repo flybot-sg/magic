@@ -6,7 +6,7 @@ This file is the developer reference. For the full usage guide about using with 
 
 This UPM package lets a Unity game run Clojure, in the Editor and in a shipped player on every backend Unity supports, IL2CPP included (iOS, Android, consoles). It ships two Clojure runtimes (MAGIC and ClojureCLR), a small C# API for calling into Clojure, and the Editor build hooks that make MAGIC's IL survive AOT compilation.
 
-It does not compile Clojure — compile your namespaces to `.clj.dll` outside Unity with `nos build` (writes to `magic.edn`'s `:out`, `Assets/Plugins/Magic` by convention), and Unity loads them as plain .NET assemblies.
+It does not compile Clojure. Namespaces are compiled to `.clj.dll` outside Unity with `nos build`, and Unity loads them as plain .NET assemblies; see [step 4 of the guide](https://github.com/flybot-sg/magic/blob/main/docs/unity-integration.md#steps).
 
 ## Install
 
@@ -25,7 +25,7 @@ Add to `Packages/manifest.json`, pinned to a tag from the [releases page](https:
 - `T GetVar<T>(string ns, string name)` - typed variant.
 - `void Boot()` - initialize the Clojure runtime. Called automatically by the other methods; rarely needed directly.
 
-Nothing calls these for you — a `MonoBehaviour` of yours has to. See [step 5 of the guide](https://github.com/flybot-sg/magic/blob/main/docs/unity-integration.md#steps) for the pattern.
+Nothing calls these for you; a `MonoBehaviour` of yours has to. See [step 5 of the guide](https://github.com/flybot-sg/magic/blob/main/docs/unity-integration.md#steps) for the pattern.
 
 ## Editor API
 

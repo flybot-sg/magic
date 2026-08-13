@@ -66,7 +66,7 @@ Run the local gate first; CI runs the same drift check and tests:
 ```bash
 bb clean
 bb build
-bb check-drift   # fails on codegen, committed-DLL, dual-variant, or version drift
+bb check-drift   # fails on codegen, committed-DLL, define-constraint, or version drift
 bb test
 ```
 

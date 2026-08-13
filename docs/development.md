@@ -36,8 +36,8 @@ bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'
 
 - **`bb regen-callsites`** writes the 97 `.g.cs` under `magic-runtime/Magic.Runtime/Generated/` from five `.mustache` templates. A template edit is only real once this has run.
 - **`bb sync-upm-version`** copies the version from `version.edn` into `magic-unity/package.json`.
-- **`bb gen-unity-dual`** rebuilds `magic-unity-dual/` from `magic-unity/`, constraining the 37 runtime `.clj.dll.meta` to `!UNITY_EDITOR`. Run it after any `magic-unity` change.
-- **`bb check-drift`** runs all three plus `refresh-stdlib`, then fails if any checked path differs from HEAD. Run it after a fresh `bb build`, as CI does. What it byte-diffs and what it only restores are in [deterministic compilation](./deterministic-compilation.md).
+- **`bb write-metas`** creates a Unity `.meta` (with its runtime-selection define constraint) for every `magic-unity` DLL that lacks one; existing metas are never rewritten. The constraint blocks are verified by `bb check-drift`; what they say and why is beside `runtime-sets` in `bb/magic/unity.clj`.
+- **`bb check-drift`** runs all three plus `refresh-stdlib` and the constraint verification, then fails if any checked path differs from HEAD. Run it after a fresh `bb build`, as CI does. What it byte-diffs and what it only restores are in [deterministic compilation](./deterministic-compilation.md).
 
 ## Testing
 
@@ -75,14 +75,15 @@ Replies are tagged `:ret` (with `:ms` timing), `:out` and `:err`, and `:tap`. Th
 
 **`bb repl`** is the Nostrand CLI REPL in `magic-compiler/`. For iterating on compiler `.clj` files, `(require '... :reload)` is seconds where two bootstrap passes are minutes.
 
-## The coexistence repro
+## The Editor-runtime regression
 
 ```bash
-bb coexist-noise             # dual variant, expect 0 narration lines
-bb coexist-noise magic-only  # default variant, expect 37
+bb coexist-noise              # both Editor states, the upgrade path, the toggle
+bb coexist-noise clojure-clr  # just the default state, plus those checks
+bb coexist-noise magic        # just the opted-in state, plus those checks
 ```
 
-Drives [`magic-unity-coexist`](../unity-examples/magic-unity-coexist) headless and prints the narration count with a `:status`. Read that status: the task exits 0 either way, so a regression will not fail your shell. Needs Unity `2022.3.62f3` and no GUI editor holding the project, otherwise batchmode exits 134.
+Drives [`magic-unity-coexist`](../unity-examples/magic-unity-coexist) headless on Unity `2022.3.62f3`; what each check asserts and how to read a run is in [its README](../unity-examples/magic-unity-coexist/README.md).
 
 ## MSBuild targets underneath
 

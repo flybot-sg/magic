@@ -322,9 +322,9 @@ After a Unity player build, the DLLs in `magic/` are no longer the bytes the com
 
 The pre-build hook hands each assembly to Mono.Cecil ([Unity integration](./unity-integration.md) covers why), so those files come out as Cecil output rather than compiler output. It happens under both scripting backends, and the bytes differ even when no instruction changed. A Unity run can also flip the exec bit, so compare mode as well as bytes.
 
-To get back to a clean state, restore the directory from HEAD (`git checkout -- magic-unity/Runtime/magic/`) or regenerate it with `bb refresh-stdlib` or `bb build`. `magic-unity-dual` holds a Unity-untouched copy if you need one.
+To get back to a clean state, restore the directory from HEAD (`git checkout -- magic-unity/Runtime/magic/`) or regenerate it with `bb refresh-stdlib` or `bb build`.
 
-**The rule:** never commit `magic/` straight after a player build. And when a C# runtime fix means `magic/Clojure.dll` genuinely has to be committed, mind the order. `bb check-drift` restores `Clojure.dll` and `Magic.Runtime.dll` from HEAD, because both embed a `git describe` `SourceRevisionId` no rebuild can reproduce. So run `bb check-drift` **first**, then `dotnet build -t:MagicUnity` and `bb gen-unity-dual`, then commit. The other order looks clean and ships the old DLL.
+**The rule:** never commit `magic/` straight after a player build. And when a C# runtime fix means `magic/Clojure.dll` genuinely has to be committed, mind the order. `bb check-drift` restores `Clojure.dll` and `Magic.Runtime.dll` from HEAD, because both embed a `git describe` `SourceRevisionId` no rebuild can reproduce. So run `bb check-drift` **first**, then `dotnet build -t:MagicUnity`, then commit. The other order looks clean and ships the old DLL.
 
 ### A mono crash during assembly save
 
