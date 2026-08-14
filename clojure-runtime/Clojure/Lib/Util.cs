@@ -275,6 +275,9 @@ namespace clojure.lang
                     return 1;
                 if (IsNumeric(k1))
                     return Numbers.compare(k1, k2);
+                // String.CompareTo is culture-sensitive on the CLR; JVM String.compareTo is by code unit.
+                if (k1 is string str1 && k2 is string str2)
+                    return String.CompareOrdinal(str1, str2);
                 return ((IComparable)k1).CompareTo(k2);
             }
             return -1;

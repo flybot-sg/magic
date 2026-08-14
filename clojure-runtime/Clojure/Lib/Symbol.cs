@@ -312,11 +312,12 @@ namespace clojure.lang
             {
                 if (s._ns == null)
                     return 1;
-                int nsc = _ns.CompareTo(s._ns);
+                // ordinal, not culture-sensitive CompareTo: JVM Symbol.compareTo is by code unit
+                int nsc = String.CompareOrdinal(_ns, s._ns);
                 if (nsc != 0)
                     return nsc;
             }
-            return _name.CompareTo(s._name);
+            return String.CompareOrdinal(_name, s._name);
         }
 
         #endregion
