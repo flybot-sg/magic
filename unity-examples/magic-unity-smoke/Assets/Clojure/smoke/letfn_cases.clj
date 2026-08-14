@@ -3,19 +3,8 @@
 
   Regression for develop 52a7a438: mutually recursive letfn-bound
   functions used to NullReferenceException because closure fields
-  stayed null after instance allocation.")
-
-(defn- pass [n]       {:name n :pass? true})
-(defn- fail [n detail] {:name n :pass? false :detail detail})
-
-(defn- check [name thunk expected]
-  (try
-    (let [actual (thunk)]
-      (if (= expected actual)
-        (pass name)
-        (fail name (str "expected " (pr-str expected) " got " (pr-str actual)))))
-    (catch System.Exception e
-      (fail name (str (.. e GetType FullName) ": " (.Message e))))))
+  stayed null after instance allocation."
+  (:require [smoke.check :refer [check]]))
 
 (defn suite []
   [(check "letfn simple"

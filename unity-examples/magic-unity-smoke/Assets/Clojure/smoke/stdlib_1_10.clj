@@ -7,19 +7,8 @@
   walks the InnerException chain and reads stack frames via
   System.Diagnostics.StackTrace. ex-triage/ex-str exercise the
   String.Join array overload and the Printf formatter under AOT."
-  (:require [clojure.main :as cmain]))
-
-(defn- pass [n]        {:name n :pass? true})
-(defn- fail [n detail] {:name n :pass? false :detail detail})
-
-(defn- check [name thunk expected]
-  (try
-    (let [actual (thunk)]
-      (if (= expected actual)
-        (pass name)
-        (fail name (str "expected " (pr-str expected) " got " (pr-str actual)))))
-    (catch System.Exception e
-      (fail name (str (.. e GetType FullName) ": " (.Message e))))))
+  (:require [smoke.check :refer [check]]
+            [clojure.main :as cmain]))
 
 (def ^:private a-var 42)
 

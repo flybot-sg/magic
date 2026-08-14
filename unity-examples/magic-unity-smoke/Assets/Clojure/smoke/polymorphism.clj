@@ -9,19 +9,8 @@
   is bound to the hint-relax fix: a ^Protocol param used to cast to
   the protocol's generated interface, which extend-protocol
   implementers are not instances of. The rest of the suite is broad
-  construct coverage to catch dispatch-related regressions.")
-
-(defn- pass [n]       {:name n :pass? true})
-(defn- fail [n detail] {:name n :pass? false :detail detail})
-
-(defn- check [name thunk expected]
-  (try
-    (let [actual (thunk)]
-      (if (= expected actual)
-        (pass name)
-        (fail name (str "expected " (pr-str expected) " got " (pr-str actual)))))
-    (catch System.Exception e
-      (fail name (str (.. e GetType FullName) ": " (.Message e))))))
+  construct coverage to catch dispatch-related regressions."
+  (:require [smoke.check :refer [check]]))
 
 (defprotocol IShape
   (area [s])
