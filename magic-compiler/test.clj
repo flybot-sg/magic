@@ -15,6 +15,7 @@
    magic.test.letfn
    magic.test.pipeline
    magic.test.hash
+   magic.test.compare
    magic.test.stdlib
    magic.test.spec
    magic.test.deterministic
@@ -51,6 +52,7 @@
     'magic.test.letfn
     'magic.test.pipeline
     'magic.test.hash
+    'magic.test.compare
     'magic.test.stdlib
     'magic.test.spec
     'magic.test.deterministic
