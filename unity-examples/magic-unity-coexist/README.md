@@ -65,6 +65,8 @@ which is why the project runs API Compatibility Level `.NET Framework`.
 
 ## Running it
 
+Close all open instances of Unity first, then run one of:
+
 ```
 bb coexist-noise              # both states, then the upgrade path and the toggle
 bb coexist-noise clojure-clr  # just the default state, plus those
@@ -72,10 +74,7 @@ bb coexist-noise magic        # just the opted-in state, plus those
 ```
 
 A full run is eight Unity launches (two per state, three for the upgrade path,
-one for the toggle) on Unity 2022.3.62f3 with no GUI editor holding the
-project (batchmode exits 134 otherwise). It leaves the fixture in the
-`clojure-clr` state; to open it in the GUI with the MAGIC Editor runtime, run
-`bb coexist-noise magic` first.
+one for the toggle) on Unity 2022.3.62f3.
 
 The tarball, `Packages/packages-lock.json`, `Logs/` and the consumer `.meta`s
 are build artifacts and are gitignored.

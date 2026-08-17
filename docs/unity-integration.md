@@ -57,15 +57,15 @@ The package ships both MAGIC (the default for the player build) and ClojureCLR (
 Note that:
 
 - **API Compatibility Level must be `.NET Framework`** (`Project Settings > Player`) for ClojureCLR, as it needs assemblies the .NET Standard profile lacks.
-- In the default state, `Clojure.Require`/`GetVar` drive ClojureCLR, not MAGIC. These are identical call sites for different runtime. Editor `Require` needs your sources on ClojureCLR's load path.
+- In the default state, `Clojure.Require`/`GetVar` drive ClojureCLR, not MAGIC: the same C# calls, executed by whichever runtime the Editor loaded. ClojureCLR compiles from source, so Editor `Require` needs your `.clj` sources on its load path (`CLOJURE_LOAD_PATH`); the `.clj.dll` that `nos build` wrote are MAGIC output and stay excluded from the Editor in this state.
 
 ## Shipping your own compiled DLLs
 
-Your `.clj.dll` / `.cljc.dll` / `.cljr.dll` need the same define constraint as the package's DLLs, or they stay Editor-eligible against a runtime that isn't loaded: Unity unloads most of them as broken assemblies (`Unloading broken assembly <name>, this assembly can cause crashes in the runtime`) and silently binds the rest to ClojureCLR, whose `Clojure.dll` satisfies the MAGIC reference by name. The package applies the constraint automatically on import under `Assets/**` and in embedded/local packages, and reloads scripts when it lands on a DLL the running Editor had already seen unconstrained, so the session recovers in place; the error lines from that first load stay in the Console.
+Your compiled `.clj.dll` / `.cljc.dll` / `.cljr.dll` need the same define constraint as the package's MAGIC DLLs. Otherwise, the DLL stays Editor-eligible even if the MAGIC runtime is excluded from the Editor.
 
 Packages of your own that resolve into the immutable `Library/PackageCache` (registry, git, or tarball deps) need the constraint baked into the `.meta` at publish time.
 
-Existing `Clojure.dll` in your project will conflict with the ones in this package, so they should be deleted or accompanied by additional new constraints.
+For both pre-existing and newly-installed DLLs under `Assets/**` and in embedded or local packages, the package attempts to apply the constraint for you automatically. When the constraint lands on a DLL for the first time on a pre-existing DLL, the Editor reloads the DLL after the constraint. However, there may be some error lines from this first load depending on your Console configuration. These error lines will not reappear on subsequent loads.
 
 ## Examples
 

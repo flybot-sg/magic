@@ -32,7 +32,7 @@
    :task (shell "dotnet build" "nostrand/NostrandMain.csproj" "-c" "Release")}
 
   bootstrap
-  {:doc "One bootstrap pass: compile magic-compiler with the compiler in references/, deploy over it (rebuilds nostrand) and into magic-unity Export, re-record dll-sources.edn.
+  {:doc "One bootstrap pass: compile magic-compiler with the compiler in references/, deploy over it (rebuilds nostrand) and into magic-unity `magic-unity/Runtime/magic`, re-record dll-sources.edn.
          Slow.
          Extra args go to nos build/bootstrap, e.g. `bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'`.
          One pass is not the fixpoint; `bb dev-compiler` runs the usual two.
@@ -43,7 +43,7 @@
              (unity/write-metas!))}
 
   refresh-stdlib
-  {:doc "Recompile every committed stdlib clojure.*.clj.dll from source, redeploy to nostrand/references/, the built host, and magic-unity Export, then re-record dll-sources.edn.
+  {:doc "Recompile every committed stdlib clojure.*.clj.dll from source, redeploy to nostrand/references/, the built host, and `magic-unity/Runtime/magic`, then re-record dll-sources.edn.
          Use after editing any magic-compiler/src/stdlib/**/*.clj.
          Owns every stdlib namespace outside the clojure.core family; every other committed DLL belongs to `bb bootstrap`.
          See docs/bootstrap.md."
