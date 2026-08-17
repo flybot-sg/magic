@@ -97,7 +97,7 @@
 
 (defn check!
   "After the regen tasks have run, fail if any checked path differs from HEAD.
-   Committed DLLs are byte-diffed, except Export's Clojure.dll and
+   Committed DLLs are byte-diffed, except magic-unity's MAGIC Clojure.dll and
    Magic.Runtime.dll: they embed a git-describe SourceRevisionId, so they are
    restored from HEAD instead."
   []

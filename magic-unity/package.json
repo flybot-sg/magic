@@ -7,7 +7,7 @@
     "unityRelease": "3f1",
     "documentationUrl": "https://github.com/flybot-sg/magic",
     "changelogUrl": "https://github.com/flybot-sg/magic/blob/main/CHANGELOG.md",
-    "licensesUrl": "https://github.com/flybot-sg/magic/blob/main/clojure-runtime/epl-v10.html",
+    "licensesUrl": "https://github.com/flybot-sg/magic/blob/main/magic-unity/Third%20Party%20Notices.md",
     "dependencies": {
         "com.unity.nuget.mono-cecil": "1.11.4"
     },
