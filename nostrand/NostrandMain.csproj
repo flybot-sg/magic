@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Scripts/nos-core" Link="nos" CopyToOutputDirectory="PreserveNewest" Condition="'$(TargetFramework)' == 'net5.0'" />
+    <Content Include="Scripts/nos-core" Link="nos" CopyToOutputDirectory="PreserveNewest" Condition="'$(TargetFramework)' == 'net6.0'" />
     <Content Include="Scripts/nos-framework" Link="nos" CopyToOutputDirectory="PreserveNewest" Condition="'$(TargetFramework)' == 'net471'" />
     <Content Include="nostrand/**/*.*">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -16,7 +16,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
     <PackageReference Include="Mono.Terminal" Version="5.4.2" />
-    <PackageReference Include="Lokad.ILPack" Version="0.1.5" Condition="'$(TargetFramework)' == 'net5.0'" />
   </ItemGroup>
 
   <ItemGroup>

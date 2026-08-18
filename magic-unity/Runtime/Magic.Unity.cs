@@ -32,13 +32,12 @@ namespace Magic.Unity
         // The bootstrap below uses API that only exists in MAGIC's Clojure
         // fork: RuntimeBootstrapFlag.CodeLoadOrder, RT.Initialize with the
         // doRuntimePostBoostrap parameter, and RT.TryLoadInitType. A consumer
-        // may keep a stock ClojureCLR in Assets for in-editor runtime
+        // may keep a ClojureCLR Clojure.dll in Assets for in-editor runtime
         // compilation; Unity dedups managed plugins by file name, so this
-        // file can end up compiled against stock Clojure.dll. Bind the
-        // fork-only members via reflection: when the fork is present this
-        // runs the exact same bootstrap as before, when it is absent (stock)
-        // the bootstrap is skipped and stock self-initializes on first
-        // RT.var.
+        // file can end up compiled against that copy. Bind the fork-only
+        // members via reflection: when the fork is present the full MAGIC
+        // bootstrap runs, when it is absent the bootstrap is skipped and
+        // ClojureCLR self-initializes on first RT.var.
         static void BootMagicRuntime()
         {
             var clojureAssembly = typeof(RT).Assembly;
@@ -49,7 +48,7 @@ namespace Magic.Unity
             var tryLoadInitTypeMethod = typeof(RT).GetMethod("TryLoadInitType", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(string) }, null);
             if (codeLoadOrderField == null || codeSourceType == null || initializeMethod == null || tryLoadInitTypeMethod == null)
             {
-                // Silent skip is correct for stock ClojureCLR (no RuntimeBootstrapFlag).
+                // Silent skip is correct for ClojureCLR (no RuntimeBootstrapFlag).
                 // A non-null bootstrapFlagType means the fork is loaded but a member
                 // moved, so warn rather than let the player die later with no pointer here.
                 if (bootstrapFlagType != null)

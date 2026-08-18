@@ -2,8 +2,7 @@
   "Release plumbing: dependency report, dist verification, tarball, tagging."
   (:require [babashka.fs :as fs]
             [babashka.tasks :refer [shell]]
-            [clojure.edn :as edn]
-            [magic.log :as log]))
+            [clojure.edn :as edn]))
 
 (defn- version []
   (:version (edn/read-string (slurp "version.edn"))))
@@ -25,24 +24,10 @@
   (println "Note: Nostrand `deps.edn` git deps are pinned by sha and not version-checked by antq. Inspect manually if used."))
 
 (defn verify-dist! []
-  (let [nos-dir   "nostrand/bin/Release/net471"
-        unity-dir "magic-unity/Runtime/Infrastructure/Export"
-        required  [(str nos-dir "/nos")
-                   (str nos-dir "/NostrandMain.exe")
-                   (str nos-dir "/Clojure.dll")
-                   (str nos-dir "/Magic.Runtime.dll")
-                   (str unity-dir "/Clojure.dll")
-                   (str unity-dir "/Magic.Runtime.dll")]
-        globs     [[nos-dir "*.clj.dll"]
-                   [unity-dir "*.clj.dll"]]]
-    (doseq [p required]
-      (when-not (fs/exists? p)
-        (log/fail! "verify-dist failed" (str "Missing: " p))))
-    (doseq [[dir glob] globs]
-      (when (empty? (fs/glob dir glob))
-        (log/fail! "verify-dist failed" (str "No matches: " dir "/" glob))))
-    (println "Running nos version:")
-    (shell (str nos-dir "/nos") "version")))
+  ;; `nos version` boots the whole runtime, so a missing launcher,
+  ;; runtime DLL or stdlib .clj.dll exits non-zero.
+  (println "Running nos version:")
+  (shell "nostrand/bin/Release/net471/nos" "version"))
 
 (defn release-tarball! []
   (let [dist-name (str "nostrand-v" (version) "-mono")

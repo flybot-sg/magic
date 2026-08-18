@@ -1,108 +1,90 @@
 # magic-unity-coexist
 
-A minimal Unity project that reproduces the **stock-ClojureCLR coexistence
-noise** in-repo, so the magic repository can validate fixes to that bug class
-without the private consumer project where it was first observed.
+A minimal Unity project that regression-tests **which Clojure runtime the Editor
+loads**, in both of the states the `magic-unity` package supports. It is the
+in-repo stand-in for the private consumer project where the coexistence bug
+class ([#25](https://github.com/flybot-sg/magic/issues/25),
+[#30](https://github.com/flybot-sg/magic/issues/30)) was first observed. The
+driver, and the reasoning behind every check, is
+[`bb/magic/coexist.clj`](../../bb/magic/coexist.clj).
 
-## What it reproduces
+## What it checks
 
-On every editor open or domain reload, a consumer that keeps stock ClojureCLR
-in the editor (for REPL and hot-reload) while shipping the MAGIC fork runtime in
-player builds prints one ERROR line per package Export `*.clj.dll`:
+The package ships both runtimes and `MAGIC_RUNTIME_IN_EDITOR` selects the
+Editor's; player builds always get MAGIC. So there are two valid steady states,
+and they assert opposite things:
 
-```
-Assembly 'Packages/sg.flybot.magic.unity/Runtime/Infrastructure/Export/clojure.core_clr.clj.dll' will not be loaded due to errors:
-Assembly is incompatible with the editor
-```
+| state | symbol | Editor loads | `preloaded-clj` | `core-clj-loadable` | `clojure-versions` |
+|---|---|---|---|---|---|
+| `clojure-clr` (default) | unset | ClojureCLR 1.11.0 | 0 | false | `[1.11.0.0]` |
+| `magic` | set | the MAGIC fork | 39 | true | `[1.0.0.0]` |
 
-plus one benign `Duplicate assembly 'Clojure.dll'` dedup line. The baseline is
-one narration line per runtime `.clj.dll` in Export, currently **37**. They are
-benign: Unity is narrating the
-intended editor exclusion from issue #25, not a real failure. This project
-exists to make that narration measurable and to let a silencing patch prove it
-went to zero without regressing the exclusion.
+Both must be silent: **0** `Assembly is incompatible with the editor` lines,
+**0** `Duplicate assembly 'Clojure.dll'` lines, and **0** `Unloading broken
+assembly` lines. `player-clj-refs` must not move between them.
+`core-clj-loadable=false` in the default state is #25 held by construction:
+the fork `*.clj.dll` are not in the editor domain, so ClojureCLR's namespace
+resolution can never reach them.
 
-## Why the noise happens (and why this setup is the only way to see it)
+After the states, three more checks:
 
-Two ingredients are both required:
+- **The upgrade path** (three launches): import under the package packed
+  *without* `CljPluginConstraints.cs`, upgrade to the real package with the
+  consumer metas left in place, and assert `Reconcile` constrained every one of
+  them (in one log line), and that a fresh launch drops them from the Editor.
+  The upgrade launch must itself log `Unloading broken assembly` and the
+  fresh launch must not, pinning that the noise converges and that the
+  fixture can still produce it.
+- **The toggle** (one launch): `EditorRuntimeProbe` seeds a deliberately
+  unsorted define list, sets and clears the symbol through
+  `Magic.Unity.EditorRuntime`, and must show append-then-exact-restore with no
+  build-target group's defines changed.
+- **The logs**: every log the run wrote is scanned for error-shaped lines,
+  catching what no other check predicted.
 
-1. **A foreign stock `Clojure.dll` under `Assets/`.** `StockClojureCoexistence`
-   scans the filesystem for a strong-named `Clojure.dll`; finding one flips
-   every fork `*.clj.dll` plugin to editor-loading-off (issue #25: stock
-   `RT` probe-loads `clojure.core.clj` at init and a fork DLL answering that
-   probe throws a `TypeLoadException` storm). This project vendors the exact
-   stock layout under `Assets/Plugins/clojure-clr/` (Clojure 1.11.0 net462 +
-   DLR 1.3.2 + spec packages), marked Editor-only, identical to the consumer.
+## Why this project and not `magic-unity-smoke`
 
-2. **An immutable (PackageCache) install of the package.** The narration is a
-   *mismatch*: Unity reads the shipped `.meta` (editor-compatible) to decide the
-   editor candidate set, then the baked import artifact excludes the DLL, so it
-   narrates. On a mutable `file:` install the flip is written back to the
-   on-disk `.meta`, the mismatch disappears, and the narration never appears.
-   That is exactly why the standard `magic-unity-smoke` project (a `file:`
-   install) never shows this, and why `bb coexist-noise` installs the package
-   from a repacked tarball, which Unity resolves into a read-only PackageCache.
+Two ingredients smoke lacks:
 
-The standalone `magic-unity-smoke` project deliberately has no stock ClojureCLR,
-so it has no coexistence and never narrates. This project is its coexistence
-counterpart.
+1. **An immutable (PackageCache) install.** `bb coexist-noise` installs from a
+   repacked tarball; `magic-unity-smoke` is a mutable `file:` install, on which
+   this bug class cannot appear.
+2. **Consumer-compiled Clojure DLLs outside the package.**
+   `Assets/Plugins/Consumer/` stands in for a consumer's own compiled
+   namespaces, with one DLL of each load shape: `smoke.control_flow.clj.dll`
+   has fn types implementing `Magic.Function` (typed invoke), so unconstrained
+   in a ClojureCLR Editor it fails type load and Unity unloads it as broken --
+   the loud symptom; `smoke.interop.cljr.dll` has none, loads cleanly against
+   ClojureCLR's `Clojure.dll`, and covers the silent-bind shape. Their `.meta`s
+   are package *output*, written by the constrainer on import, so the metas are
+   gitignored and deleted before each import; committing them would turn the
+   constraining into setup.
+
+The ClojureCLR runtime comes from the package, exactly as a consumer's would,
+which is why the project runs API Compatibility Level `.NET Framework`.
 
 ## Running it
 
-```
-bb coexist-noise            # tests the dual variant: expect 0 narration lines
-bb coexist-noise magic-only # tests the default variant: expect 37 lines (the problem)
-```
-
-From the repo root. The task:
-
-1. regenerates `magic-unity-dual` from `magic-unity` (`bb gen-unity-dual`), then
-   packs the chosen variant into `magic-unity.tgz` (a UPM tarball, the immutable
-   install);
-2. writes `Packages/manifest.json` with the dependency key that matches the
-   packed variant's `package.json` name (mismatched names make UPM refuse to
-   resolve, which would look like a false "0 narration" pass);
-3. forces a fresh PackageCache resolve (deletes the lock and the cached
-   package);
-4. launches Unity 2022.3.62f3 headless twice: a cold import, then a domain
-   reload that runs `CoexistenceProbe`;
-5. reports the narration-line count, the dedup-line count, and the probe state,
-   and asserts the expected outcome for the variant.
-
-The tarball, `Packages/packages-lock.json`, and `Logs/` are build artifacts and
-are gitignored. The vendored `Assets/Plugins/clojure-clr/` tree is committed: it
-is the fixture. The committed `manifest.json` pins the dual variant (the
-default test target).
-
-Quit any GUI Unity holding this project first; batchmode exits 134 otherwise.
-
-### GUI
-
-Open `magic-unity-coexist` in Unity Hub (2022.3.62f3) after running
-`bb coexist-noise magic-only` once (so the magic-only tarball is resolved and the
-problem is present). Watch `~/Library/Logs/Unity/Editor.log` on a domain reload
-(for example, by re-saving any script) for the 37 lines.
-
-## What each variant must prove
-
-- **Dual variant** (`bb coexist-noise`): **0** narration lines, and the probe
-  still reports `core-clj-loadable=false` with `preloaded-clj=0` (the runtime
-  `clj.dll`s stay out of the editor domain, so a stock `RT` init cannot resolve
-  them: issue #25 stays fixed). The `Duplicate assembly 'Clojure.dll'` dedup
-  line remains (benign, and confirms the package actually resolved). A run that
-  reports 0 narration but no probe line is INCONCLUSIVE, not a pass: the package
-  likely failed to resolve.
-- **Magic-only variant** (`bb coexist-noise magic-only`): **37** narration lines,
-  reproducing exactly what a coexistence consumer of the default package sees.
-  This is the problem the dual variant solves.
-
-Player builds are unaffected by either variant: the Export DLLs are discovered
-for IL2CPP through player compilation references, independent of editor
-visibility. Confirm in `magic-unity-smoke` (`nos dotnet/build` then Build & Run
-IL2CPP) that the player path is unchanged.
-
-The `CoexistenceProbe` marker line in the editor log carries the per-run state:
+Close all open instances of Unity first, then run one of:
 
 ```
-[CoexistenceProbe] preloaded-clj=0 core-clj-loadable=false core-clj-load=FileNotFoundException clojure-versions=[1.11.0.0] export-clj-editor-off=37
+bb coexist-noise              # both states, then the upgrade path and the toggle
+bb coexist-noise clojure-clr  # just the default state, plus those
+bb coexist-noise magic        # just the opted-in state, plus those
 ```
+
+A full run is eight Unity launches (two per state, three for the upgrade path,
+one for the toggle) on Unity 2022.3.62f3.
+
+The tarball, `Packages/packages-lock.json`, `Logs/` and the consumer `.meta`s
+are build artifacts and are gitignored.
+
+The `[CoexistenceProbe]` marker line in the editor log carries the per-run
+state:
+
+```
+[CoexistenceProbe] symbol=unset preloaded-clj=0 core-clj-loadable=false core-clj-load=FileNotFoundException clojure-versions=[1.11.0.0] editor-clj-refs=0 player-clj-refs=39
+```
+
+Player builds are unaffected by the selection; the end-to-end confirmation is
+an IL2CPP Build & Run in `magic-unity-smoke` in both symbol states.

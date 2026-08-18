@@ -28,7 +28,7 @@
 (defn update-load-path []
   (let [abs-paths (mapv #(System.IO.Path/GetFullPath %) @-load-path)]
     ;; CLOJURE_LOAD_PATH gets absolute roots (like *load-paths*), so a loader
-    ;; scanning it finds files from any cwd, matching stock ClojureCLR.
+    ;; scanning it finds files from any cwd, matching ClojureCLR.
     (Environment/SetEnvironmentVariable
       "CLOJURE_LOAD_PATH"
       (string/join Path/PathSeparator abs-paths))

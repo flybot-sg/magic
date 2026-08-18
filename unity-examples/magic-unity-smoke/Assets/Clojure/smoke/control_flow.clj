@@ -1,19 +1,8 @@
 (ns smoke.control-flow
   "Control flow and core data: loop/recur, try/catch/finally,
   lazy-seq, basic numerics. Broad coverage of compiler emit paths
-  at low cost.")
-
-(defn- pass [n]       {:name n :pass? true})
-(defn- fail [n detail] {:name n :pass? false :detail detail})
-
-(defn- check [name thunk expected]
-  (try
-    (let [actual (thunk)]
-      (if (= expected actual)
-        (pass name)
-        (fail name (str "expected " (pr-str expected) " got " (pr-str actual)))))
-    (catch System.Exception e
-      (fail name (str (.. e GetType FullName) ": " (.Message e))))))
+  at low cost."
+  (:require [smoke.check :refer [check]]))
 
 (defn suite []
   [(check "loop/recur sum 0..99"

@@ -32,6 +32,10 @@
   {:read-cond :allow
    :features #{:cljr}})
 
+;; not shared with clojure.core's copy: build.clj compiles this namespace
+;; before clojure.core, against the previous one
+(def ^:private source-extensions [".cljr" ".cljc" ".clj"])
+
 (defn compile-expression [expr ctx opts]
   (when-not (:suppress-print-forms opts)
     (println "[compile-expression]" (-> expr (trim 30)) (str *ns*) (ns-aliases *ns*)))
@@ -164,20 +168,27 @@
   []
   (.SetValue rt-id-field nil (int 10000)))
 
+(defn assembly-name
+  "Module name for a compilation unit; the extension stays in it because -load
+   probes for <ns><ext>.dll."
+  [module extension]
+  (-> module
+      str
+      (string/replace "/" ".")
+      (str extension)))
+
 (defn compile-file
   ([path module]
    (compile-file path module nil))
   ([path module opts]
    (when-not (:suppress-print-forms opts)
      (println "[compile-file] start" path))
-   (let [module-name (-> module
-                         str
-                         (string/replace "/" ".")
-                         (str ".clj"))
+   (let [extension   (Path/GetExtension path)
+         module-name (assembly-name module extension)
          ;; *file* is load-relative like the JVM: an absolute path bakes the
          ;; checkout directory into the emitted bytes via :file var metadata
          source-path (str (string/replace (str module) "." "/")
-                          (Path/GetExtension path))]
+                          extension)]
      (binding [*print-meta*            false
                *ns*                    *ns*
                *file*                  source-path
@@ -200,9 +211,13 @@
            (type-lookup-cache-clear!))
          (try
            (let [rdr    (LineNumberingTextReader. file)
-                 read-1 (fn [] (try (read read-options rdr) (catch Exception _ nil)))]
+                 ;; an :eof sentinel keeps a genuine reader failure from looking
+                 ;; like end of input, which would truncate the unit silently
+                 read-opts (cond-> (assoc read-options :eof ::eof)
+                             (not (.EndsWith (str path) ".cljc")) (dissoc :read-cond))
+                 read-1 (fn [] (read read-opts rdr))]
              (loop [expr (read-1) i 0]
-               (when expr
+               (when-not (= ::eof expr)
                  (compile-expression-top-level expr ctx opts)
                  (recur (read-1) (inc i))))
              (.Close rdr))
@@ -233,10 +248,8 @@
   ([namespace opts]
    (when-not (:suppress-print-forms opts)
      (println "[compile-namespace]" namespace))
-   (let [relative-path (-> namespace str munge (.Replace "." "/" ))
-         clj-name (str relative-path ".clj")
-         cljc-name (str relative-path ".cljc")]
-     (if-let [file (or (find-file clj-name) (find-file cljc-name))]
+   (let [relative-path (-> namespace str munge (.Replace "." "/" ))]
+     (if-let [file (some #(find-file (str relative-path %)) source-extensions)]
        (compile-file (.FullName file) (munge (str namespace)) opts)
        (throw (Exception. (str "could not find source file for namespace " namespace)))))))
 

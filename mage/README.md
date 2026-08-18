@@ -1,31 +1,35 @@
 MAGE
 ====
-Symbolic MSIL bytecode generation for ClojureCLR.
+Symbolic MSIL bytecode generation for Clojure on the CLR. Bundled in the [flybot-sg/magic](https://github.com/flybot-sg/magic) monorepo as the emitter [MAGIC](../magic-compiler) compiles into.
 
 Quick Example
 -------------
 ```clojure
 (require '[mage.core :as il])
+(import '[System.Reflection TypeAttributes])
 
 (il/emit!
   (il/assembly "Example"
     [(il/module "Example.dll"
-      [(il/type "ExampleType"
+      [(il/type "ExampleType" TypeAttributes/Public [] System.Object nil
         [(il/method
           "AddIntegers"
           Int32 [Int32 Int32]
           [(il/ldarg-1)
            (il/ldarg-2)
            (il/add)
-           (il/ret)])])])]))
+           (il/ret)])]
+        [])])]))
 
 (.AddIntegers (ExampleType.) 5 6)
 ;; 11
 ```
 
+`il/type` is the one constructor that has to be spelled out in full: its shorter arities are currently unreachable, so pass attributes, interfaces, supertype, generic parameters, body and custom attributes every time.
+
 Overview
 --------
-MAGE wraps the entire CLR [`System.Reflection.Emit` namespace](https://msdn.microsoft.com/en-us/library/system.reflection.emit(v=vs.110).aspx) in a [gamma](https://github.com/kovasb/gamma)-style symbolic compiler. The goal is a functional, composable, data- and REPL-driven bytecode emission framework for the CLR. A tree of symbolic [MSIL bytecode](https://en.wikipedia.org/wiki/Common_Intermediate_Language) is built as Clojure data, and passed to an `emit!` function to generate usable MSIL bytecode on disk as a DLL file or directly in memory as C# types.
+MAGE wraps the entire CLR [`System.Reflection.Emit` namespace](https://msdn.microsoft.com/en-us/library/system.reflection.emit(v=vs.110).aspx) in a [gamma](https://github.com/kovasb/gamma)-style symbolic compiler. The goal is a functional, composable, data- and REPL-driven bytecode emission framework for the CLR. A tree of symbolic [MSIL bytecode](https://en.wikipedia.org/wiki/Common_Intermediate_Language) is built as Clojure data, and passed to an `emit!` function that turns it into runnable CLR types in memory. Writing a DLL to disk is the caller's job, on top of that.
 
 ### Symbolic Bytecode
 At the heart of MAGE is the symbolic representation of MSIL. Representing bytecode as persistent data allows it to be manipulated functionally before anything is generated. MAGE provides constructor functions that produce the maps that the emission logic expects.
@@ -99,58 +103,33 @@ MSIL uses labels and branching to implement loops and conditionals. This is an i
 ```
 
 #### Methods, Types, Modules, and Assemblies
-Opcodes cannot exist on their own. They must be part of the body of a method, which must be part of a type, which must be in a module, which must be in an assembly.
+Opcodes cannot exist on their own. They must be part of the body of a method, which must be part of a type, which must be in a module, which must be in an assembly. Each level is a map that carries the next one under `::body`, so the assembly from the Quick Example is this value:
 
 ```clojure
-(il/assembly "Example"       ;; [{:mage.core/begin :assembly,
-  (il/module "Example.dll"   ;;   :mage.core/argument
-    (il/type "ExampleType"   ;;   {:mage.core/name #<AssemblyName Example>,
-      (il/method             ;;    :mage.core/access RunAndSave}}
-        "AddIntegers"        ;;  [{:mage.core/begin :module,
-        Int32 [Int32 Int32]  ;;    :mage.core/argument {:mage.core/name "Example.dll"}}
-        [(il/ldarg-1)        ;;   [{:mage.core/begin :type,
-         (il/ldarg-2)        ;;     :mage.core/argument
-         (il/add)]))))       ;;     {:mage.core/name "ExampleType",
-                             ;;      :mage.core/attributes Public,
-                             ;;      :mage.core/interfaces [],
-                             ;;      :mage.core/super System.Object}}
-                             ;;    [{:mage.core/begin :method,
-                             ;;      :mage.core/argument
-                             ;;      {:mage.core/name "AddIntegers",
-                             ;;       :mage.core/attributes Public,
-                             ;;       :mage.core/return-type System.Int32,
-                             ;;       :mage.core/parameter-types [System.Int32, System.Int32]}}
-                             ;;     [{:mage.core/opcode ldarg.1}
-                             ;;      {:mage.core/opcode ldarg.2}
-                             ;;      {:mage.core/opcode add}]
-                             ;;     {:mage.core/end :method}]
-                             ;;    {:mage.core/end :type}]
-                             ;;   {:mage.core/end :module}]
-                             ;;  {:mage.core/end :assembly}]
+{:mage.core/assembly "Example"
+ :mage.core/access   Run
+ :mage.core/body
+ [{:mage.core/module "Example.dll"
+   :mage.core/body
+   [{:mage.core/type       "ExampleType"
+     :mage.core/attributes AutoLayout, AnsiClass, Class, Public
+     :mage.core/interfaces []
+     :mage.core/super      System.Object
+     :mage.core/body
+     [{:mage.core/method      "AddIntegers"
+       :mage.core/return-type System.Int32
+       :mage.core/parameters  [{:mage.core/parameter System.Int32 ...}
+                               {:mage.core/parameter System.Int32 ...}]
+       :mage.core/body
+       [{:mage.core/opcode ldarg.1}
+        {:mage.core/opcode ldarg.2}
+        {:mage.core/opcode add}
+        {:mage.core/opcode ret}]}]}]}]}
 ```
 
 ### Emission
 
-`emit!` will flatten the given tree and emit MSIL bytecode to both disk as a DLL file and into memory. The resulting DLL file can be found at the CLR execution root directory, and the generated types can be used right away.
-
-```clojure
-(il/emit!
-  (il/assembly "Example"
-    (il/module "Example.dll"
-      (il/type "ExampleType"
-        (il/method
-          "AddIntegers"
-          Int32 [Int32 Int32]
-          [(il/ldarg-1)
-           (il/ldarg-2)
-           (il/sub)
-           (il/ret)])))))
-
-(.AddIntegers (ExampleType.) 5 6)
-;; 11
-```
-
-Future versions of MAGE will have a more nuanced `emit!` with better control over where the bytecode goes.
+`emit!` flattens the tree and builds it through `System.Reflection.Emit`, so the generated types are usable as soon as the call returns. It builds in memory and writes no file: `il/assembly` defaults to `AssemblyBuilderAccess/Run`, and a caller that wants a DLL on disk asks for `RunAndSave` and saves the builder itself. That is what MAGIC does, in [`magic.emission`](../magic-compiler/src/magic/emission.clj).
 
 Rationale and History
 ---------------------
@@ -166,12 +145,7 @@ MAGE stands for Morgan And Grand Emitter. It is named after the [Morgan Avenue a
 
 Legal
 -----
-Copyright © 2015 Ramsey Nasser
+Copyright © 2015-2023 Ramsey Nasser and contributors.
+Copyright © 2026 Flybot Pte. Ltd.
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
-
-```
-http://www.apache.org/licenses/LICENSE-2.0
-```
-
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+Licensed under the Apache License, Version 2.0.

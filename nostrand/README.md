@@ -1,5 +1,7 @@
 # Nostrand
-Standalone runtime environment and REPL for ClojureCLR on Mono. Bundled in the [flybot-sg/magic](https://github.com/flybot-sg/magic) monorepo as the task runner that hosts the MAGIC compiler.
+Standalone runtime environment and REPL for Clojure on the CLR. Bundled in the [flybot-sg/magic](https://github.com/flybot-sg/magic) monorepo as the host that boots the runtime, loads the MAGIC compiler, and runs your tasks.
+
+This page is the reference for the parts specific to nostrand: how it runs a function, and how it resolves dependencies. For the task surface a project actually uses, `nos build`, `nos test` and `magic.edn`, see [the `nos` CLI](../docs/nos-cli.md).
 
 ## Install
 
@@ -35,6 +37,7 @@ Nostrand <version>
 Clojure.Runtime <version>
 Magic.Runtime <version>
 Clojure 1.10.0-master-SNAPSHOT
+Runtime 4.0.30319.42000 (Unix 25.5.0.0)
 
 $ nos repl
 user=>
@@ -60,7 +63,7 @@ $ cat tasks.clj
 $ nos tasks/build
 ```
 
-Command line arguments are parsed as EDN passed to the function.
+Command line arguments are read as EDN and passed to the function. The whole command line is read at once, so a form may span several shell words; when that fails to read, `nos` retries argument by argument and passes anything still unreadable through as a symbol, which is what lets a filesystem path be an argument.
 
 ```clojure
 $ cat tasks.clj
@@ -75,7 +78,7 @@ $ cat tasks.clj
 $ nos tasks/build true
 ```
 
-Your entry namespace can also set up your classpath, load assemblies, and eventually manage dependencies.  
+Your entry namespace can also set up your load path and load assemblies before its own `ns` form runs.
 
 ```clojure
 $ cat tasks.clj
@@ -93,8 +96,10 @@ $ cat tasks.clj
 $ nos tasks/build true
 ```
 
-### `deps.edn`
-If a `deps.edn` is present in the current directory it is resolved at startup: every dependency is fetched and its source paths, plus the project's own `:paths`, are pushed onto the load path. The recognized keys are a subset of [tools.deps](https://github.com/clojure/tools.deps):
+### The deps file
+Nostrand reads `deps-clr.edn` from the current directory when it is there, and `deps.edn` otherwise, matching what `cljr` does. Whichever it reads is resolved at startup: every dependency is fetched and its source paths, plus the project's own `:paths`, are pushed onto the load path. Which of the two to write is [Declaring CLR dependencies](../docs/clr-dependency-files.md).
+
+The recognized keys are a subset of [tools.deps](https://github.com/clojure/tools.deps):
 
 * `:paths` A vector of source paths. Defaults to `["src"]`.
 * `:deps` A map of `lib -> coordinate` (see [Dependencies](#dependencies)).
@@ -106,25 +111,18 @@ Inspect the resolved basis without compiling with `nos print-basis [:alias ...]`
 
 ### Dependencies
 
-Nostrand resolves git and local coordinates. Maven is not resolved natively, and libraries that ship inside `Clojure.dll` (`org.clojure/clojure`, `org.clojure/spec.alpha`, `org.clojure/core.specs.alpha`) are skipped. Resolution is transitive: each dependency's own `deps.edn` `:deps` are followed, with the coordinate closest to the root winning on conflict.
+Nostrand resolves git and local coordinates. Maven is not resolved natively, and the three libraries the runtime provides (`org.clojure/clojure`, `org.clojure/spec.alpha`, `org.clojure/core.specs.alpha`) are dropped by name. Resolution is transitive, and each dependency is read the same way the root project is, its own `deps-clr.edn` in preference to its `deps.edn`, with the coordinate closest to the root winning on conflict.
 
 #### Git
 
-A git coordinate is cloned over its URL's transport into a content-addressed cache under `$GITLIBS` if set, else `~/.nostrand/gitlibs`, checked out at the pinned commit, and verified against the pin. Private repositories authenticate through your git and SSH config, so no tokens live in `deps.edn`.
-
-`GITLIBS` is the same variable JVM tools.deps honours, so one setting relocates both caches (useful in CI, where the cache must live inside the checkout). The two tools cannot collide inside a shared directory: tools.deps writes under `_repos/` and `libs/`, nostrand under `nostrand/<host>/<group>/<repo>/<ref>/`. Use an absolute path; a relative one resolves against the directory `nos` runs from.
-
-Pin a `:git/sha`: a cache whose checkout does not match the sha is an error, which is what makes a build reproducible. A `:git/tag` may accompany the sha as a readable label (its commit is checked against the sha, warning on a mismatch). A tag on its own is honoured but only warns if the tag later moves, so prefer a sha.
+A git coordinate is cloned into a content-addressed cache (`$GITLIBS/nostrand` when `GITLIBS` is set, else `~/.nostrand/gitlibs`), checked out at the pinned commit, and verified against the pin. Private repositories authenticate through your git and SSH config, so no tokens live in `deps.edn`.
 
 ```clojure
 {:deps {flybot-sg/clr.test.check {:git/url "https://github.com/flybot-sg/clr.test.check"
-                                  :git/sha "a5a2aca27873539fe366c1e0a09bb06e36026bf6"}
-        some/private-lib         {:git/url "git@dev.example.sg:group/private-lib.git"
-                                  :git/tag "v1.2.0"
-                                  :git/sha "1c3decbb9b6f9b2a0e0e6a4f0b1c2d3e4f5a6b7c"}}}
+                                  :git/sha "a5a2aca27873539fe366c1e0a09bb06e36026bf6"}}}
 ```
 
-A coordinate may carry an explicit `:paths` vector, used in place of the dependency's own `deps.edn` `:paths`, for a repo that has no `deps.edn` or a non-`src` layout (e.g. a contrib lib under `src/main/clojure`).
+Coordinates are read the way `tools.deps` and `cljr` read them. URL inference from the lib name, the legacy `:sha`/`:tag` spellings, `:deps/root`, `:exclusions`, conflict resolution and the coord `:paths` extension are all in [Declaring CLR dependencies](../docs/clr-dependency-files.md).
 
 #### Local
 
@@ -136,7 +134,7 @@ Used in place with no clone. This is also how you live-edit a dependency.
 
 #### Aliases
 
-A CLR build typically activates a `:clr` alias carrying the forks the JVM side does not need:
+A project that keeps one `deps.edn` for both runtimes puts the forks the JVM side does not need behind a `:clr` alias:
 
 ```clojure
 {:aliases   {:clr {:extra-deps    {clr-only/fork {:git/url "..." :git/sha "..."}}
@@ -148,28 +146,20 @@ A CLR build typically activates a `:clr` alias carrying the forks the JVM side d
 
 #### Submodule paths
 
-A project that vendors its dependencies as git submodules can treat `.gitmodules` as the single source of truth for its `:paths`. Set `:nos/submodule-paths` to a path prefix (or `true` for every submodule) and boot derives the source paths from the checked-out submodules. Preview the derived list with `nos gitmodules-paths [prefix]`.
+A project that pins its dependencies as git submodules can treat `.gitmodules` as the single source of truth for its `:paths`. Set `:nos/submodule-paths` to a path prefix (or `true` for every submodule) and boot derives the source paths from the checked-out submodules. Preview the derived list with `nos gitmodules-paths [prefix]`.
 
 ### Build and test tasks
 
-The built-in `nostrand.tasks` namespace ships shared `dotnet.clj` helpers so a project does not restate its build:
+`nos build` and `nos test` ship with the host, so most projects need no task file at all. Both derive the namespaces they work on by scanning the project's own source paths, and an optional `magic.edn` at the root states whatever differs from the defaults.
 
-* `compile-project` compiles the namespaces on the (alias-activated) source paths.
-* `run-clojure-tests` requires and runs `clojure.test` suites; `:re` scopes the run to matching namespaces.
-* `production-flags` is the `var->value` flag map shipped projects compile under (`*direct-linking*`, `*strongly-typed-invokes*`, ...).
-
-A project's own `dotnet.clj` calls these. See [Porting a Clojure library to MAGIC](../docs/porting-libraries-to-magic.md) for the full `dotnet.clj` shapes and the option reference.
+The pieces they are made of are public in `nostrand.tasks`, so a custom task composes them instead of restating them: `compile-project`, `run-clojure-tests`, `project-namespaces`, and the `production-flags` and `test-flags` maps. [The `nos` CLI](../docs/nos-cli.md) is the full reference for the tasks, the `magic.edn` keys, and the compiler flags each one binds.
 
 ## Name
-[Nostrand Avenue](https://en.wikipedia.org/wiki/Nostrand_Avenue) is a major street and subway stop in Brooklyn near where I was living when I began the project.
+[Nostrand Avenue](https://en.wikipedia.org/wiki/Nostrand_Avenue) is a major street and subway stop in Brooklyn near where Ramsey Nasser lived when he began the project.
 
 ## Legal
-Copyright © 2016-2017 Ramsey Nasser
 
-Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
+Copyright © 2016-2023 Ramsey Nasser and contributors.
+Copyright © 2026 Flybot Pte. Ltd.
 
-```
-http://www.apache.org/licenses/LICENSE-2.0
-```
-
-Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
+Licensed under the Apache License, Version 2.0.

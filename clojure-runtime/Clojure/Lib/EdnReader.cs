@@ -604,7 +604,16 @@ namespace clojure.lang
                     //    val = val.Substring(1);
                     return BigDecimal.Parse(val);
                 }
-                return (object)Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
+                try
+                {
+                    return (object)Double.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
+                }
+                catch (OverflowException)
+                {
+                    // Mono and .NET Framework throw on out-of-range input where Double.parseDouble
+                    // and .NET Core saturate. Underflow returns zero, so only overflow reaches this.
+                    return s[0] == '-' ? (object)Double.NegativeInfinity : (object)Double.PositiveInfinity;
+                }
             }
             m = ratioRE.Match(s);
             if (m.Success)

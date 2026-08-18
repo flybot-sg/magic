@@ -4,19 +4,8 @@
   Regression for develop 40b4237b: zero-arity instance members on
   Int64, Double, and other value types used to throw
   InvalidProgramException under IL2CPP because MAGIC emitted plain
-  callvirt instead of constrained.callvirt.")
-
-(defn- pass [n]       {:name n :pass? true})
-(defn- fail [n detail] {:name n :pass? false :detail detail})
-
-(defn- check [name thunk expected]
-  (try
-    (let [actual (thunk)]
-      (if (= expected actual)
-        (pass name)
-        (fail name (str "expected " (pr-str expected) " got " (pr-str actual)))))
-    (catch System.Exception e
-      (fail name (str (.. e GetType FullName) ": " (.Message e))))))
+  callvirt instead of constrained.callvirt."
+  (:require [smoke.check :refer [check]]))
 
 (defn suite []
   [(check "string .Length"      #(.Length "hello")              5)

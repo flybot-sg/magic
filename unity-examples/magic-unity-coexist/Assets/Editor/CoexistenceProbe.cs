@@ -1,29 +1,39 @@
 using System;
 using System.Linq;
-using System.Reflection;
-using UnityEditor;
+using UnityEditor.Compilation;
 using UnityEngine;
+using Assembly = System.Reflection.Assembly;
 
-// Headless assertion helper for the coexistence repro. Reproduces the exact
-// init-time probe stock ClojureCLR's RT runs (Assembly.Load("clojure.core.clj"))
-// and reports the editor-domain state the #25 guard is responsible for.
+// Headless probe reporting which Clojure runtime the Editor ended up with;
+// the expected state per symbol is tabulated in this project's README.md.
+// The Assembly.Load of clojure.core.clj is a canary: if it resolves, the fork
+// DLL is in the domain and can win ClojureCLR's <ns>__Init scan.
 //
-// In a correctly guarded coexisting editor the expected steady state is:
-//   preloaded-clj=0  core-clj-loadable=false  clojure-versions=[1.11.0.0]
-// i.e. the fork clj.dll plugins are excluded from the editor domain, so the
-// stock probe fails (the fork DLL is not there to answer it) and only stock
-// 1.11.0 wins the Clojure.dll dedup. If the guard regresses, the probe
-// resolves the fork clojure.core.clj and the TypeLoadException storm returns.
-//
-// Run headless with -executeMethod CoexistenceProbe.Run; grep the log for the
-// single [CoexistenceProbe] marker line alongside the narration-line count.
+// Run with -executeMethod CoexistenceProbe.Run; grep the log for the single
+// [CoexistenceProbe] marker line.
 public static class CoexistenceProbe
 {
+    // The symbol as this compilation actually saw it, not PlayerSettings.
+#if MAGIC_RUNTIME_IN_EDITOR
+    const string SymbolState = "set";
+#else
+    const string SymbolState = "unset";
+#endif
+
+    // The same extensions as in Magic.Unity's PlayerCljAssemblies
+    static readonly string[] Extensions = { ".clj", ".cljc", ".cljr" };
+
+    static bool IsCljAssembly(string name, string suffix)
+    {
+        return Extensions.Any(e => name.EndsWith(e + suffix, StringComparison.OrdinalIgnoreCase));
+    }
+
     public static void Run()
     {
-        var preloaded = AppDomain.CurrentDomain.GetAssemblies()
+        var preloaded = AppDomain
+            .CurrentDomain.GetAssemblies()
             .Select(a => a.GetName().Name)
-            .Where(n => n.EndsWith(".clj", StringComparison.OrdinalIgnoreCase))
+            .Where(n => IsCljAssembly(n, ""))
             .OrderBy(n => n)
             .ToArray();
 
@@ -33,7 +43,9 @@ public static class CoexistenceProbe
         {
             var asm = Assembly.Load("clojure.core.clj");
             coreLoadable = asm != null;
-            loadDetail = asm?.GetName().FullName ?? "null";
+            // Not FullName: the marker line is parsed as space-separated
+            // key=value pairs and FullName has spaces in it.
+            loadDetail = asm == null ? "null" : asm.GetName().Name + "/" + asm.GetName().Version;
         }
         catch (Exception e)
         {
@@ -41,22 +53,31 @@ public static class CoexistenceProbe
             loadDetail = e.GetType().Name;
         }
 
-        var clojureVersions = AppDomain.CurrentDomain.GetAssemblies()
+        var clojureVersions = AppDomain
+            .CurrentDomain.GetAssemblies()
             .Where(a => a.GetName().Name == "Clojure")
             .Select(a => a.GetName().Version.ToString())
             .OrderBy(v => v)
             .ToArray();
 
-        var forkExportCljEditorOff = PluginImporter.GetAllImporters()
-            .Count(i => !i.isNativePlugin
-                        && i.assetPath.EndsWith(".clj.dll", StringComparison.OrdinalIgnoreCase)
-                        && i.assetPath.Contains("/Runtime/Infrastructure/Export/")
-                        && !i.GetCompatibleWithEditor());
+        Debug.Log(
+            $"[CoexistenceProbe] symbol={SymbolState} "
+                + $"preloaded-clj={preloaded.Length} "
+                + $"core-clj-loadable={coreLoadable.ToString().ToLowerInvariant()} "
+                + $"core-clj-load={loadDetail} "
+                + $"clojure-versions=[{string.Join(",", clojureVersions)}] "
+                + $"editor-clj-refs={CljReferences(AssembliesType.Editor)} "
+                + $"player-clj-refs={CljReferences(AssembliesType.PlayerWithoutTestAssemblies)}"
+        );
+    }
 
-        Debug.Log($"[CoexistenceProbe] preloaded-clj={preloaded.Length} "
-                  + $"core-clj-loadable={coreLoadable.ToString().ToLowerInvariant()} "
-                  + $"core-clj-load={loadDetail} "
-                  + $"clojure-versions=[{string.Join(",", clojureVersions)}] "
-                  + $"export-clj-editor-off={forkExportCljEditorOff}");
+    static int CljReferences(AssembliesType type)
+    {
+        return CompilationPipeline
+            .GetAssemblies(type)
+            .SelectMany(a => a.allReferences)
+            .Where(r => IsCljAssembly(r, ".dll"))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
     }
 }

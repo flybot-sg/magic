@@ -1,131 +1,102 @@
 # Porting a Clojure library to MAGIC
 
-How to take an existing Clojure library and compile and test it on the CLR with MAGIC. Assumes `nos` is installed (see the [Install](../README.md#install) section).
+Taking a library that runs on the JVM and making it compile and test on the CLR. Four steps, and this page is the order to do them in. Each links to the page that covers it, and the two things nothing else covers, testing and CI, are here in full.
 
-The work is in three parts: make the source cross-platform, declare paths and deps in `deps.edn`, and configure build and test in `magic.edn`.
+Assumes `nos` is installed ([Install](../README.md#install)).
 
-## 1. Make the source cross-platform
-
-MAGIC runs the same source the JVM does, through Clojure [reader conditionals](https://clojure.org/guides/reader_conditionals). Rename `.clj` files to `.cljc` and gate the platform-specific parts (interop, `require`/`import`, type hints) behind `:cljr`:
-
-```clojure
-(defn round
-  #?(:clj  [n]
-     :cljr [^double n])
-  #?(:clj  (Math/round n)
-     :cljr (Math/Round n)))
+```mermaid
+flowchart LR
+    s1["1. make the source<br/>cross-platform"] --> s2["2. declare the<br/>CLR deps"]
+    s2 --> s3["3. configure build<br/>and test"]
+    s3 --> s4["4. run the tests,<br/>then wire up CI"]
 ```
 
-Only `:clj` and `:cljr` branches are needed; there is no third platform to default to. Keep type hints inside `:cljr` so the JVM stays dynamically typed and your existing tests keep passing. The full flag and type-hint surface is in [`magic-compiler/src/magic/flags.clj`](../magic-compiler/src/magic/flags.clj).
+**1. Make the source cross-platform.** Move anything with host interop to `.cljc` and use reader conditional `:cljr` for the CLR parts. The extension precedence, the type hints worth adding, the host APIs that genuinely differ, and the Clojure 1.10 boundary are all in [writing cross-platform Clojure](./writing-cross-platform-clojure.md).
 
-For the source patterns in depth (value-type and reference-type hints, records and protocols, the host APIs that genuinely differ, and the Clojure 1.10 stdlib surface) see [Writing cross-platform Clojure](./writing-cross-platform-clojure.md).
+**2. Declare the CLR deps.** Write a `deps-clr.edn` at the project root with the CLR coordinates. Both `nos` and `cljr` read it in place of `deps.edn`, so the JVM file stays untouched and the library also builds under ClojureCLR. [Declaring CLR dependencies](./clr-dependency-files.md) covers that file, the older `:clr` alias alternative, and how `nos` resolves what you write.
 
-## 2. deps.edn
+**3. Configure build and test.** A `magic.edn` at the root states what differs from the defaults, usually the aliases and little else. `nos build` and `nos test` read it. The full option surface, the compiler flags each task uses, and custom task files are in [the `nos` CLI](./nos-cli.md).
 
-`nos` resolves `deps.edn` natively (git and local deps; it clones git deps into `$GITLIBS` if set, else `~/.nostrand/gitlibs`, at boot). Declare your source `:paths` and put test sources under a `:test` alias so they only load when testing:
+**4. Run the tests and wire up CI.** The rest of this page.
+
+If the library ships a precompiled C# assembly next to its Clojure, it needs a loader namespace as well: see [loading precompiled native assemblies](./native-assemblies.md).
+
+## Running the tests: two runners, not one
+
+A library that builds on both ClojureCLR and MAGIC is tested by two different runners, and they want different things from the same `deps-clr.edn`.
+
+`cljr -X:test` has no test runner of its own, so the alias carries one. This is [`fun-map`](https://github.com/robertluo/fun-map)'s, and it is the shape you will see across CLR libraries that were ported and tested with ClojureCLR:
 
 ```clojure
+;; deps-clr.edn
 {:paths ["src"]
- :deps  {}
- :aliases {:test {:extra-paths ["test"]}}}
+ :aliases
+ {:test {:extra-paths ["test"]
+         :extra-deps  {io.github.dmiller/test-runner
+                       {:git/tag "v0.5.3clr"
+                        :git/sha "ae91dd2727bbf70eb3a6d869a19953de3819dfbc"}}
+         :exec-fn     cognitect.test-runner.api/test
+         :exec-args   {:dirs ["test"]}}}}
 ```
 
-When a library needs CLR-specific dependencies (a CLR fork of a JVM library, for instance), declare them either in a `deps-clr.edn` or a `:clr` alias. See [Declaring CLR dependencies](./clr-dependency-files.md) for which one fits. If the library ships a precompiled C# assembly alongside its Clojure source, it also needs a small loader namespace to load that DLL on the CLR: see [Loading precompiled native assemblies](./native-assemblies.md).
-
-## 3. magic.edn
-
-`nos` has built-in `build` and `test` tasks. They read an optional `magic.edn` at the project root: a map with `:build` and `:test` option sub-maps. A project states only what differs from the defaults, so most `magic.edn` files are a few lines, and a project that needs no tweaks can omit the file entirely.
+`nos test` cannot use this test-runner. It drives `clojure.test` directly, derives the namespace set from the source paths the aliases contribute, and takes its configuration from `magic.edn`:
 
 ```clojure
 ;; magic.edn
-{:build {:aliases [:clr]}
- :test  {:aliases [:clr :test]}}
+{:test {:aliases [:test]}}
 ```
-
-### Options
-
-| Key | build | test | Meaning | Default |
-|-----|:-:|:-:|---|---|
-| `:aliases`    | yes | yes | deps aliases to activate | none (test: `[:test]`) |
-| `:namespaces` | yes | yes | explicit namespaces, overrides derivation | derived from paths |
-| `:exclude`    | yes | yes | namespaces to drop from the set | none |
-| `:re`         |     | yes | regex string scoping the run (`re-matches`) | the project's own namespaces |
-| `:exclude-vars` |   | yes | fully-qualified `deftest` symbols to skip | none |
-| `:flags`      | yes | yes | flag overrides (see below) | build: production, test: test-friendly |
-| `:out`        | yes |     | compile output dir | `"build"` |
-| `:clean?`     | yes |     | wipe `:out` first | `true` |
-
-Defaults when a key is omitted:
-
-- `:namespaces`: derived from the paths the aliases contribute (base `:paths` for build; plus the test alias's `:extra-paths` for test).
-- `:re`: the test run is scoped to the project's own namespaces (its suites run, its dependencies' bundled suites do not). Write it as a string, e.g. `"my\\.lib\\..*"`; EDN has no regex literal.
-- `:exclude-vars`: a vector of fully-qualified `deftest` symbols the run clears the `:test` meta on after `require`, so `clojure.test` skips exactly those vars while the rest of their namespace still runs. Use it for a few platform-specific failures scattered inside otherwise-passing namespaces (a Windows-only newline expectation, a Mono-only numeric edge case), where excluding the whole namespace would drop good tests too.
-
-### Flags
-
-`:flags` overrides the compilation flags for the run. EDN cannot hold a var, so name each flag as a fully-qualified symbol:
-
-```clojure
-{:build {:flags {magic.flags/*elide-meta* true}}}
-```
-
-`build` starts from the production flag set (`*direct-linking*`, `*strongly-typed-invokes*`, `*elide-meta*`, `*unchecked-math*`, `*warn-on-reflection*`). `test` starts from the same set with `*direct-linking*` and `*strongly-typed-invokes*` off, since `with-redefs` cannot rebind a direct-linked or strongly-typed call. Your `:flags` merge over that base, so state only what you change.
-
-### More examples
-
-Exclude a namespace that must not compile on the CLR (a ClojureScript-only or JVM-only one):
-
-```clojure
-{:build {:exclude [my.lib.frontend.cljs]}
- :test  {:exclude [my.lib.frontend.cljs]}}
-```
-
-State the compile roots and output directory explicitly (a Unity plugins build, or a vendored namespace not reachable by `require`):
-
-```clojure
-{:build {:namespaces [my.lib.core my.lib.api]
-         :out        "Assets/Plugins/Magic"}}
-```
-
-Skip individual tests that fail only for platform reasons (a Windows CRLF expectation, a Mono numeric edge case), keeping the rest of their namespaces:
-
-```clojure
-{:test {:exclude-vars [my.lib-test/windows-newline-test
-                       my.lib.suite-test/huge-exponent-test]}}
-```
-
-### The old way: dotnet.clj
-
-Before the built-in tasks, each project wrote a `dotnet.clj` defining `build`/`run-tests` by hand over `nostrand.tasks`. It stays backward compatible: existing `dotnet.clj` files still work unchanged, and `nos dotnet/build` and `nos build` coexist.
-
-```clojure
-(ns dotnet
-  (:require [nostrand.tasks :as tasks]))
-
-(defn build     [] (tasks/compile-project :aliases [:clr] :clean? true))
-(defn run-tests [] (tasks/run-clojure-tests :aliases [:clr :test]))
-```
-
-`magic.edn` exposes the full option set of both tasks, so a ported library needs no `dotnet.clj`; write one only for a project that also defines its own unrelated `nos` tasks.
-
-## 4. Build and test
 
 ```bash
-nos build    # compiles to ./build (or :out)
-nos test     # runs the project's clojure.test suites, exits non-zero on failure
+nos test     # exits 1 on any failure or error
 ```
 
-`nos test` runs under Mono and does not cover IL2CPP codegen; for Unity, an actual IL2CPP build is the only way to catch AOT-only regressions (see [`magic-unity-smoke`](../unity-examples/magic-unity-smoke)).
+So the two ways to test coexist: the test runner in the `deps-clr.edn` test alias for `cljr`, `magic.edn` for `nos`. `:exec-fn` and `:exec-args` are ignored **silently** by `nos`: they are not on the list of keys it warns about, so nothing tells you they had no effect on a `nos test` run.
 
-## 5. CI
+### Why `nos` does not use ClojureCLR's runner
 
-A CI job needs `mono` and `nos` (see [Install](../README.md#install)). Flybot publishes a prebuilt image for this, [`ghcr.io/flybot-sg/ci-clj-clr`](https://github.com/flybot-sg/ci-clj-clr) (JDK, Clojure CLI, Babashka, Mono, and a pinned `nos`), so one container runs both JVM and CLR test jobs; pin the tag that ships the MAGIC version you build against. [flybot-sg/clr.test.check](https://github.com/flybot-sg/clr.test.check) (the `magic` branch) is a worked example, adding this CI on top of David Miller's upstream port. Any image with `mono` plus the `nos` installer works just as well if you would rather not depend on it.
+It looks like duplicated effort, and the reason it is not comes down to what the runner is built on rather than to the runner itself.
 
-### Caching
+```mermaid
+flowchart TD
+    alias["the :test alias<br/>exec-fn cognitect.test-runner.api/test"]
+    alias -->|"cljr -X:test"| tr["dmiller/test-runner"]
+    tr --> tn["clr.tools.namespace"]
+    tn --> trd["clr.tools.reader"]
+    trd --> refl["needs clojure.lang.Reflector<br/>for record-literal reading"]
+    refl --> absent["absent from MAGIC's runtime"]
+    alias -->|"nos test"| nat["native discovery<br/>+ clojure.test"]
+```
 
-Point `GITLIBS` at a path inside the checkout so the runner can persist git deps across pipelines. `nos` honours the same variable JVM tools.deps uses (cloning under `$GITLIBS/nostrand/`, which cannot collide with the JVM entries), so one setting covers both the JVM and CLR jobs. GitLab example:
+`clr.tools.reader` reads record literals through `Reflector/InvokeConstructor` and `Reflector/InvokeStaticMethod`, which is runtime reflection over types chosen while the program runs. MAGIC's forked runtime does not ship `Reflector`, because resolving calls that way is the thing IL2CPP cannot do and the thing MAGIC exists to eliminate. So the chain stops in the first dependency, before it ever reaches the runner. Two smaller incompatibilities sit in front of that one and are both fixable, but this one is a design divergence: making it load would mean putting reflection back.
+
+Nothing is lost, because the chain is redundant here. A test runner does four things: find test namespaces in some directories, load them, run `clojure.test`, and filter vars by metadata. `nos` already discovers namespaces by scanning those directories and reading each `ns` form with MAGIC's own reader, and `clojure.test` needs no help with the rest. `clr.tools.namespace` and `clr.tools.reader` exist to do the first step on a runtime without a compiler in it. MAGIC is a compiler.
+
+The practical consequence for a dual-runtime library is small: keep the `cljr` runner in the alias for `cljr -X:test`, add a `magic.edn` for `nos test`, and expect both to run the same suites.
+
+Two limits on a green `nos test`. It runs with direct linking and strongly-typed invokes off, so it says nothing about whether the library works under the flags `nos build` uses. And it runs on Mono, so it cannot reach the IL2CPP failures that only a Unity player build produces ([Unity integration](./unity-integration.md)).
+
+## Rich comment tests
+
+If the library's tests are [rich comment tests](https://github.com/robertluo/rich-comment-tests), they cannot run on the CLR as they stand: RCT extracts its assertions at run time through `rewrite-clj` and other JVM-only machinery.
+
+[flybot-sg/rct-clr](https://github.com/flybot-sg/rct-clr) bridges it in one direction. On the JVM it reads the rich comments and writes out a plain `.cljc` file of ordinary `deftest` forms asserting with [matcho](https://github.com/flybot-sg/matcho). MAGIC then runs that generated file with nothing but `clojure.test` and `matcho.core`.
+
+The rich comments themselves are inert on the CLR: they sit in `src` and the generated file carries the assertions. What cannot load is the JVM test namespace whose `deftest` calls the RCT runner, so exclude that one and let the generated namespace run like any other suite:
+
+```clojure
+{:test {:exclude [my.lib.rct-test]}}
+```
+
+Generation runs on the JVM, so `nos test` follows a `clojure -M:dev -m rct-clr.gen -o <file> -n <ns>` step rather than replacing it. `matcho` is the one extra CLR dependency it costs.
+
+## CI
+
+A job needs `mono` and `nos`. Flybot publishes [`ghcr.io/flybot-sg/ci-clj-clr`](https://github.com/flybot-sg/ci-clj-clr) with JDK, Clojure CLI, Babashka, Mono and a pinned `nos`, so one container runs both the JVM and CLR jobs. Pin the tag matching the MAGIC version you build against.
+
+Git deps also have to survive between pipelines, and where that cache can live differs by platform. GitLab only caches paths inside the checkout, so move the cache there with `GITLIBS`. `nos` honours the same variable JVM tools.deps does, cloning under `$GITLIBS/nostrand/` where it cannot collide with the JVM entries, so one setting covers both jobs:
 
 ```yaml
+# .gitlab-ci.yml
 variables:
   GITLIBS: $CI_PROJECT_DIR/.gitlibs
 
@@ -136,21 +107,6 @@ cache:
     - .cpcache/
 ```
 
-Use an absolute path (`$CI_PROJECT_DIR`-based, not a bare relative one): a relative `GITLIBS` resolves against the working directory of whichever process reads it.
+Make it absolute, built from `$CI_PROJECT_DIR`. A relative `GITLIBS` resolves against the working directory of whichever process reads it, which is not the same directory for every step.
 
-## Rich-comment-tests on the CLR
-
-If a library's tests are written as [rich comment tests](https://github.com/robertluo/rich-comment-tests) (RCT), they cannot run on the CLR as-is: RCT extracts assertions at runtime using `rewrite-clj` and other JVM-only machinery. [flybot-sg/rct-clr](https://github.com/flybot-sg/rct-clr) bridges this: on the JVM it reads the rich comments and emits a plain `.cljc` test file of ordinary `deftest` forms that assert with [matcho](https://github.com/flybot-sg/matcho). MAGIC then runs that generated file with just `clojure.test` and `matcho.core`.
-
-The split shows up in `magic.edn`: `:exclude` the RCT source namespace (the rich comments plus the JVM-only extraction tooling), leaving the generated `deftest` namespace to run like any other suite. `matcho` is the one extra CLR dependency (see [Declaring CLR dependencies](./clr-dependency-files.md)); this example activates it through a `:clr` alias:
-
-```clojure
-{:test {:aliases [:clr :test]
-        :exclude [my.lib.rct-test]}}
-```
-
-The `clojure.test` assertion count on the CLR will not be one-for-one with a JVM run that executes the rich comments directly: RCT and the generated `deftest`s tally assertions differently (one `=>` expectation can expand to several matcho checks). The count differs; the same expectations are all verified.
-
-## Reference
-
-[flybot-sg/clr.test.check](https://github.com/flybot-sg/clr.test.check) is a fork of `clojure/test.check` ported with this workflow: reader conditionals throughout, cross-platform `deps.edn`, and CLR tests run under `nos`.
+GitHub Actions has nothing to relocate: add `~/.nostrand/gitlibs`, where `nos` clones when `GITLIBS` is unset, to the `actions/cache` paths and leave the variable alone.

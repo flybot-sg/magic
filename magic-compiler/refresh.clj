@@ -1,7 +1,7 @@
 (ns refresh
   "Recompile every committed stdlib clojure.*.clj.dll from its source file and
    redeploy to nostrand/references/, nostrand/bin/Release/net471/, and
-   magic-unity/Runtime/Infrastructure/Export/. Use after editing any
+   magic-unity/Runtime/magic/. Use after editing any
    magic-compiler/src/stdlib/**/*.clj.
 
    Invoke with: nos refresh/stdlib  (or `bb refresh-stdlib`)
@@ -19,35 +19,25 @@
 
 (def ^:private refs "../nostrand/references")
 (def ^:private bin "../nostrand/bin/Release/net471")
-(def ^:private unity "../magic-unity/Runtime/Infrastructure/Export")
+(def ^:private unity "../magic-unity/Runtime/magic")
 (def ^:private stdlib-root "src/stdlib")
 
 (def ^:private bootstrap-namespaces
-  "Namespaces compiled by build.clj's bootstrap chain. We must NOT re-compile
-   these here because their source re-defines runtime vars like *load-paths*
-   that would break subsequent compiles in the same process. They are kept
-   in sync via `bb bootstrap`."
+  "Namespaces this task must not recompile: clojure.core plus the eight units
+   build.clj compiles with it. Recompiling core.clj re-executes its top-level
+   forms here, rebinding *load-paths* so nothing compiled afterwards resolves
+   its source. The six `(in-ns 'clojure.core)` sub-files and the two namespaces
+   core.clj pulls in are that same unit, and recompiling one of them re-emits
+   clojure.core, which this task cannot write."
   '#{clojure.core
      clojure.core-clr
      clojure.core-proxy
      clojure.core-print
      clojure.core-deftype
-     clojure.string
-     clojure.set
-     clojure.walk
      clojure.clr.io
      clojure.gvec
      clojure.genclass
-     clojure.core.protocols
-     clojure.tools.analyzer
-     clojure.tools.analyzer.ast
-     clojure.tools.analyzer.env
-     clojure.tools.analyzer.utils
-     clojure.tools.analyzer.passes
-     clojure.tools.analyzer.passes.cleanup
-     clojure.tools.analyzer.passes.elide-meta
-     clojure.tools.analyzer.passes.source-info
-     clojure.tools.analyzer.passes.trim})
+     clojure.core.protocols})
 
 (defn- top-level-ns?
   "True if the file's first non-comment, non-blank line starts with `(ns`.
@@ -81,6 +71,29 @@
                 (str/replace \. (System.IO.Path/DirectorySeparatorChar)))
         p   (Path/Combine stdlib-root (str rel ".clj"))]
     (when (File/Exists p) (FileInfo. p))))
+
+(defn- compile-namespaces!
+  "Compile each namespace into tmp-dir, printing progress. Returns a vector of
+   [ns message] for the ones that threw, empty when all of them compiled."
+  [namespaces tmp-dir]
+  (binding [clojure.core/*eval-form-fn*       api/eval
+            clojure.core/*compile-file-fn*    api/runtime-compile-file
+            clojure.core/*load-file-fn*       api/runtime-load-file
+            clojure.core/*warn-on-reflection* true
+            clojure.core/*compile-path*       tmp-dir
+            clojure.core/*compile-files*      true]
+    (reduce (fn [failed ns]
+              (print (str "compiling " ns " ... "))
+              (flush)
+              (try
+                (api/compile-namespace ns {:write-files true :suppress-print-forms true})
+                (println "ok")
+                failed
+                (catch Exception e
+                  (println "FAILED:" (.Message e))
+                  (conj failed [ns (.Message e)]))))
+            []
+            namespaces)))
 
 (defn stdlib [& _args]
   ;; ordinal sort: compile order feeds the gensym stream, and the default
@@ -119,20 +132,16 @@
     (when (Directory/Exists tmp-dir) (Directory/Delete tmp-dir true))
     (Directory/CreateDirectory tmp-dir)
 
-    (binding [clojure.core/*eval-form-fn*       api/eval
-              clojure.core/*compile-file-fn*    api/runtime-compile-file
-              clojure.core/*load-file-fn*       api/runtime-load-file
-              clojure.core/*warn-on-reflection* true
-              clojure.core/*compile-path*       tmp-dir
-              clojure.core/*compile-files*      true]
-      (doseq [ns (concat top-level-nss subfile-nss)]
-        (print (str "compiling " ns " ... "))
-        (flush)
-        (try
-          (api/compile-namespace ns {:write-files true :suppress-print-forms true})
-          (println "ok")
-          (catch Exception e
-            (println "FAILED:" (.Message e))))))
+    (let [to-compile (concat top-level-nss subfile-nss)]
+      ;; a half-refreshed set of committed DLLs is what this task exists to prevent
+      (when-let [failures (seq (compile-namespaces! to-compile tmp-dir))]
+        (println (str (count failures) " of " (count to-compile)
+                      " namespaces failed to compile, so nothing was deployed"
+                      " and the committed DLLs are untouched:"))
+        (doseq [[ns message] failures]
+          (println (str "  " ns " - " message)))
+        (throw (ex-info "refresh/stdlib did not compile every namespace"
+                        {:failed (mapv first failures)}))))
 
     (let [produced (->> (Directory/EnumerateFiles tmp-dir "clojure.*.clj.dll")
                         (map #(Path/GetFileName ^String %))

@@ -169,14 +169,15 @@
       (second form))))
 
 (defn- paths-namespaces
-  "Namespace symbols declared by the .clj/.cljc files under the given source
-  dirs, recursively. Missing dirs are skipped."
+  "Namespace symbols declared by the .clj/.cljc/.cljr files under the given
+  source dirs, recursively. Missing dirs are skipped."
   [paths]
   (->> paths
        (filter #(System.IO.Directory/Exists %))
        (mapcat (fn [dir]
                  (concat (System.IO.Directory/GetFiles dir "*.clj"  System.IO.SearchOption/AllDirectories)
-                         (System.IO.Directory/GetFiles dir "*.cljc" System.IO.SearchOption/AllDirectories))))
+                         (System.IO.Directory/GetFiles dir "*.cljc" System.IO.SearchOption/AllDirectories)
+                         (System.IO.Directory/GetFiles dir "*.cljr" System.IO.SearchOption/AllDirectories))))
        (keep file-namespace)
        distinct
        vec))

@@ -59,6 +59,10 @@ Keep it to one line.
 
 Reference the issue with `Closes #<n>` in the description so GitHub closes it when the PR merges into `develop` (the default branch). Keep bullets short; the issue carries the full context.
 
+### Changelog entry
+
+A PR with a user-facing change adds an entry to the `## Unreleased` section of [CHANGELOG.md](./CHANGELOG.md), in the same PR, while the context is fresh. Describe the change as a user experiences it, the old symptom and the new behavior rather than the implementation, in one or two sentences ending with the issue link; match the style of the released sections. Internal refactors and test-only changes need no entry. At release time the section becomes the new version heading and gets an editing pass, so entries need to be accurate, not polished.
+
 ### Before opening one
 
 Run the local gate first; CI runs the same drift check and tests:
@@ -66,11 +70,11 @@ Run the local gate first; CI runs the same drift check and tests:
 ```bash
 bb clean
 bb build
-bb check-drift   # fails on codegen, committed-DLL, dual-variant, or version drift
+bb check-drift   # fails on codegen, committed-DLL, define-constraint, or version drift
 bb test
 ```
 
-Keep the order: `check-drift` byte-diffs the committed `.clj.dll` binaries against the rebuild, so the fresh `bb build` before it is what surfaces bootstrap drift. Use `bb build` rather than raw `dotnet build` after a fresh clone (it normalizes DLL timestamps first), and rebuild twice after compiler changes (self-hosting: the second pass is the fixpoint). The two C# runtime DLLs in the Unity Export folder embed a git-derived SourceRevisionId and cannot be byte-verified; `check-drift` restores them from HEAD. Details in [docs/deterministic-compilation.md](./docs/deterministic-compilation.md).
+Keep the order: `check-drift` byte-diffs the committed `.clj.dll` binaries against the rebuild, so the fresh `bb build` before it is what surfaces bootstrap drift. Use `bb build` rather than raw `dotnet build` after a fresh clone (it normalizes DLL timestamps first), and rebuild twice after compiler changes (self-hosting: the second pass is the fixpoint). The two C# runtime DLLs in the Unity package's `magic/` folder embed a git-derived SourceRevisionId and cannot be byte-verified; `check-drift` restores them from HEAD. Details in [docs/deterministic-compilation.md](./docs/deterministic-compilation.md).
 
 See [Development](./README.md#development) for what each task does.
 
@@ -82,12 +86,14 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 Common prefixes: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`. Keep the title to one line; details belong in the PR description.
 
+Keep the body to a few plain sentences: the what and the non-obvious why. Do not list the files touched, narrate the steps taken, or report test results; the diff and CI already show those. LLM-generated messages tend to include all three, so trim them before committing.
+
 Reference the related GitHub issue in the title or body, e.g. `(#42)` or `Closes #42`. Issue references belong in commit messages and PR descriptions only, never in source files or comments: trackers migrate, and in-code numbers go stale.
 
 ### Paired bootstrap refresh
 
-When a change affects the committed `.clj.dll`s under `nostrand/references/` and `magic-unity/Runtime/Infrastructure/Export/` (a stdlib or compiler `.clj` edit, or a C# runtime change that alters what the compiler emits), refresh them and commit the new binaries in a paired commit:
+When a change affects the committed `.clj.dll`s under `nostrand/references/` and `magic-unity/Runtime/magic/` (a stdlib or compiler `.clj` edit, or a C# runtime change that alters what the compiler emits), refresh them and commit the new binaries in a paired commit:
 
     chore(bootstrap): refresh <name> DLL for <short reason> (#<issue>)
 
-Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so only genuinely affected DLLs show up in `git status`, and `bb check-drift` fails if a stale one is left uncommitted.
+Compilation is deterministic: rebuilding unchanged sources reproduces the committed bytes exactly, so only genuinely affected DLLs show up in `git status`, and `bb check-drift` fails if a stale one is left uncommitted. If binaries you did not expect appear after a rebuild, that is a real change worth understanding before reverting anything.
