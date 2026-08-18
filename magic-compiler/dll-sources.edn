@@ -42,13 +42,13 @@
  clojure.walk {:source "magic-compiler/src/stdlib/clojure/walk.clj", :sha256 "3dcae5221cae67f13a69c3ff02de6021c3a87cbc1a6b7ee9bc4fc84c8bef877b"}
  clojure.zip {:source "magic-compiler/src/stdlib/clojure/zip.clj", :sha256 "b16e741a48aba671d437e94da04839dbeaf2dcff4c0c0c4b1c51f3de4c386276"}
  mage.core {:source "mage/src/mage/core.clj", :sha256 "434324953383554a7d7f176076bb4faa9a3bee00233ed98afe0ac0fa56cf7824"}
- magic.analyzer {:source "magic-compiler/src/magic/analyzer.clj", :sha256 "3289a82a5e4a967be64b5456f056fe5e74fac198709c96987190d878f3125a09"}
+ magic.analyzer {:source "magic-compiler/src/magic/analyzer.clj", :sha256 "011b9a71f432d6632c35fd2a29a5462b0ec401714e63926160bddbaf39ab013d"}
  magic.analyzer.analyze_host_forms {:source "magic-compiler/src/magic/analyzer/analyze_host_forms.clj", :sha256 "1dbbb4208265896fc7c146c1bef63af78b3d097384b1f8ca6ccfc1869e3eb20d"}
  magic.analyzer.binder {:source "magic-compiler/src/magic/analyzer/binder.clj", :sha256 "bfb28ea9f585912fed8251f7e3ca95df69562af32af8790de9712bd5948536d1"}
  magic.analyzer.collect_closed_overs {:source "magic-compiler/src/magic/analyzer/collect_closed_overs.clj", :sha256 "8eb887d4e3c5503d00c0c05fb7f04aeaee878a31023ca757e8f736021d27824a"}
  magic.analyzer.errors {:source "magic-compiler/src/magic/analyzer/errors.clj", :sha256 "fe53f69897cb8a97d157123cd47330db3b71507aeb63a11582b9572fd8fafa6f"}
  magic.analyzer.generated_types {:source "magic-compiler/src/magic/analyzer/generated_types.clj", :sha256 "ede9195e51de246d8e96ad2f5071e08e0cf422f9fa965ff31e201b91cb595af0"}
- magic.analyzer.intrinsics {:source "magic-compiler/src/magic/analyzer/intrinsics.clj", :sha256 "64c0b9d1729f832d3abb3b7b73405dd3866b76842352ff1be03f429105cc36e5"}
+ magic.analyzer.intrinsics {:source "magic-compiler/src/magic/analyzer/intrinsics.clj", :sha256 "c2bc29eaf2ecccf14d09f88b8ab2f8a96ef1a12563ac8158b2add1240f4d88e3"}
  magic.analyzer.literal_reinterpretation {:source "magic-compiler/src/magic/analyzer/literal_reinterpretation.clj", :sha256 "e56eec5f886a9744867dfdc3776b94603f4f39a2e4d14a80420bd6e06c205c86"}
  magic.analyzer.loop_bindings {:source "magic-compiler/src/magic/analyzer/loop_bindings.clj", :sha256 "365bb5797f36374fb8237184f6900c2b5d056769b632d04b4109137b5bed3996"}
  magic.analyzer.novel {:source "magic-compiler/src/magic/analyzer/novel.clj", :sha256 "fa1a06041b8ea03aaa8817aec640cc63472ce9a3f8ce66a7a93438dc8af4f416"}
@@ -64,7 +64,7 @@
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
  magic.interop {:source "magic-compiler/src/magic/interop.clj", :sha256 "17e4d2fbf1a915948b634d9252691c3183e17b25482fdedef1e039a6438cbc98"}
- magic.intrinsics {:source "magic-compiler/src/magic/intrinsics.clj", :sha256 "5e0cb0dc8f7b5e228792e0083e07fc5d121527ae34805f5c610fe9ddf20cdc50"}
+ magic.intrinsics {:source "magic-compiler/src/magic/intrinsics.clj", :sha256 "c1e58142c5f9d71fe763a920e6c15d981d69add1f9deeaf45410617dc265d351"}
  magic.spells.lift_keywords {:source "magic-compiler/src/magic/spells/lift_keywords.clj", :sha256 "907dc9a166b32a95d237440b5875a186de05e7786390a8fba095382611eaf75e"}
  magic.spells.lift_vars {:source "magic-compiler/src/magic/spells/lift_vars.clj", :sha256 "1dafcdadb721c083f867e6935b9cb9ea3bdc2e2e7a8f07cd3c0daae9f4293ead"}
  magic.util {:source "magic-compiler/src/magic/util.clj", :sha256 "62d16cbc45160f486776f6c0c240bf6762846bbcbb59cf1cd45d409defe9c7d7"}}
