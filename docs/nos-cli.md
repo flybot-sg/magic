@@ -71,7 +71,7 @@ Note the following:
 
 - **`:re`** is matched with `re-matches`, so it has to match a namespace name whole. Write it as a string, since EDN has no regex literal: `"my\\.lib\\..*"`.
 - **`:exclude-vars`** takes fully-qualified `deftest` symbols. After `require`, the run clears the `:test` metadata on each, so `clojure.test` skips exactly those vars and the rest of their namespace still runs. It is for a handful of platform-specific failures scattered through otherwise-passing namespaces, where excluding the namespace would throw away good tests. A symbol that does not resolve warns rather than failing.
-- **`:namespaces`** is the escape hatch for what the derivation cannot see: a single compile root, or a vendored namespace no `require` reaches.
+- **`:namespaces`** is the escape hatch for what the derivation cannot see: a single compile root, or a namespace bundled in the repo that no `require` reaches.
 
 ## Compiler flags
 

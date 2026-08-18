@@ -146,7 +146,7 @@ A project that keeps one `deps.edn` for both runtimes puts the forks the JVM sid
 
 #### Submodule paths
 
-A project that vendors its dependencies as git submodules can treat `.gitmodules` as the single source of truth for its `:paths`. Set `:nos/submodule-paths` to a path prefix (or `true` for every submodule) and boot derives the source paths from the checked-out submodules. Preview the derived list with `nos gitmodules-paths [prefix]`.
+A project that pins its dependencies as git submodules can treat `.gitmodules` as the single source of truth for its `:paths`. Set `:nos/submodule-paths` to a path prefix (or `true` for every submodule) and boot derives the source paths from the checked-out submodules. Preview the derived list with `nos gitmodules-paths [prefix]`.
 
 ### Build and test tasks
 

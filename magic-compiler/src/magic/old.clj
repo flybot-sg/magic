@@ -321,7 +321,7 @@
      (load-constant symname)
      (il/call (find-method RT "var" String String))]))
 
-;; NOTE the stock compiler looks up types using RT.classForName
+;; NOTE the ClojureCLR compiler looks up types using RT.classForName
 ;; if the type is not a valuetype. why? does it make a difference?
 (defn load-type [v]
   [(il/ldtoken v)
