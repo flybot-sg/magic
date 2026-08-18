@@ -6,8 +6,6 @@
             [magic.analyzer
              [typed-passes :refer [typed-passes]]
              [untyped-passes :refer [untyped-passes]]
-             [intrinsics :as intrinsics]
-             [util :as util]
              [errors :refer [error] :as errors]
              [types :as types]]
             [clojure.walk :as w]
@@ -370,9 +368,7 @@
                    local? (-> env :locals (get op))
                    macro? (and (not local?) (:macro m)) ;; locals shadow macros
                    inline-arities-f (:inline-arities m)
-                   intrinsic-expr? (@intrinsics/intrinsic-forms (util/var-symbol v))
-                   inline? (and (not intrinsic-expr?)
-                                (not local?)
+                   inline? (and (not local?)
                                 (or (not inline-arities-f)
                                     (inline-arities-f (count args)))
                                 (:inline m))

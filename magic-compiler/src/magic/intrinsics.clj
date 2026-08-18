@@ -3,17 +3,34 @@
             [magic.core :as magic]
             [magic.analyzer :as ana]
             [magic.analyzer.literal-reinterpretation :refer [reinterpret-value reinterpret]]
-            [magic.analyzer.intrinsics :as intrinsics :refer [register-intrinsic-form]]
+            [magic.analyzer.intrinsics :as intrinsics :refer [register-intrinsic-form
+                                                              register-intrinsic-method]]
             [magic.analyzer.types :as types :refer [tag ast-type non-void-ast-type]]
             [magic.interop :as interop]
             [clojure.string :as string])
-  (:import [clojure.lang RT BigInteger Numbers Ratio]))
+  (:import [clojure.lang RT BigInteger Numbers Ratio Util]))
 
-(defmacro defintrinsic [name type-fn il-fn]
-  `(register-intrinsic-form
-     '~name
-     ~type-fn
-     ~il-fn))
+(defmacro defintrinsic
+  "Register an intrinsic under a var's name, and optionally under the static
+  methods its :inline expands to, given as [Type method-name arg-count].
+
+  Both are needed because a call reaches the pass in one of two shapes:
+
+  - inlinable arity: already expanded into a static method call, only a
+    method registration can catch it
+  - other arities: still a plain invocation of the var
+
+  (defintrinsic clojure.core/+
+    add-mul-numeric-type                    ; when do the types qualify
+    (add-mul-numeric-compiler               ; the IL to emit when they do
+      (il/ldc-i8 0) (il/add-ovf) (il/add))
+    [Numbers \"add\" 2])                    ; (+ a b) inlines to Numbers.add"
+  [name type-fn il-fn & lowerings]
+  `(let [type-fn# ~type-fn
+         il-fn# ~il-fn]
+     (register-intrinsic-form '~name type-fn# il-fn#)
+     (doseq [[t# m# c#] ~(vec lowerings)]
+       (register-intrinsic-method t# m# c# type-fn# il-fn#))))
 
 (defn promote-integer
   "Clojure's numeric tower computes all integer arithmetic in long, but
@@ -80,35 +97,43 @@
     [(magic/compile arg compilers)
      (magic/convert arg type)]))
 
+;; Vars without an :inline (sbyte, uint, ulong, ushort) need no method entry.
+;; The unchecked casts stay unkeyed: conversion-compiler emits the checked
+;; cast for Object sources, which would turn their wrapping into throwing.
 (def conversions
-  {'clojure.core/float  Single
-   'clojure.core/double Double
-   'clojure.core/char   Char
-   'clojure.core/byte   Byte
-   'clojure.core/sbyte  SByte
-   'clojure.core/int    Int32
-   'clojure.core/uint   UInt32
-   'clojure.core/long   Int64
-   'clojure.core/ulong  UInt64
-   'clojure.core/short  Int16
-   'clojure.core/ushort UInt16})
+  {'clojure.core/float  [Single "floatCast"]
+   'clojure.core/double [Double "doubleCast"]
+   'clojure.core/char   [Char "charCast"]
+   'clojure.core/byte   [Byte "byteCast"]
+   'clojure.core/sbyte  [SByte]
+   'clojure.core/int    [Int32 "intCast"]
+   'clojure.core/uint   [UInt32]
+   'clojure.core/long   [Int64 "longCast"]
+   'clojure.core/ulong  [UInt64]
+   'clojure.core/short  [Int16 "shortCast"]
+   'clojure.core/ushort [UInt16]})
 
 (reduce-kv
-  #(register-intrinsic-form
-     %2
-     (constantly %3)
-     conversion-compiler)
+  (fn [_ sym [type & cast-methods]]
+    (register-intrinsic-form sym (constantly type) conversion-compiler)
+    (doseq [m cast-methods]
+      (register-intrinsic-method RT m 1 (constantly type) conversion-compiler)))
   nil
   conversions)
 
 (defintrinsic clojure.core/+
   add-mul-numeric-type
   (add-mul-numeric-compiler
-    (il/ldc-i8 0) (il/add-ovf) (il/add)))
+    (il/ldc-i8 0) (il/add-ovf) (il/add))
+  [Numbers "add" 2])
 
-(defintrinsic clojure.core/inc
+(register-intrinsic-method Numbers "unchecked_add" 2
   add-mul-numeric-type
-  (fn intrinsic-inc-compiler
+  (add-mul-numeric-compiler
+    (il/ldc-i8 0) (il/add) (il/add)))
+
+(defn inc-dec-numeric-compiler [checked unchecked]
+  (fn intrinsic-inc-dec-compiler
     [{:keys [args] :as ast} type compilers]
     (let [arg (first args)]
       [(magic/compile arg compilers)
@@ -118,11 +143,15 @@
        (if (or *unchecked-math*
                (= type Single)
                (= type Double))
-         (il/add)
-         (il/add-ovf))])))
+         unchecked
+         checked)])))
 
-(defintrinsic clojure.core/-
-  best-numeric-type
+(defintrinsic clojure.core/inc
+  add-mul-numeric-type
+  (inc-dec-numeric-compiler (il/add-ovf) (il/add))
+  [Numbers "inc" 1])
+
+(defn sub-numeric-compiler [checked unchecked]
   (fn intrinsics-sub-compiler
     [{:keys [args] :as ast} type compilers]
     (let [first-arg (first args)
@@ -130,8 +159,8 @@
           instr (if (not (or *unchecked-math*
                              (= type Single)
                              (= type Double)))
-                  (il/sub-ovf)
-                  (il/sub))]
+                  checked
+                  unchecked)]
       (if (empty? rest-args)
         [(magic/compile (reinterpret first-arg type) compilers)
          (magic/convert first-arg type)
@@ -145,25 +174,44 @@
               instr])
            rest-args)]))))
 
+(defintrinsic clojure.core/-
+  best-numeric-type
+  (sub-numeric-compiler (il/sub-ovf) (il/sub))
+  [Numbers "minus" 1]
+  [Numbers "minus" 2])
+
+(register-intrinsic-method Numbers "unchecked_minus" 1
+  best-numeric-type
+  (sub-numeric-compiler (il/sub) (il/sub)))
+
+(register-intrinsic-method Numbers "unchecked_minus" 2
+  best-numeric-type
+  (sub-numeric-compiler (il/sub) (il/sub)))
+
 (defintrinsic clojure.core/dec
   best-numeric-type
-  (fn intrinsic-dec-compiler
+  (inc-dec-numeric-compiler (il/sub-ovf) (il/sub))
+  [Numbers "dec" 1])
+
+(register-intrinsic-method Numbers "unchecked_dec" 1
+  numeric-arg
+  (fn intrinsic-unchecked-dec-compiler
     [{:keys [args] :as ast} type compilers]
-    (let [arg (first args)]
-      [(magic/compile arg compilers)
-       (magic/convert arg type)
-       (magic/load-constant
-         (reinterpret-value 1 type))
-       (if (or *unchecked-math*
-               (= type Single)
-               (= type Double))
-         (il/sub)
-         (il/sub-ovf))])))
+    [(magic/compile (first args) compilers)
+     (il/ldc-i4-1)
+     (magic/convert-type Int32 type)
+     (il/sub)]))
 
 (defintrinsic clojure.core/*
   add-mul-numeric-type
   (add-mul-numeric-compiler
-    (il/ldc-i8 1) (il/mul-ovf) (il/mul)))
+    (il/ldc-i8 1) (il/mul-ovf) (il/mul))
+  [Numbers "multiply" 2])
+
+(register-intrinsic-method Numbers "unchecked_multiply" 2
+  add-mul-numeric-type
+  (add-mul-numeric-compiler
+    (il/ldc-i8 1) (il/mul) (il/mul)))
 
 (defintrinsic clojure.core//
   #(let [t (best-numeric-type %)]
@@ -209,7 +257,8 @@
              [(magic/compile (reinterpret a type) compilers)
               (magic/convert a type)
               (il/div)])
-           rest-args)]))))
+           rest-args)])))
+  [Numbers "divide" 2])
 
 (defintrinsic clojure.core/<
   #(when (numeric-args %) Boolean)
@@ -235,7 +284,8 @@
         [(il/br end-label)
          greater-label
          (il/ldc-i4-0)
-         end-label])])))
+         end-label])]))
+  [Numbers "lt" 2])
 
 (defintrinsic clojure.core/>
   #(when (numeric-args %) Boolean)
@@ -261,7 +311,8 @@
        [(il/br end-label)
         less-label
         (il/ldc-i4-0)
-        end-label])])))
+        end-label])]))
+  [Numbers "gt" 2])
 
 (defintrinsic clojure.core/=
   #(when (numeric-args %) Boolean)
@@ -288,7 +339,8 @@
          (il/br end-label)
          not-equal-label
          (il/ldc-i4-0)
-         end-label]))))
+         end-label])))
+  [Util "equiv" 2])
 
 (defintrinsic clojure.core/not=
   #(when (numeric-args %) Boolean)
@@ -347,7 +399,8 @@
     [{:keys [args] :as ast} type compilers]
     [(magic/compile (first args) compilers)
      (il/callvirt (interop/method type "Clone"))
-     (magic/convert-type Object type)]))
+     (magic/convert-type Object type)])
+  [RT "aclone" 1])
 
 ;; TODO multidim arrays
 
@@ -363,7 +416,8 @@
        (magic/compile index-arg compilers)
        ;; TODO make sure this is conv.ovf
        (magic/convert-type (ast-type index-arg) Int32)
-       (magic/load-element type)])))
+       (magic/load-element type)]))
+  [RT "aget" 2])
 
 ;; TODO multidim arrays
 
@@ -392,10 +446,13 @@
           (il/stloc val-return)])
        (magic/store-element type)
        (when-not statement?
-         (il/ldloc val-return))])))
+         (il/ldloc val-return))]))
+  [RT "aset" 3])
 
 (defintrinsic clojure.core/nth
-  array-element-type
+  (fn [{:keys [args] :as ast}]
+    (when (= (count args) 2)
+      (array-element-type ast)))
   (fn intrinsic-nth-compiler
     [{:keys [args] :as ast} type compilers]
     (let [[array-arg index-arg] args
@@ -408,32 +465,36 @@
           (magic/convert index-arg Int32)])
        (if value-type?
          (il/ldelem type)
-         (il/ldelem-ref))])))
+         (il/ldelem-ref))]))
+  [RT "nth" 2])
 
 (defintrinsic clojure.core/alength
   #(when-array-type % Int32)
   (fn intrinsic-alength-compiler
     [{:keys [args] :as ast} type compilers]
     [(magic/compile (first args) compilers)
-     (il/ldlen)]))
+     (il/ldlen)])
+  [RT "alength" 1])
 
 (defintrinsic clojure.core/unchecked-inc
   numeric-arg
-  (fn intrinsic-alength-compiler
+  (fn intrinsic-unchecked-inc-compiler
     [{:keys [args] :as ast} type compilers]
     [(magic/compile (first args) compilers)
      (il/ldc-i4-1)
      (magic/convert-type Int32 type)
-     (il/add)]))
+     (il/add)])
+  [Numbers "unchecked_inc" 1])
 
 (defintrinsic clojure.core/unchecked-inc-int
   #(when-numeric-arg % Int32)
-  (fn intrinsic-alength-compiler
+  (fn intrinsic-unchecked-inc-int-compiler
     [{:keys [args] :as ast} type compilers]
     [(magic/compile (first args) compilers)
      (magic/convert (first args) Int32)
      (il/ldc-i4-1)
-     (il/add)]))
+     (il/add)])
+  [Numbers "unchecked_int_inc" 1])
 
 (defintrinsic clojure.core/instance?
   (fn [{[first-arg] :args :keys [args]}]
@@ -467,7 +528,8 @@
          (il/callvirt (interop/method String "get_Length"))
          :else
          [(magic/convert first-arg Object)
-          (il/call (interop/method RT "count" Object))])])))
+          (il/call (interop/method RT "count" Object))])]))
+  [RT "count" 1])
 
 (defintrinsic clojure.core/make-array
   (fn [{[first-arg :as args] :args}]
@@ -523,7 +585,8 @@
          (= arg-type UInt64) [(il/ldc-i4-0) (il/conv-i8) (il/clt-un)]
          (= arg-type Single) [(il/ldc-r4 (float 0)) (il/clt)]
          (= arg-type Double) [(il/ldc-r8 0.0) (il/clt)]
-         :else (throw (ex-info "intrinsic neg? failed, unexpected type" {:type arg-type})))])))
+         :else (throw (ex-info "intrinsic neg? failed, unexpected type" {:type arg-type})))]))
+  [Numbers "isNeg" 1])
 
 ;;;; array functions
 ;; amap
