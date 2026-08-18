@@ -2,24 +2,47 @@
 
 ## Unreleased
 
+### Compiler
+- `.cljr` files now load and compile. Reader conditionals are allowed only in `.cljc`, same as upstream - [#101](https://github.com/flybot-sg/magic/issues/101), [#106](https://github.com/flybot-sg/magic/issues/106).
+- A namespace resolves to `.cljr`, `.cljc`, or `.clj` in that order, and each compiles to and loads from its matching DLL (`foo.cljc` emits `foo.cljc.dll`) - [#116](https://github.com/flybot-sg/magic/issues/116).
+- A var with a registered intrinsic keeps its `:inline` expansion, so when the intrinsic declines the argument types the call still lowers through the inline to a static invocation, as on JVM Clojure and ClojureCLR, instead of falling back to a Var invoke. The `nth` intrinsic applies only at arity 2, so `(nth an-array i not-found)` keeps its bounds check - [#123](https://github.com/flybot-sg/magic/issues/123), [#129](https://github.com/flybot-sg/magic/issues/129).
+- Recompiling `magic.analyzer.intrinsics` no longer empties the intrinsics registry, so `clojure.walk` and 11 compiler namespaces compile with intrinsics again - [#119](https://github.com/flybot-sg/magic/issues/119).
+- A reader error surfaces instead of silently dropping the rest of the namespace; the read loop treated any exception as end of input. A top-level `nil` now compiles rather than ending the unit - [#104](https://github.com/flybot-sg/magic/issues/104).
+- A missing namespace reports the searched load-path candidates instead of `Loading from embedded resources is not supported` - [#102](https://github.com/flybot-sg/magic/issues/102).
+- A deferred `:import`, one whose type lives in a DLL that the same `ns` form's `:require` loads, no longer warns on stderr on every compile; the type resolves at runtime through `FindTypeOrThrow`, and the unloaded-DLL hint appears only when the import really fails - [#99](https://github.com/flybot-sg/magic/issues/99).
+
+### Runtime
+- Strings, symbols, and keywords compare by UTF-16 code unit instead of the machine's collation culture, so `compare` and `sort` order the same on every machine and match JVM Clojure - [#127](https://github.com/flybot-sg/magic/issues/127).
+- A double literal too large for `Double` reads as positive or negative infinity per its sign instead of throwing, like the JVM reader - [#111](https://github.com/flybot-sg/magic/issues/111).
+
+### Stdlib
+- Doubles print with round-trip precision and the invariant culture, so `pr` output reads back to the identical value, and a locale with a comma decimal separator no longer changes the printed form - [#112](https://github.com/flybot-sg/magic/issues/112).
+
+### Nostrand
+- `nos` arguments are read with the real `EdnReader` instead of a 2016 fork of it, so `##Inf`, `##NaN`, namespaced map literals, and digit-leading keywords like `:1` can be typed on the command line; bare filesystem paths still pass through unchanged - [#114](https://github.com/flybot-sg/magic/issues/114).
+- `nos` accepts the coordinate shorthands `clr.tools.deps` accepts and resolves them identically: inferred `:git/url`, legacy `:sha` and `:tag`, `:deps/root`, `:local/root` relative to its deps file, `:exclusions`. Unknown alias keys warn - [#109](https://github.com/flybot-sg/magic/issues/109).
+- A dependency's `deps-clr.edn` is preferred over its `deps.edn`, `:deps` included, so a library declaring CLR-only paths there contributes them transitively and its assembly directory reaches `CLOJURE_LOAD_PATH` - [#107](https://github.com/flybot-sg/magic/issues/107).
+- Running a `.cljc` file directly finds its `-main`; the extension was stripped by substring, so `runme.cljc` was looked up as namespace `runmec` - [#103](https://github.com/flybot-sg/magic/issues/103).
+
 ### Unity
-
-`sg.flybot.magic.unity` now ships **both** Clojure runtimes, and the `MAGIC_RUNTIME_IN_EDITOR` scripting define symbol decides which one the **Editor** loads: unset (the default), ClojureCLR; set, MAGIC. Player builds always run MAGIC and are identical either way; ClojureCLR-as-default is the only polarity Unity's constraint grammar can express - [#120](https://github.com/flybot-sg/magic/issues/120).
-
-Upgrading does not break existing projects: a project that kept ClojureCLR in the Editor gets exactly that by default. Coming from `sg.flybot.magic.unity.dual` (retired, along with `bb gen-unity-dual`), repin to `?path=magic-unity#<tag>` and set nothing. To run MAGIC in the Editor, set the symbol from `Project Settings > MAGIC` or `Magic.Unity.EditorRuntime.UseMagic()`. Delete any ClojureCLR `Clojure.dll` you vendored under `Assets`; an unconstrained copy overrides the selection.
-
-- The package vendors ClojureCLR 1.11.0 (net462) plus the DLR under `Runtime/clojure-clr/`, Editor-only, with EPL-1.0 / Apache-2.0 notices.
-- Both Editor states are silent: no `Assembly is incompatible with the editor` narration, no `Duplicate assembly 'Clojure.dll'` line.
-- Your own compiled `*.clj.dll` under `Assets` get the constraint applied on import, so they follow the Editor runtime.
-- When the constraint lands on assemblies the running Editor had already seen unconstrained - a cold start on stale metas, or upgrading to this package version - the package requests a script reload and the session converges in place. The first load's `Unloading broken assembly` lines stay in the Console.
-- `StockClojureCoexistence` is removed; it reacted to filesystem state and could override the runtime you asked for. The constraints subsume it.
-- The default state needs API Compatibility Level `.NET Framework`; the package warns and `Project Settings > MAGIC` offers a fix button.
+- `sg.flybot.magic.unity` now ships **both** Clojure runtimes on the **Editor**. When the `MAGIC_RUNTIME_IN_EDITOR` scripting define symbol is unset (the default), it loads ClojureCLR. When it is set (via `Project Settings > MAGIC`), it loads MAGIC. **Player** builds always run MAGIC and are identical either way.
+- ClojureCLR 1.11.0 plus the DLR is shipped as Editor-only with its EPL-1.0 / Apache-2.0 notices, both Editor states load without console noise, and compiled DLLs under `Assets` automatically get the same constraint as the package's MAGIC DLLs, so they follow the Editor runtime. `StockClojureCoexistence` is removed; the constraints subsume it. The default state needs API Compatibility Level `.NET Framework`; the settings page warns and offers a fix - [#120](https://github.com/flybot-sg/magic/issues/120).
+- `sg.flybot.magic.unity.dual` and `bb gen-unity-dual` are retired; the runtime-selection constraint covers both Editor states in the one package.
+- The editor import hooks recognize `.cljc.dll` and `.cljr.dll` compiled assemblies, not just `.clj.dll` - [#116](https://github.com/flybot-sg/magic/issues/116).
 
 ### Tooling
-- `bb coexist-noise` asserts both Editor runtime states (`clojure-clr` / `magic`, or both by default), the upgrade path, and the toggle round-trip, replacing the dual-variant noise count.
-- New `bb sync-clojure-clr` vendors a [`flybot-sg/clojure-clr`](https://github.com/flybot-sg/clojure-clr) release into the package; `bb write-metas` creates missing constrained `.meta`s.
+- New `bb sync-clojure-clr` downloads a [`flybot-sg/clojure-clr`](https://github.com/flybot-sg/clojure-clr) release into the package. `bb write-metas` creates missing constrained `.meta`s.
 - `bb check-drift` (and `bb write-metas`) fails if any shipped DLL loses its runtime-selection constraint.
-- `bb verify-dist` is reduced to the `nos version` smoke test; its file-existence checks duplicated what runtime boot and `bb check-drift` already fail on.
+- `bb verify-dist` is reduced to the `nos version` smoke test.
+- A failing `bb refresh-stdlib` or `bb test` exits non-zero, so CI actually fails on them; if any namespace fails to compile, no DLL is copied into `references/` - [#122](https://github.com/flybot-sg/magic/issues/122).
+- Refresh owns every stdlib namespace outside the `clojure.core` family: `clojure.string`, `clojure.set`, and `clojure.walk` move out of the bootstrap set, and `bb check-drift` byte-verifies 28 stdlib DLLs instead of 25 - [#119](https://github.com/flybot-sg/magic/issues/119).
+- `bb dev-compiler` runs both bootstrap passes, since only the second is the self-hosting fixpoint, and the MSBuild entry points rebuild the host after a C# edit instead of keeping a stale one. `bb check-drift`'s `skip-dlls` mode is removed.
+
+### Docs
+- New guides: architecture, bootstrap, development, and the `nos` CLI.
+- The topic docs are rewritten with one owner per topic, cross-linked instead of restated.
+- Root and component READMEs share one structure and keep Ramsey Nasser's original tutorials.
+- Runtime import failure and the loader namespace as the portable contract are documented - [#99](https://github.com/flybot-sg/magic/issues/99).
 
 ## v0.11.0 - 2026-07-24
 
@@ -27,7 +50,7 @@ Mostly compiler fixes: never-returning branches emitted invalid IL, protocol-hin
 
 ### Compiler
 - `if`/`cond` forms whose branches never return (throw or recur on both sides) no longer emit a dead branch past the end of the method, which the CLR rejected with a `VerificationException`. Constant-test ifs, like `cond`'s `(if :else expr nil)` expansion, are analyzed correctly too - [#54](https://github.com/flybot-sg/magic/issues/54).
-- A parameter hinted with a protocol name stays `Object` and dispatches through the protocol fn, as stock Clojure does. The hint used to narrow to the protocol's generated interface, so passing an `extend` / `extend-protocol` type threw `InvalidCastException` at the invoke boundary. A qualified tag, which is what `deftype` / `reify` specs expand to, still narrows - [#51](https://github.com/flybot-sg/magic/issues/51).
+- A parameter hinted with a protocol name stays `Object` and dispatches through the protocol fn, as upstream Clojure does. The hint used to narrow to the protocol's generated interface, so passing an `extend` / `extend-protocol` type threw `InvalidCastException` at the invoke boundary. A qualified tag, which is what `deftype` / `reify` specs expand to, still narrows - [#51](https://github.com/flybot-sg/magic/issues/51).
 - A named fn's self-reference is the fn value itself, so `identical?` / `=` between them returns true, matching JVM and ClojureCLR. Reader source-location metadata is stripped from fn literals like upstream, so `(meta (fn [] 1))` is `nil` - [#52](https://github.com/flybot-sg/magic/issues/52), [#53](https://github.com/flybot-sg/magic/issues/53).
 - When a type fails to resolve, the error hints at load-path DLLs matching the type's namespace prefix that are not loaded yet - [#70](https://github.com/flybot-sg/magic/issues/70).
 - Reporting a wrong-arity instance-method call no longer throws an `ArityException` from the error reporter itself, masking the diagnostic - [#79](https://github.com/flybot-sg/magic/issues/79).
@@ -46,7 +69,7 @@ Mostly compiler fixes: never-returning branches emitted invalid IL, protocol-hin
 
 ### Nostrand
 - New `nos where` prints the directory of the runtime the running host actually loaded - [#72](https://github.com/flybot-sg/magic/issues/72).
-- `CLOJURE_LOAD_PATH` entries are absolute, so a loader scanning it finds native assemblies from any working directory, as on stock ClojureCLR - [#62](https://github.com/flybot-sg/magic/issues/62).
+- `CLOJURE_LOAD_PATH` entries are absolute, so a loader scanning it finds native assemblies from any working directory, as on ClojureCLR - [#62](https://github.com/flybot-sg/magic/issues/62).
 - A `deps.edn` without `:aliases` no longer throws a `NullReferenceException` when aliases are requested, undeclared aliases warn on stderr like tools.deps does, and a missing or malformed deps file is reported by name - [#55](https://github.com/flybot-sg/magic/issues/55).
 - `nos test` can skip individual `deftest` vars via `:exclude-vars` in `magic.edn`'s `:test` config, not just whole namespaces, so a lib with a few platform-specific tests still runs the rest - [#96](https://github.com/flybot-sg/magic/issues/96).
 
@@ -109,7 +132,7 @@ Compiler and runtime correctness fixes, plus CI coverage for the committed boots
 - `Compiler.InvokeInitType` initializes each assembly's init type at most once. A stray re-init of an already-loaded namespace no longer re-runs its top-level forms (which reset `*load-paths*` and cascaded into sub-namespace reloads). Reloading an already-initialized, DLL-backed namespace via `:reload` is now a no-op; source reload and freshly recompiled DLLs are unaffected - [#3](https://github.com/flybot-sg/magic/issues/3).
 
 ### Magic.Unity
-- `BootMagicRuntime` warns when a fork `Clojure.dll` is loaded but an expected bootstrap member is missing (the package scripts and `Clojure.dll` are mismatched MAGIC versions), instead of silently skipping the runtime bootstrap. It stays silent under stock ClojureCLR, so coexistence editors and hot-reload setups see nothing.
+- `BootMagicRuntime` warns when a fork `Clojure.dll` is loaded but an expected bootstrap member is missing (the package scripts and `Clojure.dll` are mismatched MAGIC versions), instead of silently skipping the runtime bootstrap. It does not warn under ClojureCLR, so coexistence editors and hot-reload setups see nothing.
 - Dropped the obsolete NuGet packaging from the package.
 
 ### Tooling
@@ -120,7 +143,7 @@ Compiler and runtime correctness fixes, plus CI coverage for the committed boots
 
 ## v0.7.0 - 2026-06-09
 
-A second Unity package variant for projects that keep stock ClojureCLR as the editor runtime.
+A second Unity package variant for projects that keep ClojureCLR as the editor runtime.
 
 ### Magic.Unity
 - New `sg.flybot.magic.unity.dual` variant: the runtime `*.clj.dll` carry a `!UNITY_EDITOR` define constraint, so Unity excludes them from the editor and a coexistence project no longer logs the `Assembly is incompatible with the editor` lines on every domain reload. The default `sg.flybot.magic.unity` is unchanged and still runs MAGIC in editor Play mode - [#30](https://github.com/flybot-sg/magic/issues/30).
@@ -131,13 +154,13 @@ A second Unity package variant for projects that keep stock ClojureCLR as the ed
 
 ## v0.6.0 - 2026-06-07
 
-Stock-ClojureCLR coexistence for Unity consumers that keep ClojureCLR as the editor runtime, plus IL2CPP workaround-selection fixes.
+ClojureCLR coexistence for Unity consumers that keep it as the editor runtime, plus IL2CPP workaround-selection fixes.
 
 ### Compiler
 - `set!` on a hinted mutable deftype field emits a `castclass`, fixing unverifiable IL that IL2CPP's transpiler rejects - [#27](https://github.com/flybot-sg/magic/issues/27).
 
 ### Magic.Unity
-- Coexistence: while a strong-named `Clojure.dll` is under `Assets`, fork `.clj.dll` plugins are excluded from the editor (and restored when it leaves), keeping stock RT's `clojure.core.clj` probe away from fork assemblies - [#25](https://github.com/flybot-sg/magic/issues/25). Editor scripts compile against the stock assembly in that state - [#24](https://github.com/flybot-sg/magic/issues/24).
+- Coexistence: while a strong-named `Clojure.dll` is under `Assets`, fork `.clj.dll` plugins are excluded from the editor (and restored when it leaves), keeping ClojureCLR RT's `clojure.core.clj` probe away from fork assemblies - [#25](https://github.com/flybot-sg/magic/issues/25). Editor scripts compile against ClojureCLR's assembly in that state - [#24](https://github.com/flybot-sg/magic/issues/24).
 - IL2CPP workaround signatures come from player compilation references instead of an editor AppDomain scan, keeping editor-only assemblies (e.g. `Mono.WebBrowser` on Windows) out of the signature pool - [#23](https://github.com/flybot-sg/magic/issues/23).
 - The workaround resolver searches project-local player reference directories - [#26](https://github.com/flybot-sg/magic/issues/26).
 - `csc.rsp` `-r:` references count as player references and are logged for build-log verification.
