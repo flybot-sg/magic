@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.12.0 - 2026-08-18
+
+One Unity package now ships **both** Clojure runtimes and the `MAGIC_RUNTIME_IN_EDITOR` define picks the Editor's. Also, `.cljr` sources load and compile, `nos` resolves a dependency tree the way `cljr` does (`deps-clr.edn` at every level, the same coordinate shorthands), and strings compare **ordinally**.
 
 ### Compiler
 - `.cljr` files now load and compile. Reader conditionals are allowed only in `.cljc`, same as upstream - [#101](https://github.com/flybot-sg/magic/issues/101), [#106](https://github.com/flybot-sg/magic/issues/106).
