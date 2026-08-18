@@ -5,6 +5,7 @@
     `all-pass?`   () -> boolean
     `report-text` () -> string  (multi-line, ready to display)"
   (:require [smoke.value-types  :as value-types]
+            [smoke.intrinsics   :as intrinsics]
             [smoke.letfn-cases  :as letfn-cases]
             [smoke.polymorphism :as polymorphism]
             [smoke.control-flow :as control-flow]
@@ -16,6 +17,7 @@
 
 (defn- run []
   (let [groups [["value-types"  (value-types/suite)]
+                ["intrinsics"   (intrinsics/suite)]
                 ["letfn-cases"  (letfn-cases/suite)]
                 ["polymorphism" (polymorphism/suite)]
                 ["control-flow" (control-flow/suite)]
