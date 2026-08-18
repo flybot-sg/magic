@@ -14,6 +14,7 @@
    magic.test.fn
    magic.test.letfn
    magic.test.pipeline
+   magic.test.intrinsics
    magic.test.hash
    magic.test.compare
    magic.test.stdlib
@@ -51,6 +52,7 @@
     'magic.test.fn
     'magic.test.letfn
     'magic.test.pipeline
+    'magic.test.intrinsics
     'magic.test.hash
     'magic.test.compare
     'magic.test.stdlib
