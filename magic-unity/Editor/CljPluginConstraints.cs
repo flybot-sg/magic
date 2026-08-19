@@ -8,7 +8,8 @@ using UnityEngine;
 namespace Magic.Unity
 {
     // A consumer's .clj.dll imports with no define constraint, so it needs the
-    // same one the package's own MAGIC DLLs carry.
+    // same one the package's own MAGIC DLLs carry. One coming from the retired
+    // dual package also needs its editor loading put back.
     //
     // Two entry points: OnPreprocessAsset for DLLs as they import, Reconcile for
     // DLLs already imported when this package version arrived -- a package
@@ -22,6 +23,15 @@ namespace Magic.Unity
         const int NamedInSummary = 5;
 
         const string ImmutableReportedKey = "Magic.Unity.CljPluginConstraints.immutableReported";
+
+        // sg.flybot.magic.unity.dual excluded a consumer's clj assemblies from the
+        // Editor and recorded in userData the shape it undid. An Editor-excluded
+        // plugin ignores MagicConstraint.
+        //
+        // Delete once all projects are done upgrading from that package.
+        const string DualPackage = "sg.flybot.magic.unity.dual";
+        const string CoexistenceMarker = "Magic.Unity.StockClojureCoexistence:";
+        const string AnyPlatformMarker = "Magic.Unity.StockClojureCoexistence:any-platform";
 
         // Constrained on import, not yet reported. Import callbacks are main-thread.
         static readonly List<string> _pendingReport = new List<string>();
@@ -86,44 +96,76 @@ namespace Magic.Unity
 
         static void Reconcile()
         {
-            var outdated = new List<PluginImporter>();
+            var stamping = new HashSet<PluginImporter>();
+            var restoring = new HashSet<PluginImporter>();
             var immutable = new List<string>();
-            foreach (var importer in PluginImporter.GetAllImporters().Where(Unconstrained))
+            var work = new List<PluginImporter>();
+            foreach (var importer in PluginImporter.GetAllImporters())
             {
-                if (IsWritableLocation(importer.assetPath))
+                var needsConstraint = Unconstrained(importer);
+                var needsRestore = Excluded(importer);
+                if (!needsConstraint && !needsRestore)
                 {
-                    outdated.Add(importer);
+                    continue;
                 }
-                else
+                if (!IsWritableLocation(importer.assetPath))
                 {
-                    immutable.Add(importer.assetPath);
+                    if (needsConstraint)
+                    {
+                        immutable.Add(importer.assetPath);
+                    }
+                    continue;
                 }
+                if (needsConstraint)
+                {
+                    stamping.Add(importer);
+                }
+                if (needsRestore)
+                {
+                    restoring.Add(importer);
+                }
+                work.Add(importer);
             }
 
             ReportImmutable(immutable);
-            if (outdated.Count == 0)
+            if (work.Count == 0)
             {
                 return;
             }
 
             var refused = new List<string>();
+            var refusedRestore = new List<string>();
             var written = new List<PluginImporter>();
             AssetDatabase.StartAssetEditing();
             try
             {
-                foreach (var importer in outdated)
+                foreach (var importer in work)
                 {
                     try
                     {
                         // Constrained before the reimport, so OnPreprocessAsset
                         // does not duplicate the reporting of the stamp
-                        importer.DefineConstraints = Constrain(importer.DefineConstraints);
+                        if (stamping.Contains(importer))
+                        {
+                            importer.DefineConstraints = Constrain(importer.DefineConstraints);
+                        }
+                        if (restoring.Contains(importer))
+                        {
+                            Restore(importer);
+                        }
                         importer.SaveAndReimport();
                         written.Add(importer);
                     }
                     catch (Exception e)
                     {
-                        refused.Add($"{importer.assetPath} ({e.GetType().Name})");
+                        if (stamping.Contains(importer))
+                        {
+                            refused.Add($"{importer.assetPath} ({e.GetType().Name})");
+                        }
+                        if (restoring.Contains(importer))
+                        {
+                            refusedRestore.Add($"{importer.assetPath} ({e.GetType().Name})");
+                        }
                     }
                 }
             }
@@ -136,8 +178,11 @@ namespace Magic.Unity
             // this returns, so flush the meta explicitly. Then check the file,
             // because a declined write does not throw.
             var constrained = 0;
+            var restored = 0;
+            var stale = 0;
             foreach (var importer in written)
             {
+                var wrote = false;
                 try
                 {
                     AssetDatabase.WriteImportSettingsIfDirty(importer.assetPath);
@@ -146,14 +191,45 @@ namespace Magic.Unity
                 {
                     // DiskComplaint reads the file next and says so with a reason.
                 }
-                var complaint = DiskComplaint(importer.assetPath);
-                if (complaint == null)
+                if (stamping.Contains(importer))
                 {
-                    constrained++;
+                    var complaint = DiskComplaint(
+                        importer.assetPath,
+                        MagicConstraint,
+                        true,
+                        "meta on disk still lacks the constraint"
+                    );
+                    if (complaint == null)
+                    {
+                        constrained++;
+                        wrote = true;
+                    }
+                    else
+                    {
+                        refused.Add($"{importer.assetPath} ({complaint})");
+                    }
                 }
-                else
+                if (restoring.Contains(importer))
                 {
-                    refused.Add($"{importer.assetPath} ({complaint})");
+                    var complaint = DiskComplaint(
+                        importer.assetPath,
+                        CoexistenceMarker,
+                        false,
+                        "meta on disk still carries the exclusion marker"
+                    );
+                    if (complaint == null)
+                    {
+                        restored++;
+                        wrote = true;
+                    }
+                    else
+                    {
+                        refusedRestore.Add($"{importer.assetPath} ({complaint})");
+                    }
+                }
+                if (wrote)
+                {
+                    stale++;
                 }
             }
 
@@ -164,6 +240,13 @@ namespace Magic.Unity
                         + $"{Assemblies(constrained)} under {EditorRuntime.Symbol}."
                 );
             }
+            if (restored > 0)
+            {
+                Debug.Log(
+                    $"{Tag} restored editor loading on {restored} already-imported "
+                        + $"{Assemblies(restored)} that {DualPackage} had excluded."
+                );
+            }
             if (refused.Count > 0)
             {
                 Debug.LogWarning(
@@ -172,22 +255,31 @@ namespace Magic.Unity
                         + $".meta: {Named(refused)}"
                 );
             }
-            RequestReloadForStaleDomain(constrained);
+            if (refusedRestore.Count > 0)
+            {
+                Debug.LogWarning(
+                    $"{Tag} {refusedRestore.Count} {Assemblies(refusedRestore.Count)} stay "
+                        + $"excluded from the Editor by {DualPackage} and cannot load under "
+                        + $"{EditorRuntime.Symbol}. Usually a read-only .meta: "
+                        + Named(refusedRestore)
+                );
+            }
+            RequestReloadForStaleDomain(stale);
         }
 
-        // Writing the constraint fixes the meta, but the running domain was
-        // built while the assembly was unconstrained
-        static void RequestReloadForStaleDomain(int stamped)
+        // Writing the meta settles which runtime the assembly follows, but the
+        // running domain was built before that
+        static void RequestReloadForStaleDomain(int stale)
         {
             // Batch runs are one launch anyway, and a reload queued under -quit
             // is untested; convergence there waits for the caller's next launch.
-            if (Application.isBatchMode || stamped <= 0)
+            if (Application.isBatchMode || stale <= 0)
             {
                 return;
             }
             Debug.Log(
-                $"{Tag} reloading scripts: {stamped} {Assemblies(stamped)} "
-                    + "loaded before the constraint was applied."
+                $"{Tag} reloading scripts: {stale} {Assemblies(stale)} "
+                    + "loaded before the Editor's runtime selection was applied."
             );
             // Both callers can be inside an import; reload on the next tick instead.
             EditorApplication.delayCall += EditorUtility.RequestScriptReload;
@@ -204,6 +296,41 @@ namespace Magic.Unity
         static bool ShouldConstrain(PluginImporter importer)
         {
             return Unconstrained(importer) && IsWritableLocation(importer.assetPath);
+        }
+
+        // A plugin the consumer made editor-only themselves is never touched.
+        static bool Excluded(PluginImporter importer)
+        {
+            return importer != null
+                && importer.assetPath != null
+                && PlayerCljAssemblies.IsCljAssembly(importer.assetPath)
+                && importer.userData != null
+                && importer.userData.Contains(CoexistenceMarker);
+        }
+
+        // Dual turned Any Platform off on that shape only, so read the marker
+        // before stripping it. Its per-target bits stay: inert once it is back on.
+        static void Restore(PluginImporter importer)
+        {
+            var wasAnyPlatform = importer.userData.Contains(AnyPlatformMarker);
+            importer.userData = StripMarker(importer.userData);
+            importer.SetCompatibleWithEditor(true);
+            if (wasAnyPlatform)
+            {
+                importer.SetCompatibleWithAnyPlatform(true);
+                importer.SetExcludeEditorFromAnyPlatform(false);
+            }
+        }
+
+        // Stripping makes a second pass a no-op.
+        static string StripMarker(string userData)
+        {
+            return string.Join(
+                ";",
+                userData
+                    .Split(';')
+                    .Where(field => !field.StartsWith(CoexistenceMarker, StringComparison.Ordinal))
+            );
         }
 
         // A PackageCache is immutable. A file: dependency is `Local` only when
@@ -241,7 +368,8 @@ namespace Magic.Unity
                 .ToArray();
         }
 
-        static string DiskComplaint(string assetPath)
+        // Null when the meta on disk holds `needle` as `present` says it should.
+        static string DiskComplaint(string assetPath, string needle, bool present, string mismatch)
         {
             string meta;
             try
@@ -258,9 +386,7 @@ namespace Magic.Unity
                 {
                     return $"no .meta at {meta}";
                 }
-                return File.ReadAllText(meta).Contains(MagicConstraint)
-                    ? null
-                    : "meta on disk still lacks the constraint";
+                return File.ReadAllText(meta).Contains(needle) == present ? null : mismatch;
             }
             catch (Exception e)
             {
