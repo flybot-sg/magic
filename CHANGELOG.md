@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.12.1 - 2026-08-20
+
+The Editor runs **ClojureCLR 1.11.0-flybot3**, so `sort` and `compare` order values there the way MAGIC does. `nos` also reads a submodule's `deps-clr.edn`, so a library can leave `deps.edn` to the JVM.
 
 ### Nostrand
 - `:nos/submodule-paths` reads each submodule's `deps-clr.edn` when there is one, so a library can leave `deps.edn` to the JVM and declare its CLR paths in `deps-clr.edn`. A submodule without one keeps taking its `deps.edn` `:paths` - [#137](https://github.com/flybot-sg/magic/issues/137).

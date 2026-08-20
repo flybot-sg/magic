@@ -1,6 +1,6 @@
 {
     "name": "sg.flybot.magic.unity",
-    "version": "0.12.0",
+    "version": "0.12.1",
     "displayName": "MAGIC Unity Integration",
     "description": "The integration of the MAGIC Clojure compiler into Unity. MAGIC was created by Ramsey Nasser. This package is Flybot's fork.",
     "unity": "2021.2",
