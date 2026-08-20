@@ -148,6 +148,8 @@ flowchart TD
 
 **A dep's source paths.** `:paths` on the coordinate, else the dep's own deps file, else `src`. Coord `:paths` is a `nos` addition; `cljr` ignores it and reads a `pom.xml`. It is how `magic-compiler` reaches `org.clojure/tools.analyzer`, a pom-only lib, with `:paths ["src/main/clojure"]`.
 
+**A submodule's source paths.** For each submodule, `nos` takes `:paths` from its `deps-clr.edn`, or from its `deps.edn` if it has no `deps-clr.edn`. If neither file declares `:paths`, it falls back to `src`, or `src/main/clojure` when that is the layout. Only paths are read: a submodule's own `:deps` are never resolved.
+
 **Git and local coordinates only.** Anything else, Maven in practice, is skipped, counted and named on stderr at the end. That is what lets a `:test` alias contribute its `:extra-paths` while its JVM-only tooling goes unresolved.
 
 **Three libs are dropped by name.** `org.clojure/clojure`, `org.clojure/spec.alpha` and `org.clojure/core.specs.alpha`: the runtime provides them, and the check runs before the coordinate type, so a git spelling does not bring them back. Nothing else is exempt, not even `clojure.tools.analyzer`, which `nos` ships compiled yet resolves normally.
