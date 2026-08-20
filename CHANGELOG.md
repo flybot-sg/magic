@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.12.1 - 2026-08-20
+
+The Editor runs **ClojureCLR 1.11.0-flybot3**, so `sort` and `compare` order values there the way MAGIC does. `nos` also reads a submodule's `deps-clr.edn`, so a library can leave `deps.edn` to the JVM.
+
+### Nostrand
+- `:nos/submodule-paths` reads each submodule's `deps-clr.edn` when there is one, so a library can leave `deps.edn` to the JVM and declare its CLR paths in `deps-clr.edn`. A submodule without one keeps taking its `deps.edn` `:paths` - [#137](https://github.com/flybot-sg/magic/issues/137).
+
+### Unity
+- The Editor loads ClojureCLR 1.11.0-flybot3, which fixes `sort` and `compare` ordering, so it orders values the way MAGIC does - [clojure-1.11.0-flybot3](https://github.com/flybot-sg/clojure-clr/releases/tag/clojure-1.11.0-flybot3).
+- Upgrading a project from `sg.flybot.magic.unity.dual` restores editor loading on the compiled DLLs it had excluded from the Editor, so `require` finds them again instead of failing with `Could not locate ...` on a namespace whose DLL is present - [#134](https://github.com/flybot-sg/magic/issues/134).
+
 ## v0.12.0 - 2026-08-18
 
 One Unity package now ships **both** Clojure runtimes and the `MAGIC_RUNTIME_IN_EDITOR` define picks the Editor's. Also, `.cljr` sources load and compile, `nos` resolves a dependency tree the way `cljr` does (`deps-clr.edn` at every level, the same coordinate shorthands), and strings compare **ordinally**.
