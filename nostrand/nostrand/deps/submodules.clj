@@ -29,15 +29,25 @@
         [])
        (filterv :path)))
 
+(defn- deps-file
+  "The submodule's deps file: deps-clr.edn when it has one, else deps.edn.
+  Same preference basis.clj applies to a dependency and cljr to a project, so
+  a library that keeps deps.edn for the JVM still contributes its CLR paths."
+  [sub-path]
+  (let [clr (str sub-path "/deps-clr.edn")
+        std (str sub-path "/deps.edn")]
+    (cond (File/Exists clr) clr
+          (File/Exists std) std)))
+
 (defn- src-dirs
   "Repo-relative source dirs a submodule at sub-path contributes. Prefer the
-  submodule's own deps.edn :paths; else whichever conventional source layouts
-  are present on disk; else [\"src\"]."
+  :paths of the submodule's own deps file; else whichever conventional source
+  layouts are present on disk; else [\"src\"]."
   [sub-path]
-  (let [deps-file (str sub-path "/deps.edn")
-        declared  (when (File/Exists deps-file)
-                    (try (:paths (edn/read-string (slurp deps-file)))
-                         (catch Exception _ nil)))]
+  (let [file     (deps-file sub-path)
+        declared (when file
+                   (try (:paths (edn/read-string (slurp file)))
+                        (catch Exception _ nil)))]
     (if declared
       (mapv #(str sub-path "/" %) declared)
       (let [present (filterv #(Directory/Exists (str sub-path "/" %))
