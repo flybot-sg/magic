@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Unity
+- The Editor loads ClojureCLR 1.11.0-flybot3, which fixes `sort` and `compare` ordering, so it orders values the way MAGIC does - [clojure-1.11.0-flybot3](https://github.com/flybot-sg/clojure-clr/releases/tag/clojure-1.11.0-flybot3).
 - Upgrading a project from `sg.flybot.magic.unity.dual` restores editor loading on the compiled DLLs it had excluded from the Editor, so `require` finds them again instead of failing with `Could not locate ...` on a namespace whose DLL is present - [#134](https://github.com/flybot-sg/magic/issues/134).
 
 ## v0.12.0 - 2026-08-18
