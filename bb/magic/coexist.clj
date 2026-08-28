@@ -34,7 +34,7 @@
 (defn- field-mismatches [expected fields]
   (for [[k v] (sort expected)
         :when (not= v (get fields k))]
-    (str k "=" (pr-str (get fields k)) " (expected " (pr-str v) ")")))
+    (str (name k) "=" (pr-str (get fields k)) " (expected " (pr-str v) ")")))
 
 (defn- clj-dlls [dir]
   (mapcat #(fs/glob dir (str "*" %)) unity/clj-extensions))
@@ -43,25 +43,32 @@
   (+ (count (clj-dlls (unity/runtime-dir :magic)))
      (count (clj-dlls consumer-dir))))
 
+(def ^:private csharp-fields
+  "The C# assembly carries no define constraint, so both states report it alike."
+  {:csharp-in-domain   "true"
+   :csharp-editor-refs "1"})
+
 (def ^:private states
   "The two valid Editor states, keyed by the runtime the Editor loads, each
    with the probe fields that must hold."
   (delay
     (let [n (str (shipped-clj-count))]
-      {"clojure-clr" {:symbol? false
-                      :probe   {"symbol"            "unset"
-                                "preloaded-clj"     "0"
-                                "core-clj-loadable" "false"
-                                "clojure-versions"  "[1.11.0.0]"
-                                "editor-clj-refs"   "0"
-                                "player-clj-refs"   n}}
-       "magic"       {:symbol? true
-                      :probe   {"symbol"            "set"
-                                "preloaded-clj"     n
-                                "core-clj-loadable" "true"
-                                "clojure-versions"  "[1.0.0.0]"
-                                "editor-clj-refs"   n
-                                "player-clj-refs"   n}}})))
+      {:clojure-clr {:symbol? false
+                     :probe   (merge csharp-fields
+                                     {:symbol            "unset"
+                                      :preloaded-clj     "0"
+                                      :core-clj-loadable "false"
+                                      :clojure-versions  "[1.11.0.0]"
+                                      :editor-clj-refs   "0"
+                                      :player-clj-refs   n})}
+       :magic       {:symbol? true
+                     :probe   (merge csharp-fields
+                                     {:symbol            "set"
+                                      :preloaded-clj     n
+                                      :core-clj-loadable "true"
+                                      :clojure-versions  "[1.0.0.0]"
+                                      :editor-clj-refs   n
+                                      :player-clj-refs   n})}})))
 
 (defn- pack-tarball!
   "Pack pkg into a UPM tarball at tgz; exclude paths are relative to pkg."
@@ -178,13 +185,13 @@
         (if (seq found)
           [:fail (str "error lines in " (count found) " log(s): " (pr-str found))]
           [:pass "no unexpected error lines in any log"])]
-    (report! (array-map :check "logs" :status status :message message))))
+    (report! (array-map :check :logs :status status :message message))))
 
 (defn- marker
   "The first line carrying tag, and its key=value pairs."
   [lines tag]
   (let [line (first (filter #(str/includes? % tag) lines))]
-    [line (into {} (map (fn [[_ k v]] [k v])
+    [line (into {} (map (fn [[_ k v]] [(keyword k) v])
                         (re-seq #"(\S+)=(\S+)" (or line ""))))]))
 
 (defn- parse-log [log-text]
@@ -210,9 +217,9 @@
       (nil? probe)
       [:inconclusive "no [CoexistenceProbe] line; did the package resolve?"]
       (seq problems)
-      [:fail (str "the " state " Editor state is wrong: " (str/join ", " problems))]
+      [:fail (str "the " (name state) " Editor state is wrong: " (str/join ", " problems))]
       :else
-      [:pass (str "the " state " Editor state holds, silently")])))
+      [:pass (str "the " (name state) " Editor state holds, silently")])))
 
 ;;; The Project Settings > MAGIC toggle
 
@@ -234,13 +241,13 @@
              [group (str/trim defines)])))
 
 (defn- toggle-verdict [fields block-before block-after]
-  (let [seed          (get fields "seed")
+  (let [seed          (:seed fields)
         groups-before (defines-by-group block-before)
         groups-after  (defines-by-group block-after)
-        problems      (concat (field-mismatches {"after-set"           (str seed ";" unity/magic-symbol)
-                                                 "after-clear"         seed
-                                                 "enabled-after-set"   "true"
-                                                 "enabled-after-clear" "false"}
+        problems      (concat (field-mismatches {:after-set           (str seed ";" unity/magic-symbol)
+                                                 :after-clear         seed
+                                                 :enabled-after-set   "true"
+                                                 :enabled-after-clear "false"}
                                                 fields)
                               (when-not (= groups-before groups-after)
                                 [(str "it changed some group's defines: "
@@ -309,7 +316,7 @@
                        (str "Reconcile brought " brought " assembl" (if (= 1 brought) "y" "ies")
                             " but the baseline left " (count before)
                             " unconstrained, so something else constrained the rest"))
-        leaked       (field-mismatches {"preloaded-clj" "0" "editor-clj-refs" "0"} fields)
+        leaked       (field-mismatches {:preloaded-clj "0" :editor-clj-refs "0"} fields)
         ;; Two mechanisms each keep this at 1: Reconcile pre-constrains the
         ;; metas, and the import callback batches its report behind a delayCall.
         ;; A regression in one is invisible until the other goes too.
@@ -329,7 +336,7 @@
       [:inconclusive (str "the upgrade launch logged no \"" broken-line "\" line, so nothing "
                           "exercises the broken-load path whose convergence this check asserts; "
                           "the fixture needs a typed-invoke .clj.dll")]
-      (nil? (get fields "preloaded-clj"))
+      (nil? (:preloaded-clj fields))
       [:inconclusive "no [CoexistenceProbe] line after the upgrade; did the package resolve?"]
       ;; A refusal also trips not-constrained; its warning is the better message.
       (:refused reconcile)
@@ -395,7 +402,7 @@
                     :converged (broken-count probe-text)}
             [line fields] (marker (str/split-lines probe-text) "[CoexistenceProbe]")
             [status message] (upgrade-verdict before after fields reconcile broken)]
-        (report! (array-map :check "upgrade" :status status :message message
+        (report! (array-map :check :upgrade :status status :message message
                             :before before :after after
                             :reconcile (:brought reconcile) :broken broken
                             :probe line))))))
@@ -419,22 +426,22 @@
       (spit project-settings
             (str/replace-first (settings-content) define-symbols-re
                                (str/re-quote-replacement before))))
-    (report! (array-map :check "toggle" :status status :message message :probe line))))
+    (report! (array-map :check :toggle :status status :message message :probe line))))
 
 (defn- run-state!
   "Drive one Editor state end to end. The probe needs a second launch because
    the first one is what compiles the project against the new define set."
   [state]
   (let [{:keys [symbol?]} (get @states state)
-        editor-log        (log-path (str state ".editor"))]
+        editor-log        (log-path (str (name state) ".editor"))]
     (println)
-    (println (str "=== " state " Editor state: MAGIC_RUNTIME_IN_EDITOR "
+    (println (str "=== " (name state) " Editor state: MAGIC_RUNTIME_IN_EDITOR "
                   (if symbol? "set" "unset")))
     (write-define-symbol! symbol?)
     (install!)
     (reset-consumer-metas!)
     (println "Run 1/2: cold import (slow)...")
-    (run-editor! (log-path (str state ".import")))
+    (run-editor! (log-path (str (name state) ".import")))
     (println "Run 2/2: domain reload (narration + probe)...")
     (run-editor! editor-log "-executeMethod" "CoexistenceProbe.Run")
     (let [{:keys [narration dedup broken probe fields] :as result} (parse-log (slurp editor-log))
@@ -443,41 +450,46 @@
                           :narration narration :dedup dedup :broken broken
                           :probe probe :fields fields)))))
 
-(defn coexist-noise!
-  "Regression-check the Editor runtime states on unity-examples/magic-unity-coexist.
-   state is \"clojure-clr\", \"magic\", or nil for both, then the upgrade path and the
-   Editor Runtime toggle.
-
-   The two assert opposite things: `clojure-clr` (symbol unset, where every install
-   starts) must keep the MAGIC runtime out of the Editor, `magic` must boot it.
-   Both must be silent, and player references must not move between them."
-  [state]
-  (when-not (fs/exists? unity/unity-app)
-    (log/fail! (str "Unity " unity/unity-version " not found")
-               (str "  " unity/unity-app)
-               "  Override the path with MAGIC_UNITY_APP."))
-  (when (and state (not (contains? @states state)))
-    (log/fail! (str "unknown state: " state)
-               (str "  valid states: " (str/join " | " (keys @states)))))
-  (sweep-logs!)
-  (let [results (mapv run-state! (if state [state] ["magic" "clojure-clr"]))
-        ;; Order matters: check-upgrade! ends with the real package resolved,
-        ;; which check-toggle! reuses instead of repacking, and check-logs! is
-        ;; last because it reads what every launch before it wrote.
-        checks  (into results [(check-upgrade!) (check-toggle!) (check-logs!)])
-        players (distinct (keep #(get-in % [:fields "player-clj-refs"]) results))]
+(defn- report-outcome!
+  "Print one line per check and fail the task on anything that is not a pass."
+  [results checks]
+  (let [players (distinct (keep #(get-in % [:fields :player-clj-refs]) results))
+        moved?  (and (next results) (not= 1 (count players)))]
     (println)
     (doseq [{:keys [state check status message]} checks]
-      (println (format "%-11s %-14s %s" (or state check) status message)))
+      (println (format "%-11s %-14s %s" (name (or state check)) status message)))
     ;; Each state's expectation already pins its own player-clj-refs count;
     ;; this catches both drifting together.
-    (when (> (count results) 1)
-      (println (if (= 1 (count players))
-                 (str "player-clj-refs identical across states: " (first players))
-                 (str "player-clj-refs MOVED between states: " (pr-str players)))))
-    (when (or (some #(not= :pass (:status %)) checks)
-              (and (> (count results) 1) (not= 1 (count players))))
+    (when (next results)
+      (println (if moved?
+                 (str "player-clj-refs MOVED between states: " (pr-str players))
+                 (str "player-clj-refs identical across states: " (first players)))))
+    (when (or moved? (some #(not= :pass (:status %)) checks))
       (log/fail! "coexist-noise failed" ""
                  "An Editor state, the upgrade path, the runtime toggle, or the logs"
                  "themselves did not hold. The logs are under"
                  (str "  " (coexist-path "Logs") "/")))))
+
+(defn coexist-noise!
+  "Regression-check the Editor runtime states on unity-examples/magic-unity-coexist.
+   state-arg is the command-line \"clojure-clr\", \"magic\", or nil for both, then
+   the upgrade path and the Editor Runtime toggle.
+
+   The two assert opposite things: `clojure-clr` (symbol unset, where every install
+   starts) must keep the MAGIC runtime out of the Editor, `magic` must boot it.
+   Both must be silent, and player references must not move between them."
+  [state-arg]
+  (when-not (fs/exists? unity/unity-app)
+    (log/fail! (str "Unity " unity/unity-version " not found")
+               (str "  " unity/unity-app)
+               "  Override the path with MAGIC_UNITY_APP."))
+  (let [state (some-> state-arg keyword)]
+    (when (and state (not (contains? @states state)))
+      (log/fail! (str "unknown state: " state-arg)
+                 (str "  valid states: " (str/join " | " (map name (keys @states))))))
+    (sweep-logs!)
+    (let [results (mapv run-state! (if state [state] [:magic :clojure-clr]))]
+      ;; Order matters: check-upgrade! ends with the real package resolved, which
+      ;; check-toggle! reuses instead of repacking, and check-logs! is last
+      ;; because it reads what every launch before it wrote.
+      (report-outcome! results (into results [(check-upgrade!) (check-toggle!) (check-logs!)])))))

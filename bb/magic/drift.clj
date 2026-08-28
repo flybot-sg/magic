@@ -4,7 +4,9 @@
    bootstrap. check-drift fails when a checked path differs from HEAD, meaning
    a source was edited without refreshing its DLL. This namespace also stamps
    the DLL mtimes from that manifest: a source that still hashes gets its DLL
-   stamped newer, so the loader takes the committed bytes over recompiling."
+   stamped newer, so the loader takes the committed bytes over recompiling.
+   It also verifies the committed copies of one file that the repo keeps in
+   several trees."
   (:require [babashka.fs :as fs]
             [babashka.tasks :refer [shell]]
             [clojure.edn]
@@ -94,6 +96,29 @@
                                    k (pr-str (:source v)) (pr-str (:sha256 v)))))
                "}\n"))
     (println "recorded" manifest-path "-" (count entries) "sources")))
+
+(def ^:private committed-copies
+  "Files the repo commits in several trees, which must stay byte-identical.
+   Each Unity project needs the assembly inside its own Assets/, and the smoke
+   project also commits it as csharp-lib source and as :csharp-out output."
+  {"smoke_csharp.dll"
+   ["unity-examples/magic-unity-smoke/csharp-lib/src_classes/smoke_csharp.dll"
+    "unity-examples/magic-unity-smoke/Assets/Plugins/CSharp/smoke_csharp.dll"
+    "unity-examples/magic-unity-coexist/Assets/Plugins/Consumer/smoke_csharp.dll"]})
+
+(defn- copy-divergences []
+  (for [[file-name paths] committed-copies
+        :when (next (distinct (map sha256 paths)))]
+    (str "  " file-name "\n"
+         (str/join "\n" (for [p paths] (str "    " (subs (sha256 p) 0 12) "  " p))))))
+
+(defn check-copies!
+  "Fail if the copies of one committed file have drifted apart."
+  []
+  (when-let [diverged (seq (copy-divergences))]
+    (apply log/fail! "committed copies diverged"
+           (concat ["" "Rebuild wrote one copy and not the others:" ""] diverged)))
+  (println "committed copies OK -" (count committed-copies) "file(s)"))
 
 (defn check!
   "After the regen tasks have run, fail if any checked path differs from HEAD.
