@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Compiler
+- `deftype`, `reify` and `proxy` bind a method to the slot it overrides rather than to one declaration of it, so a type can implement an interface that redeclares an inherited member. Writing `count` on `clojure.lang.IPersistentMap` used to fail with `No match binding method`, and naming the interface to get past it left the sibling declarations throwing `NotImplementedException` at run time. A return type hint on the method name picks between overloads that differ only in return type, as it does on ClojureCLR, and the compiler names the choices when the hint is missing - [#146](https://github.com/flybot-sg/magic/issues/146).
+
 ### Nostrand
 - `nos build` copies the C# assemblies a library ships into the output dir, so a consumer no longer writes its own `File/Copy` to get them there. Point `:csharp-out` at a second dir to keep them out of `:out`, which `:clean?` deletes on every build: Unity then imports the plugin once and its GUID holds, instead of a new one on every build - [#144](https://github.com/flybot-sg/magic/issues/144).
 

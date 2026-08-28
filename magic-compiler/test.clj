@@ -11,6 +11,7 @@
    magic.test.special
    magic.test.proxy
    magic.test.reify
+   magic.test.deftype
    magic.test.fn
    magic.test.letfn
    magic.test.pipeline
@@ -49,6 +50,7 @@
     'magic.test.dynamic
     'magic.test.proxy
     'magic.test.reify
+    'magic.test.deftype
     'magic.test.fn
     'magic.test.letfn
     'magic.test.pipeline
