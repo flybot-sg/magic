@@ -5,7 +5,7 @@
   (:require [clojure.string :as string]
             [nostrand.deps.basis :as basis]
             [nostrand.deps.submodules :as submodules])
-  (:import [System.IO Path File]))
+  (:import [System.IO Directory Path File]))
 
 (def -assembly-path
   (atom (string/split (or (Environment/GetEnvironmentVariable "MONO_PATH") ".")
@@ -14,6 +14,9 @@
 (def -load-path
   (atom (string/split (or (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH") ".")
                       (re-pattern (str Path/PathSeparator)))))
+
+(defn- absolute-load-path []
+  (mapv #(Path/GetFullPath %) @-load-path))
 
 (defn resolve-assembly-load [asm]
   (let [candidates (for [prefix @-assembly-path
@@ -26,7 +29,7 @@
       (assembly-load-from full-asm-path))))
 
 (defn update-load-path []
-  (let [abs-paths (mapv #(System.IO.Path/GetFullPath %) @-load-path)]
+  (let [abs-paths (absolute-load-path)]
     ;; CLOJURE_LOAD_PATH gets absolute roots (like *load-paths*), so a loader
     ;; scanning it finds files from any cwd, matching ClojureCLR.
     (Environment/SetEnvironmentVariable
@@ -58,6 +61,37 @@
 (defn assembly-path [& paths]
   (doseq [p paths]
     (add-assembly-path p)))
+
+(defn- dir-prefix
+  "dir lower-cased and separator-terminated. The separator stops a prefix test
+  matching a sibling; the case folding is for macOS and Windows."
+  [dir]
+  (let [sep (str Path/DirectorySeparatorChar)]
+    (string/lower-case (cond-> dir (not (string/ends-with? dir sep)) (str sep)))))
+
+(defn- under-any? [prefixes file]
+  (let [path (string/lower-case (Path/GetFullPath file))]
+    (boolean (some #(string/starts-with? path %) prefixes))))
+
+(defn- assembly-file [asm]
+  (when-not (.IsDynamic asm)
+    (not-empty (.Location asm))))
+
+(defn loaded-assembly-files
+  "The files of the assemblies this process loaded from under a source path.
+  The current directory sits on the load path to resolve task files, not as a
+  source path, so matching it would take in every assembly beneath it."
+  []
+  (let [cwd      (dir-prefix (Path/GetFullPath "."))
+        prefixes (->> (absolute-load-path)
+                      distinct
+                      (filter #(Directory/Exists %))
+                      (map dir-prefix)
+                      (remove #(= cwd %)))]
+    (for [asm   (.GetAssemblies AppDomain/CurrentDomain)
+          :let  [file (assembly-file asm)]
+          :when (and file (under-any? prefixes file))]
+      file)))
 
 (defn reference* [asms]
   (doseq [asm asms]
