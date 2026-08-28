@@ -22,8 +22,12 @@ This is the consumer-side guide. For the package's C# API and install reference,
 
    ```clojure
    ;; magic.edn
-   {:build {:namespaces [my.game.core] :out "Assets/Plugins/Magic"}}
+   {:build {:namespaces [my.game.core]
+            :out        "Assets/Plugins/Magic"
+            :csharp-out "Assets/Plugins/CSharp"}}
    ```
+
+   The two output folders are [explained below](#the-two-plugin-folders).
 
    A project with custom build/test steps can hand-write a `dotnet.clj` instead; see [the porting guide](./porting-libraries-to-magic.md).
 
@@ -34,6 +38,8 @@ This is the consumer-side guide. For the package's C# API and install reference,
    ```
 
    This drops your compiled DLLs into `Assets/Plugins/Magic/`, named by the source extension (`.clj.dll`, `.cljc.dll`, `.cljr.dll`), where Unity loads them.
+
+   If a dependency ships a C# assembly, the build copies that into `Assets/Plugins/CSharp/`.
 
 5. **Write a loader, then Play.** Unity doesn't know which DLLs are Clojure or which var is the entry point, so a `MonoBehaviour` has to require and invoke it (pattern: [`SmokeTestRunner.cs`](../unity-examples/magic-unity-smoke/Assets/Scripts/SmokeTestRunner.cs)):
 
@@ -49,6 +55,35 @@ This is the consumer-side guide. For the package's C# API and install reference,
    Editor Play mode needs MAGIC as the Editor runtime (see below); otherwise these calls drive ClojureCLR instead.
 
 6. **Build a player to exercise the IL2CPP / AOT path.** Editor Play runs under Mono and can't surface IL2CPP-only regressions. The smoke example wires this to a one-click menu; see the [smoke README](../unity-examples/magic-unity-smoke/README.md#run). For CI without Unity, `nos test` runs the Mono-side tests headless but doesn't exercise IL2CPP.
+
+## The two plugin folders
+
+One folder works: `:csharp-out` defaults to `:out`, MAGIC loads the DLLs the same either way, and neither folder name means anything to the tooling. Split them anyway, because Unity treats a file that keeps being deleted differently from one that stays put.
+
+```clojure
+;; magic.edn
+{:build {:namespaces [my.game.core]
+         :out        "Assets/Plugins/Magic"
+         :csharp-out "Assets/Plugins/CSharp"}}
+```
+
+|  | `Assets/Plugins/Magic/` | `Assets/Plugins/CSharp/` |
+|---|---|---|
+| Set by | `:out` | `:csharp-out`, defaults to `:out` |
+| Holds | your Clojure, compiled | C# assemblies your dependencies ship |
+| Written by | `nos build`, compiling your sources | `nos build`, copying files `csc` compiled long before |
+| Wiped every build | yes, by `:clean?` | no |
+| `.meta` | Unity writes it on import, then the package's hook constrains it | Unity writes it on import, nothing touches it after |
+| Define constraint | `!UNITY_EDITOR \|\| MAGIC_RUNTIME_IN_EDITOR`, so the Editor loads it only under MAGIC | none, so it always loads, in both Editor runtimes and every player |
+| In git | no, gitignore it | your call, `.meta` files included |
+
+A library ships only the DLL. Everything else in that table is produced inside your project.
+
+The "wiped every build" row is the reason. `:clean?` deletes `:out` before every compile, so an assembly sitting there is imported fresh each time and Unity mints it a new GUID. Anything that referenced the old one, a component on a scene object, another importer's settings, points at nothing. A `:csharp-out` of its own is never emptied, so the GUID holds.
+
+Whether you commit that folder is a second, separate choice, and it comes down to who runs `nos build`. Commit it, `.meta` files included, and a teammate who only opens the Editor (where ClojureCLR compiles your Clojure from source) has the C# plugin without building anything. Gitignore it, like `:out`, if everyone runs `nos build` before opening Unity anyway.
+
+[A library's C# assembly](./native-assemblies.md) covers the copy step and the loader namespace a library needs for its C# to resolve at compile time.
 
 ## Choosing the Editor runtime
 
