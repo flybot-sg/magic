@@ -1,8 +1,24 @@
-# Loading precompiled native assemblies
+# A library's C# assembly
 
-Some libraries ship a hand-written C# class next to their Clojure, compiled ahead of time with `csc` and committed to the repo.
+Some libraries ship a hand-written C# class next to their Clojure, compiled with `csc` and committed to the repo.
 
-On the JVM that costs you nothing, because the classpath is how types get resolved: you drop the `.class` files on a `:paths` directory and `:import` finds them.
+Three steps, in the order you do them: compile the class, load it into the process so `:import` can see it, then ship it with the Clojure that imports it.
+
+## Build the DLL with `csc`
+
+When the C# references Clojure types it has to compile against the same runtime assemblies the host will load, and `nos where` prints the directory they came from, so a build script never guesses at install paths:
+
+```bash
+csc -nologo -deterministic -target:library \
+    -reference:$(nos where Clojure.dll) \
+    -out:src_classes/my_lib.dll MyLib.cs
+```
+
+The flags, the compiler version and the `-out:` basename all land in the emitted bytes, so a DLL you commit needs the exact command recorded beside its source or a rebuild months later moves it for no reason anyone can name. [Committing an assembly you compiled yourself](./deterministic-compilation.md#committing-an-assembly-you-compiled-yourself) has the traps.
+
+## Load it: a loader namespace
+
+On the JVM loading a class costs you nothing, because the classpath is how types get resolved: you drop the `.class` files in a `:paths` directory and `:import` finds them.
 
 The CLR has no classpath for types. `:import` resolves a type name against the assemblies **already loaded into the process**, and it never goes looking for a file.
 So a fresh process has no idea your DLL exists, and the `:import` fails with a missing type even though the file sits right next to your source.
@@ -31,9 +47,7 @@ flowchart TD
 
 This is not a MAGIC limitation. [ClojureCLR](https://github.com/clojure/clojure-clr) behaves the same way, and its `assembly-load`, `assembly-load-from` and `assembly-load-file` are the mechanism both runtimes give you. MAGIC inherits them, since its stdlib is a fork of ClojureCLR's.
 
-## Recommended: a dedicated assembly loader namespace
-
-You have a small namespace that loads the DLL, required by the namespace that imports the types. The tempting shortcut is to hardcode the DLL path, but that breaks the moment someone consumes your library from another directory. Instead scan `CLOJURE_LOAD_PATH`, the environment variable both runtimes fill from the project's `:paths`. MAGIC also has a `*load-paths*` var, but it is MAGIC's own, so a loader reading it breaks under `cljr`.
+Write a small namespace that loads the DLL, and require it from the namespace that imports the types. The tempting shortcut is to hardcode the DLL path, but that breaks the moment someone consumes your library from another directory. Instead scan `CLOJURE_LOAD_PATH`, the environment variable both runtimes fill from the project's `:paths`.
 
 The loader is CLR-only, so it gets the `.cljr` extension and needs no reader conditionals:
 
@@ -73,17 +87,18 @@ flowchart LR
     noop --> imp
 ```
 
-Three things have to line up:
+Several assemblies fold into one loader with a `doseq` over the filenames. The loader is idempotent: `require` runs it once per process, and `assembly-load-from` on a path already loaded returns the cached assembly.
 
-- **The DLL's directory must be on the project's `:paths`.** That is what `nos` and `cljr` turn into `CLOJURE_LOAD_PATH`, so anything outside `:paths` is invisible to the scan. The directory name itself is free, `src_classes` in the examples here.
-- **It must be a top-level `:paths` entry, in `deps-clr.edn` if the library ships one.** A `:clr` alias cannot carry it, because a dependency's aliases are never applied: the directory would reach the library's own build and no consumer's.
-- **It is recommended to have the DLL named after the namespace prefix of the types inside it**, so `my_lib.MyParser` lives in `my_lib.dll`. It enables MAGIC's hint: when an `:import` fails, MAGIC searches the load path for a DLL whose name matches a namespace prefix of the missing type and points at it.
+MAGIC also has a `*load-paths*` var, but it is MAGIC's own, so a loader reading it breaks under `cljr`. Scan the environment variable.
 
-Several assemblies fold into one loader with a `doseq` over the filenames, several libraries compose with no coordination from the consumer, and the whole thing is idempotent, since `require` runs a loader once per process and `assembly-load-from` on an already loaded path returns the cached assembly.
+Note that in Unity, `CLOJURE_LOAD_PATH` is unset in the Editor and in players, so the loader scans nothing and returns, and it has nothing to do there anyway: Unity loads every managed plugin under `Assets/` before any Clojure runs.
 
-Note that Unity players are the one place the scan finds nothing, since `CLOJURE_LOAD_PATH` is unset there. That is correct rather than broken, because assemblies under `Assets/Plugins` are already loaded before any Clojure runs.
+### Two rules for the DLL
 
-### The in-file variant you will see in ClojureCLR libraries
+- **Its directory must be a top-level `:paths` entry, in `deps-clr.edn` if the library ships one.** `:paths` is what `nos` and `cljr` turn into `CLOJURE_LOAD_PATH`, so anything outside it is invisible to the scan, and a `:clr` alias cannot carry it because a dependency's aliases are never applied: the directory would reach the library's own build and no consumer's.
+- **Name it after the namespace prefix of the types inside it**, so `my_lib.MyParser` lives in `my_lib.dll`. That is what enables the hint MAGIC prints when an `:import` fails.
+
+### The in-file variant in ClojureCLR libraries
 
 ClojureCLR's own sources do not use a loader namespace. They load inline, in the file that needs the types, and move the `:import` out of the `ns` form so the load can run before it. From [`clojure/clr/io.clj`](https://github.com/clojure/clojure-clr/blob/master/Clojure/Clojure.Source/clojure/clr/io.clj), abridged:
 
@@ -98,9 +113,9 @@ ClojureCLR's own sources do not use a loader namespace. They load inline, in the
 (import '[System.Net.Sockets Socket NetworkStream])
 ```
 
-It works, and for a single importing namespace there is nothing wrong with it. Note that those cases know their directory up front (`RT/SystemRuntimeDirectory`), which is why they hardcode a path instead of scanning: a DLL shipped inside a library has no such fixed location.
+It works, and for a single importing namespace there is nothing wrong with it. Those cases know their directory up front (`RT/SystemRuntimeDirectory`), which is why they hardcode a path instead of scanning: a DLL shipped inside a library has no such fixed location.
 
-## When the loader is missing
+### When the loader is missing
 
 Nothing warns you in advance. The `:import` fails when it runs, and MAGIC's error names the DLL it spotted on the load path:
 
@@ -110,37 +125,53 @@ System.InvalidOperationException: Could not find type my_lib.MyParser during imp
 
 Under `nos build` and `nos test` this surfaces while the namespace compiles, and for a consumer it surfaces at `require`.
 
-MAGIC adds a hint to guide the consumer: it appears when a DLL on the load path matches a namespace prefix of the unresolved type, and the compiler appends it to `Unable to resolve symbol` errors too.
+The hint appears when a DLL on the load path matches a namespace prefix of the unresolved type; the compiler appends it to `Unable to resolve symbol` errors too.
 
-## Building the assembly
+## Ship it: `nos build`
 
-How you drive `csc` is between you and Microsoft, with one MAGIC-specific part. When the C# references Clojure types it has to compile against the same runtime assemblies the host will load, and `nos where` prints the directory they came from, so a build script never guesses at install paths:
+`nos build` compiles your Clojure and copies the DLL you built above. It never compiles C#.
 
-```bash
-csc -nologo -deterministic -target:library \
-    -reference:$(nos where Clojure.dll) \
-    -out:src_classes/my_lib.dll MyLib.cs
+```mermaid
+flowchart LR
+    cs["MyLib.cs"] -->|"csc"| dll["my_lib.dll<br/>committed, on a :paths dir"]
+    clj["my_lib/core.cljc"]
+    subgraph nb["nos build"]
+        comp["compiles the<br/>namespaces"]
+        copy["copies the C# assemblies<br/>the deps ship"]
+    end
+    clj --> comp --> out[":out"]
+    dll --> copy --> co[":csharp-out"]
 ```
 
-`-deterministic` is there because the DLL is committed: without it Roslyn stamps a fresh module id and timestamp into every build, so rebuilding unchanged source dirties `git status` and you learn to ignore real changes. Mono's older `mcs` produces stable bytes without the flag and accepts it silently, so a build script can pass it always instead of detecting which compiler is installed.
-
-One trap survives the flag rather than being caused by it. The assembly and module identity come from the `-out:` basename, and every C# compiler writes them into the metadata, so renaming the file afterwards does not rename the module inside it. Compiling to a temp name and moving it into place therefore produces a different DLL than compiling straight to the committed name. A temp directory is fine, a temp name is not. Without `-deterministic` you would never notice, because every rebuild churns anyway.
-
-```bash
-# stable: the module name is my_lib, the name the committed DLL already has
-csc -deterministic -out:/tmp/build/my_lib.dll MyLib.cs
-mv /tmp/build/my_lib.dll src_classes/
-
-# not stable: the module name is tmp, so the bytes differ from the committed DLL
-csc -deterministic -out:/tmp/build/tmp.dll MyLib.cs
-mv /tmp/build/tmp.dll src_classes/my_lib.dll
+```
+$ nos build
+Compiling my-app.core
+Copying C# assembly my_lib.dll
+Done.
 ```
 
-[Deterministic compilation](./deterministic-compilation.md) covers why this repo cares so much about that property.
+It hashes the destination first and writes only what changed, so a build that touched no C# makes Unity reimport nothing. Two dependencies shipping the same file name with different content stop the build instead of overwriting each other.
 
-## If the assembly ships into a Unity player
+Nothing prunes the destination. Drop a library from your deps and the next build names what it left behind, for you to delete:
 
-The Clojure side of a library is compiled by MAGIC and already survives IL2CPP. Your C# is not, so it carries the constraints of whatever profile the player uses. Two of them bite:
+```
+$ nos build
+Compiling my-app.core
+No dependency ships old_lib.dll any more; delete it from Assets/Plugins/CSharp
+Done.
+```
+
+The copies land in `:out` next to the compiled Clojure. `:csharp-out` sends them elsewhere, which is what a Unity project wants: [the `nos` CLI](./nos-cli.md#magicedn) defines the key, and [the two plugin folders](./unity-integration.md#the-two-plugin-folders) is why Unity splits them.
+
+[unity-examples/magic-unity-smoke](../unity-examples/magic-unity-smoke) is the worked example: `csharp-lib/` ships an assembly and a loader, `smoke.csharp` imports its types, and the build sends the assembly to `Assets/Plugins/CSharp`.
+
+## Under Unity
+
+Unity treats the DLL as an ordinary managed plugin. Unlike the compiled Clojure assemblies it carries no define constraint, so both Editor runtimes load it and so does every player, Mono and IL2CPP alike. Nothing in it is MAGIC-aware.
+
+### What IL2CPP will not let your C# do
+
+MAGIC's own output already survives IL2CPP. Your C# carries the constraints of whatever profile the player uses, and two of them bite:
 
 - **No runtime codegen.** `System.Reflection.Emit`, `Expression.Compile`, dynamic proxies: all of it works under Mono and throws under IL2CPP, which has no JIT. `nos test` will not catch this, since it runs on Mono.
 - **Reflection over types nothing references statically** can be stripped from the player. Managed stripping keeps what it can see, so a type resolved only by name at runtime may be gone by the time you ask for it.

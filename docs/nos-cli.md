@@ -33,7 +33,7 @@ Arguments are read as EDN, the whole command line at once. When that fails to re
 Two of the tasks that ship with the host do the work a project needs, which is why most projects need no task file at all.
 
 ```bash
-nos build    # compile the project's namespaces into ./build
+nos build    # compile the project's namespaces into ./build, with the C# assemblies its deps ship
 nos test     # run its clojure.test suites, exit 1 on any failure or error
 ```
 
@@ -61,6 +61,7 @@ It is a map with a `:build` and a `:test` sub-map. Every key has a default, so s
 | `:exclude` | yes | yes | namespaces to drop from the set | none |
 | `:flags` | yes | yes | compiler flag overrides | the sets below |
 | `:out` | yes | | compile output directory | `"build"` |
+| `:csharp-out` | yes | | where the C# assemblies a library ships are copied | `:out` |
 | `:clean?` | yes | | wipe `:out` first | `true` |
 | `:re` | | yes | regex string scoping the run | the derived namespaces |
 | `:exclude-vars` | | yes | `deftest` symbols to skip | none |
@@ -71,6 +72,7 @@ Note the following:
 
 - **`:re`** is matched with `re-matches`, so it has to match a namespace name whole. Write it as a string, since EDN has no regex literal: `"my\\.lib\\..*"`.
 - **`:exclude-vars`** takes fully-qualified `deftest` symbols. After `require`, the run clears the `:test` metadata on each, so `clojure.test` skips exactly those vars and the rest of their namespace still runs. It is for a handful of platform-specific failures scattered through otherwise-passing namespaces, where excluding the namespace would throw away good tests. A symbol that does not resolve warns rather than failing.
+- **`:csharp-out`** separates the copies from the compiled Clojure. `nos build` copies the C# assemblies a library ships ([a library's C# assembly](./native-assemblies.md)) into `:out`, and `:clean?` deletes `:out` before every compile, so Unity imports the plugin fresh and mints it a new GUID each time. A Unity project points this at a directory of its own to hold the GUID still ([the two plugin folders](./unity-integration.md#the-two-plugin-folders)). `:clean?` never touches that directory, so a copy whose library left the deps stays until you delete it; the build names it rather than deleting it.
 - **`:namespaces`** is the escape hatch for what the derivation cannot see: a single compile root, or a namespace bundled in the repo that no `require` reaches.
 
 ## Compiler flags
@@ -139,7 +141,7 @@ One difference to know if you keep one: `compile-project` defaults `:clean?` to 
 | `nos print-basis [:alias ...]` | the resolved paths and libs, without compiling |
 | `nos repl` | a REPL on a warm runtime |
 
-`nos where` is what a build script uses to compile C# against the same runtime the host will load, instead of guessing at install paths ([native assemblies](./native-assemblies.md)). `nos print-basis` is the one to reach for when a namespace is missing and you cannot tell whether the dependency resolved ([declaring CLR dependencies](./clr-dependency-files.md)).
+`nos where` is what a build script uses to compile C# against the same runtime the host will load, instead of guessing at install paths ([C# assemblies](./native-assemblies.md)). `nos print-basis` is the one to reach for when a namespace is missing and you cannot tell whether the dependency resolved ([declaring CLR dependencies](./clr-dependency-files.md)).
 
 ## What `nos test` cannot catch
 

@@ -38,7 +38,7 @@ Using MAGIC on your own library:
 - [Writing cross-platform Clojure](./docs/writing-cross-platform-clojure.md): `.cljc` source patterns for code that runs on both the JVM and the CLR.
 - [Declaring CLR dependencies](./docs/clr-dependency-files.md): `deps-clr.edn` vs a `:clr` alias, when the CLR needs different deps than the JVM.
 - [The `nos` CLI](./docs/nos-cli.md): how a task is found, `nos build` and `nos test`, and the `magic.edn` surface.
-- [Loading precompiled native assemblies](./docs/native-assemblies.md): loading a committed C# DLL on the CLR, where `:import` alone does not.
+- [A library's C# assembly](./docs/native-assemblies.md): getting a committed C# DLL into the process, where `:import` alone does not, and how `nos build` ships it.
 - [Unity integration](./docs/unity-integration.md): compile Clojure to plugin DLLs and load them in a Unity project.
 
 Working on MAGIC itself:
