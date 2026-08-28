@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Nostrand
+- `nos build` copies the C# assemblies a library ships into the output dir, so a consumer no longer writes its own `File/Copy` to get them there. Point `:csharp-out` at a second dir to keep them out of `:out`, which `:clean?` deletes on every build: Unity then imports the plugin once and its GUID holds, instead of a new one on every build - [#144](https://github.com/flybot-sg/magic/issues/144).
+
 ## v0.12.1 - 2026-08-20
 
 The Editor runs **ClojureCLR 1.11.0-flybot3**, so `sort` and `compare` order values there the way MAGIC does. `nos` also reads a submodule's `deps-clr.edn`, so a library can leave `deps.edn` to the JVM.

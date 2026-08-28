@@ -83,7 +83,9 @@
   {(str default-pkg "/Editor/PlayerCljAssemblies.cs")
    {:form #"Extensions = \{([^}]*)\}" :dll identity}
    "magic-compiler/src/magic/api.clj"
-   {:form #"source-extensions \[([^\]]*)\]" :dll #(str % ".dll")}})
+   {:form #"source-extensions \[([^\]]*)\]" :dll #(str % ".dll")}
+   "nostrand/nostrand/tasks.clj"
+   {:form #"clj-assembly-suffixes[^\[]*\[([^\]]*)\]" :dll identity}})
 
 (defn- extension-mismatches []
   (for [[path {:keys [form dll]}] extension-sources

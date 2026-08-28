@@ -6,6 +6,7 @@
   (:import
    [Nostrand Nostrand]
    [System.IO Directory File Path]
+   [System.Security.Cryptography MD5]
    [System.Threading Thread ThreadStart]
    [System.Reflection AssemblyInformationalVersionAttribute])
   (:require [nostrand.repl :as repl]
@@ -202,21 +203,77 @@
            (paths-namespaces (:paths (or basis (basis/create-basis (basis/project-deps-file) (vec aliases))))))
        (remove (set exclude))))
 
+(def ^:private clj-assembly-suffixes [".clj.dll" ".cljc.dll" ".cljr.dll"])
+
+(defn- clj-assembly? [file]
+  (let [file-name (string/lower-case (Path/GetFileName file))]
+    (boolean (some #(string/ends-with? file-name %) clj-assembly-suffixes))))
+
+(defn- content-hash [file]
+  (with-open [stream (File/OpenRead file)
+              md5    (MD5/Create)]
+    (Convert/ToBase64String (.ComputeHash md5 stream))))
+
+(defn- same-content? [a b]
+  (and (File/Exists b)
+       (= (content-hash a) (content-hash b))))
+
+(defn- reject-name-clash! [files]
+  (doseq [[file-name group] (group-by #(Path/GetFileName %) files)
+          :when (and (next group)
+                     (next (distinct (map content-hash group))))]
+    (throw (ex-info (str "Assemblies named " file-name " differ, so only one can"
+                         " reach the build output:\n  "
+                         (string/join "\n  " (sort group)))
+                    {:file-name file-name :files (sort group)}))))
+
+(defn- report-stale! [out shipped]
+  (when (Directory/Exists out)
+    (doseq [file  (sort (Directory/GetFiles out "*.dll"))
+            :let  [file-name (Path/GetFileName file)]
+            :when (and (not (clj-assembly? file))
+                       (not (shipped file-name)))]
+      (println "No dependency ships" file-name "any more; delete it from" out))))
+
+(defn- pending-copies [out files]
+  (for [file  files
+        :let  [dest (Path/Combine out (Path/GetFileName file))]
+        :when (and (not= (Path/GetFullPath file) (Path/GetFullPath dest))
+                   (not (same-content? file dest)))]
+    [file dest]))
+
+(defn- copy-csharp-assemblies!
+  "Copy into out the assemblies the build loaded that MAGIC did not compile."
+  [out]
+  (let [files (vec (remove clj-assembly? (nos/loaded-assembly-files)))]
+    (reject-name-clash! files)
+    (when-let [copies (seq (pending-copies out files))]
+      (Directory/CreateDirectory out)
+      (doseq [[file dest] copies]
+        (println "Copying C# assembly" (Path/GetFileName file))
+        (File/Copy file dest true)))
+    (report-stale! out (set (map #(Path/GetFileName %) files)))))
+
 (defn compile-project
   "Compile a project's namespaces (and their transitive requires) into a DLL
-  dir. With no :namespaces the set is derived from the source paths :aliases
-  contributes (see `project-namespaces`); pass :namespaces to state it instead
-  (e.g. a single root, or a vendored lib not reachable by `require`). Options:
+  dir, then copy in the C# assemblies the build loaded, so a library's C#
+  travels with the namespaces that import it. With no :namespaces the set is
+  derived from the source paths :aliases contributes (see `project-namespaces`);
+  pass :namespaces to state it instead (e.g. a single root, or a lib not
+  reachable by `require`). Options:
     :namespaces  explicit namespaces to compile (overrides derivation)
     :exclude     namespaces to drop from the set
     :aliases     deps.edn aliases to activate, e.g. [:clr]
     :out         *compile-path* (default \"build\")
+    :csharp-out  where the C# assemblies land (default :out). :clean? only ever
+                 empties :out, so a copy whose library left the deps stays until
+                 you delete it; the build names it rather than deleting it
     :clean?      wipe :out first (default false; for Unity dirs that must not
                  carry stale DLLs)
     :flags       var->value binding map (default `production-flags`)
   Drop-in for a consumer's `nos dotnet/build`:
       (defn build [] (tasks/compile-project :aliases [:clr]))"
-  [& {:keys [namespaces exclude aliases out clean? flags]
+  [& {:keys [namespaces exclude aliases out csharp-out clean? flags]
       :or   {out "build" clean? false flags production-flags}}]
   (let [basis (when (seq aliases) (nos/establish-deps-edn (basis/project-deps-file) aliases))
         nses  (task-namespaces namespaces aliases exclude basis)]
@@ -228,6 +285,7 @@
       (doseq [ns nses]
         (println "Compiling" ns)
         (compile ns))
+      (copy-csharp-assemblies! (or csharp-out out))
       (println "Done."))))
 
 (defn run-clojure-tests
@@ -279,11 +337,12 @@
 (s/def ::exclude    (s/coll-of symbol?  :kind vector?))
 (s/def ::re         string?)
 (s/def ::out        string?)
+(s/def ::csharp-out string?)
 (s/def ::clean?     boolean?)
 (s/def ::flags      (s/map-of qualified-symbol? any?))
 (s/def ::exclude-vars (s/coll-of qualified-symbol? :kind vector?))
 
-(s/def ::build (s/keys :opt-un [::aliases ::namespaces ::exclude ::out ::clean? ::flags]))
+(s/def ::build (s/keys :opt-un [::aliases ::namespaces ::exclude ::out ::csharp-out ::clean? ::flags]))
 (s/def ::test  (s/keys :opt-un [::aliases ::namespaces ::exclude ::re ::flags ::exclude-vars]))
 (s/def ::magic-edn (s/keys :opt-un [::build ::test]))
 
@@ -311,13 +370,14 @@
 (defn build
   "Compile the project under MAGIC, per magic.edn :build. Run as `nos build`."
   []
-  (let [{:keys [aliases namespaces exclude out clean? flags]
+  (let [{:keys [aliases namespaces exclude out csharp-out clean? flags]
          :or   {out "build" clean? true}}
         (:build (read-magic-edn))]
     (compile-project :aliases    (vec aliases)
                      :namespaces namespaces
                      :exclude    exclude
                      :out        out
+                     :csharp-out csharp-out
                      :clean?     clean?
                      :flags      (resolve-flags production-flags flags))))
 
