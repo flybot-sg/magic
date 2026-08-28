@@ -1,0 +1,14 @@
+(ns smoke-csharp.load-dll
+  "Puts smoke_csharp.dll in the process before anything imports its types.
+  Finds nothing under Unity, where CLOJURE_LOAD_PATH is unset and the assembly
+  is loaded already."
+  (:require [clojure.string :as str])
+  (:import [System.IO Path File]))
+
+(let [roots (some-> (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH")
+                    (str/split (re-pattern (str Path/PathSeparator))))]
+  (when-let [dll (some (fn [root]
+                         (let [p (Path/Combine root "smoke_csharp.dll")]
+                           (when (File/Exists p) p)))
+                       roots)]
+    (assembly-load-from dll)))

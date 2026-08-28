@@ -13,6 +13,7 @@
             [smoke.interop      :as interop]
             [smoke.read-print   :as read-print]
             [smoke.compare      :as compare-suite]
+            [smoke.csharp       :as csharp]
             [clojure.string :as str]))
 
 (defn- run []
@@ -24,7 +25,8 @@
                 ["stdlib-1.10"  (stdlib-1-10/suite)]
                 ["interop"      (interop/suite)]
                 ["read-print"   (read-print/suite)]
-                ["compare"      (compare-suite/suite)]]
+                ["compare"      (compare-suite/suite)]
+                ["csharp"       (csharp/suite)]]
         flat   (for [[group results] groups
                      r results]
                  (assoc r :group group))]
