@@ -86,26 +86,65 @@
       (throw (ex-info "Invalid type used as volatile field"
                       {:symbol sym :type hint :documentation "https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/volatile"})))))
 
-(defn analyze-method [{:keys [params name] :as f} candidate-methods type-key this-type explicit-this?]
+(defn override-rank
+  "Total order within a signature group. A base class method sorts first: only
+   its attributes produce a valid override."
+  [method]
+  (str (if (.. method DeclaringType IsInterface) 1 0)
+       (magic/stable-method-key method)))
+
+(defn unmatched-method-message
+  "A return type overload is the one miss a hint resolves, so name the choices.
+   present-error appends the method name, so the text has to end where it goes."
+  [by-signature]
+  (if (and (next by-signature)
+           (apply = (map second (keys by-signature))))
+    (str "Overloaded on return type ("
+         (string/join ", " (sort (map #(.FullName (nth % 2)) (keys by-signature))))
+         "), hint the return type of method ")
+    "No match binding method"))
+
+(defn method-name-parts
+  "The munged name a method spec writes, with its explicit interface prefix
+   split off. A spec may namespace-qualify the symbol, so drop that first."
+  [name]
   (let [name (str name)
-        name (if (string/includes? name "/")
-               (subs name (inc (string/last-index-of name "/")))
-               name)
-        name (munge name)
+        name (munge (if (string/includes? name "/")
+                      (subs name (inc (string/last-index-of name "/")))
+                      name))]
+    (if (string/includes? name ".")
+      (let [last-dot (string/last-index-of name ".")]
+        [name (subs name 0 last-dot) (subs name (inc last-dot))])
+      [name nil name])))
+
+(defn candidates-by-signature
+  [candidate-methods method-name interface-name return-type]
+  (->> candidate-methods
+       (filter #(= method-name (.Name %)))
+       (filter #(or (nil? interface-name) (= interface-name (.. % DeclaringType FullName))))
+       (filter #(or (nil? return-type) (= return-type (.ReturnType %))))
+       (group-by interop/override-signature)))
+
+(defn select-overrides
+  "Every method one emitted override covers. A lone signature group is that
+   slot; several mean the argument types have to pick between them."
+  [by-signature arg-types]
+  (->> (if (= 1 (count by-signature))
+         (val (first by-signature))
+         (some-> (select-method (map (comp first val) by-signature) arg-types)
+                 interop/override-signature
+                 by-signature))
+       (sort-by override-rank u/ordinal-str-compare)))
+
+(defn analyze-method [{:keys [params name] :as f} candidate-methods type-key this-type explicit-this?]
+  (let [return-type (types/tag name)
+        [name interface-name method-name] (method-name-parts name)
         params* (if explicit-this? (drop 1 params) params)
-        [interface-name method-name]
-        (if (string/includes? name ".")
-          (let [last-dot (string/last-index-of name ".")]
-            [(subs name 0 last-dot)
-             (subs name (inc last-dot))])
-          [nil name])
-        candidate-methods (filter #(= method-name (.Name %)) candidate-methods)
-        candidate-methods (if interface-name
-                            (filter #(= interface-name (.. % DeclaringType FullName)) candidate-methods)
-                            candidate-methods)]
-    (if-let [best-method (select-method candidate-methods (map ast-type params*))]
+        by-signature (candidates-by-signature candidate-methods method-name interface-name return-type)
+        overrides (select-overrides by-signature (map ast-type params*))]
+    (if-let [best-method (first overrides)]
       (let [method-param-types (map #(.ParameterType %) (.GetParameters best-method))
-            hinted-param-types (if explicit-this? 
+            hinted-param-types (if explicit-this?
                                  (concat [this-type] method-param-types)
                                  method-param-types)
             hinted-params (mapv #(update %1 :form vary-meta assoc :tag %2) params hinted-param-types)]
@@ -113,9 +152,12 @@
                :name name
                :params hinted-params
                :source-method best-method
+               :override-methods overrides
                type-key this-type))
-      (throw (ex-info "No match binding method" {:name name :params (map ast-type params) :candidates (vec candidate-methods)
-                                                 :type-key type-key :this-type this-type :explicit-this? explicit-this?})))))
+      (throw (ex-info (unmatched-method-message by-signature)
+                      {:name name :params (map ast-type params) :candidates (vec (mapcat val by-signature))
+                       :type-key type-key :this-type this-type :explicit-this? explicit-this?})))))
+
 (def make-cctor
   (memoize
    (fn [containing-type]

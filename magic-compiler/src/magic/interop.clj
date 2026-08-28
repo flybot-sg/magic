@@ -43,6 +43,13 @@
   [method] (map #(.ParameterType %)
                 (parameters method)))
 
+(defn override-signature
+  "Methods sharing this key occupy one slot, so one override implements them all.
+   A derived interface that redeclares an inherited member yields one MethodInfo
+   per declaring type; only a differing return type makes a second slot."
+  [method]
+  [(.Name method) (parameter-types method) (.ReturnType method)])
+
 (def field
   (memoize
    (fn [type name] (.GetField type name))))

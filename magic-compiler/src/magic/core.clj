@@ -1803,6 +1803,17 @@
        (sort-by (comp stable-method-key key) u/ordinal-str-compare)
        (mapv val)))
 
+(defn default-overrides
+  "Throwing defaults for the slots no written method covers, one per slot."
+  [abstract-methods written attributes]
+  (->> abstract-methods
+       (remove (into #{} (mapcat :override-methods written)))
+       (group-by interop/override-signature)
+       vals
+       (map #(first (sort-by stable-method-key u/ordinal-str-compare %)))
+       (map #(vector % (default-override-method % attributes)))
+       (into {})))
+
 (defn compile-proxy-type [{:keys [args super interfaces closed-overs fns proxy-type] :as ast} compilers]
   (when-not (.IsCreated proxy-type)
     (let [super-override (enum-or MethodAttributes/Public MethodAttributes/Virtual)
@@ -1811,17 +1822,8 @@
           interfaces (conj interfaces clojure.lang.IProxy)
           ;; need to gather *all* interfaces this type effectively supports
           ifaces* (into #{} (concat interfaces (mapcat #(.GetInterfaces %) interfaces)))
-          iface-methods
-          (->> ifaces*
-               (mapcat (fn [iface]
-                         (map
-                          #(vector % (default-override-method % iface-override))
-                          (all-abstract-methods iface))))
-               (into {}))
-          abstract-methods
-          (into {}
-                (map #(vector % (default-override-method % super-override))
-                     (all-abstract-methods super)))
+          iface-methods (default-overrides (mapcat all-abstract-methods ifaces*) fns iface-override)
+          abstract-methods (default-overrides (all-abstract-methods super) fns super-override)
           closed-over-field-map
           (reduce-kv
            (fn [m k v]
@@ -2044,13 +2046,7 @@
           ifaces* (disj (into #{} (concat interfaces (mapcat #(.GetInterfaces %) interfaces)))
                         clojure.lang.IObj
                         clojure.lang.IMeta)
-          iface-methods
-          (->> ifaces*
-               (mapcat (fn [iface]
-                         (map
-                          #(vector % (default-override-method % iface-override))
-                          (all-abstract-methods iface))))
-               (into {}))
+          iface-methods (default-overrides (mapcat all-abstract-methods ifaces*) methods iface-override)
           provided-methods
           (into {} (map (fn [m] [(:source-method m) (compile m specialized-compilers)]) methods))
           methods* (merge iface-methods provided-methods)]
@@ -2115,13 +2111,7 @@
   (let [super-override (enum-or MethodAttributes/Public MethodAttributes/Virtual)
         iface-override (enum-or super-override MethodAttributes/Final MethodAttributes/NewSlot)
         ifaces* (into #{} (concat implements (mapcat #(.GetInterfaces %) implements)))
-        iface-methods
-        (->> ifaces*
-             (mapcat (fn [iface]
-                       (map
-                        #(vector % (default-override-method % iface-override))
-                        (all-abstract-methods iface))))
-             (into {}))
+        iface-methods (default-overrides (mapcat all-abstract-methods ifaces*) methods iface-override)
         defrecord? (.IsAssignableFrom clojure.lang.IRecord deftype-type)
         fieldinfos (.GetFields deftype-type)
         fieldinfos-set (into #{} (.GetFields deftype-type))
