@@ -49,7 +49,7 @@
  magic.analyzer.errors {:source "magic-compiler/src/magic/analyzer/errors.clj", :sha256 "fe53f69897cb8a97d157123cd47330db3b71507aeb63a11582b9572fd8fafa6f"}
  magic.analyzer.generated_types {:source "magic-compiler/src/magic/analyzer/generated_types.clj", :sha256 "ede9195e51de246d8e96ad2f5071e08e0cf422f9fa965ff31e201b91cb595af0"}
  magic.analyzer.intrinsics {:source "magic-compiler/src/magic/analyzer/intrinsics.clj", :sha256 "c2bc29eaf2ecccf14d09f88b8ab2f8a96ef1a12563ac8158b2add1240f4d88e3"}
- magic.analyzer.literal_reinterpretation {:source "magic-compiler/src/magic/analyzer/literal_reinterpretation.clj", :sha256 "e56eec5f886a9744867dfdc3776b94603f4f39a2e4d14a80420bd6e06c205c86"}
+ magic.analyzer.literal_reinterpretation {:source "magic-compiler/src/magic/analyzer/literal_reinterpretation.clj", :sha256 "3436dfbef7b929f1b31729cd5b48226298088640202fe6590ea73be8c2056662"}
  magic.analyzer.loop_bindings {:source "magic-compiler/src/magic/analyzer/loop_bindings.clj", :sha256 "365bb5797f36374fb8237184f6900c2b5d056769b632d04b4109137b5bed3996"}
  magic.analyzer.novel {:source "magic-compiler/src/magic/analyzer/novel.clj", :sha256 "fa1a06041b8ea03aaa8817aec640cc63472ce9a3f8ce66a7a93438dc8af4f416"}
  magic.analyzer.reflection {:source "magic-compiler/src/magic/analyzer/reflection.clj", :sha256 "16de58b74c60882c7ee36df8410f30e8d16cec6bb8168d899bcf9a463cb0f8f3"}
