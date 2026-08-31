@@ -27,4 +27,6 @@
           #(threw? (fn [] (let [a (int-array [10 20 30])]
                             ((fn [^long v] (aset a 0 v)) 4294967296)))) :threw)
    (check "interop parameter narrowing throws"
-          #(threw? (fn [] ((fn [^long i] (.Substring "hello" i)) 4294967296))) :threw)])
+          #(threw? (fn [] ((fn [^long i] (.Substring "hello" i)) 4294967296))) :threw)
+   (check "boxed ulong casts through longCast"
+          #(int (identity (ulong 1))) 1)])

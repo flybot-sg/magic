@@ -2453,7 +2453,7 @@ namespace clojure.lang
                 ulong ux = (ulong)x;
                 if (ux > long.MaxValue)
                     throw new ArgumentException("Value out of range for long: " + x);
-                return (long)x;
+                return (long)ux;
             }
             
             if (x is byte || x is short || x is uint || x is sbyte || x is ushort)

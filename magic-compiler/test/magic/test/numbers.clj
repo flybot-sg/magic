@@ -17,6 +17,12 @@
   (cljclr=magic (char (rand-nth [65])))
   (cljclr=magic (int (rand-nth [7]))))
 
+(deftest boxed-ulong-cast
+  (clojure.test/is (true? (m/eval '(== 1 (long (identity (ulong 1)))))))
+  (clojure.test/is (true? (m/eval '(== 1 (int (identity (ulong 1)))))))
+  (clojure.test/is (= :threw (m/eval '(try (long (identity (ulong 18446744073709551615)))
+                                           (catch ArgumentException e :threw))))))
+
 (def cast-targets '[byte sbyte short ushort int uint long ulong char])
 (def cast-sources '[byte sbyte short ushort int uint long ulong char float double])
 
