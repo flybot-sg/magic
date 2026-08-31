@@ -7,6 +7,7 @@
 - A narrowing cast on a type-hinted primitive throws when the value does not fit instead of discarding the high bits, so `(int 4294967296)` on a `^long` throws `ArgumentException` rather than returning `0`, as on ClojureCLR and JVM Clojure - [#148](https://github.com/flybot-sg/magic/issues/148).
 
 ### Nostrand
+- `nos build` compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and narrowing casts keep their overflow checks instead of wrapping silently. A namespace that wants wrapping sets the flag itself - [#149](https://github.com/flybot-sg/magic/issues/149).
 - `nos build` copies the C# assemblies a library ships into the output dir, so a consumer no longer writes its own `File/Copy` to get them there. Point `:csharp-out` at a second dir to keep them out of `:out`, which `:clean?` deletes on every build: Unity then imports the plugin once and its GUID holds, instead of a new one on every build - [#144](https://github.com/flybot-sg/magic/issues/144).
 
 ## v0.12.1 - 2026-08-20

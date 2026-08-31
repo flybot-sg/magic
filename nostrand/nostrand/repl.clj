@@ -35,7 +35,7 @@
             :as args}]
   (binding [*ns* (find-ns 'user)
             *warn-on-reflection* *warn-on-reflection*
-            *unchecked-math* *warn-on-reflection*]
+            *unchecked-math* *unchecked-math*]
     (loop [s (.Edit line-editor (prompt) "")]
       (when s
         (if-not (balanced? s)
@@ -85,7 +85,7 @@
     (binding [*ns* (find-ns 'user)
               *out* (StringWriter. sb)
               *warn-on-reflection* *warn-on-reflection*
-              *unchecked-math* *warn-on-reflection*]
+              *unchecked-math* *unchecked-math*]
       (loop [running @socket-repl-running]
         (when running
           (try
