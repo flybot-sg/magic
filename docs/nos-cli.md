@@ -80,14 +80,14 @@ Note the following:
 `nos build` compiles under the flags a shipped MAGIC project runs on:
 
 ```clojure
-{#'*unchecked-math*                true
+{#'*unchecked-math*                false
  #'*warn-on-reflection*            true
  #'magic.flags/*strongly-typed-invokes* true
  #'magic.flags/*direct-linking*         true
  #'magic.flags/*elide-meta*             false}
 ```
 
-- `*unchecked-math*`: integer arithmetic compiles to raw CIL ops, no overflow checks.
+- `*unchecked-math*`: Clojure's default. Arithmetic and narrowing casts keep their overflow checks. Set it per namespace where wrapping is wanted.
 - `*warn-on-reflection*`: interop the compiler cannot resolve statically warns at compile time.
 - `*strongly-typed-invokes*`: a call whose `Magic.Function` type is statically known lowers to a typed interface call, skipping argument boxing.
 - `*direct-linking*`: a call to a non-variadic, non-dynamic fn lowers to a direct `invokeStatic`, bypassing the Var.

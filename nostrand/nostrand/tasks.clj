@@ -146,7 +146,7 @@
   `compile-project` / `run-clojure-tests`. A plain map, so a task that needs
   to deviate assoc's onto it or passes its own (see `test-flags`). Shared so
   consumer dotnet.clj tasks do not each restate the set."
-  {#'*unchecked-math*                true
+  {#'*unchecked-math*                false
    #'*warn-on-reflection*            true
    #'mflags/*strongly-typed-invokes* true
    #'mflags/*direct-linking*         true
