@@ -1704,6 +1704,625 @@ namespace clojure.lang
 
         #endregion
 
+        #region casting misc numeric types from primitives
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(char x)
+        {
+            if (x > (ulong)Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(byte x)
+        {
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(sbyte x)
+        {
+            if (x < 0 || x > Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(short x)
+        {
+            if (x < 0 || x > Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(ushort x)
+        {
+            if (x > (ulong)Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(int x)
+        {
+            if (x < 0 || x > Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(uint x)
+        {
+            if (x > (ulong)Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(long x)
+        {
+            if (x < 0 || x > Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(ulong x)
+        {
+            if (x > (ulong)Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(float x)
+        {
+            if (x < Byte.MinValue || x > Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static byte byteCast(double x)
+        {
+            if (x < Byte.MinValue || x > Byte.MaxValue)
+                throw new ArgumentException("Value out of range for byte: " + x);
+
+            return (byte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(char x)
+        {
+            if (x > (ulong)SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(byte x)
+        {
+            if (x > (ulong)SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(sbyte x)
+        {
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(short x)
+        {
+            if (x < SByte.MinValue || x > SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(ushort x)
+        {
+            if (x > (ulong)SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(int x)
+        {
+            if (x < SByte.MinValue || x > SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(uint x)
+        {
+            if (x > (ulong)SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(long x)
+        {
+            if (x < SByte.MinValue || x > SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(ulong x)
+        {
+            if (x > (ulong)SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(float x)
+        {
+            if (x < SByte.MinValue || x > SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static sbyte sbyteCast(double x)
+        {
+            if (x < SByte.MinValue || x > SByte.MaxValue)
+                throw new ArgumentException("Value out of range for sbyte: " + x);
+
+            return (sbyte)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(char x)
+        {
+            if (x > (ulong)Int16.MaxValue)
+                throw new ArgumentException("Value out of range for short: " + x);
+
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(byte x)
+        {
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(sbyte x)
+        {
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(short x)
+        {
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(ushort x)
+        {
+            if (x > (ulong)Int16.MaxValue)
+                throw new ArgumentException("Value out of range for short: " + x);
+
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(int x)
+        {
+            if (x < Int16.MinValue || x > Int16.MaxValue)
+                throw new ArgumentException("Value out of range for short: " + x);
+
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(uint x)
+        {
+            if (x > (ulong)Int16.MaxValue)
+                throw new ArgumentException("Value out of range for short: " + x);
+
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(long x)
+        {
+            if (x < Int16.MinValue || x > Int16.MaxValue)
+                throw new ArgumentException("Value out of range for short: " + x);
+
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(ulong x)
+        {
+            if (x > (ulong)Int16.MaxValue)
+                throw new ArgumentException("Value out of range for short: " + x);
+
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(float x)
+        {
+            if (x < Int16.MinValue || x > Int16.MaxValue)
+                throw new ArgumentException("Value out of range for short: " + x);
+
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static short shortCast(double x)
+        {
+            if (x < Int16.MinValue || x > Int16.MaxValue)
+                throw new ArgumentException("Value out of range for short: " + x);
+
+            return (short)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(char x)
+        {
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(byte x)
+        {
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(sbyte x)
+        {
+            if (x < 0 || x > UInt16.MaxValue)
+                throw new ArgumentException("Value out of range for ushort: " + x);
+
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(short x)
+        {
+            if (x < 0 || x > UInt16.MaxValue)
+                throw new ArgumentException("Value out of range for ushort: " + x);
+
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(ushort x)
+        {
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(int x)
+        {
+            if (x < 0 || x > UInt16.MaxValue)
+                throw new ArgumentException("Value out of range for ushort: " + x);
+
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(uint x)
+        {
+            if (x > (ulong)UInt16.MaxValue)
+                throw new ArgumentException("Value out of range for ushort: " + x);
+
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(long x)
+        {
+            if (x < 0 || x > UInt16.MaxValue)
+                throw new ArgumentException("Value out of range for ushort: " + x);
+
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(ulong x)
+        {
+            if (x > (ulong)UInt16.MaxValue)
+                throw new ArgumentException("Value out of range for ushort: " + x);
+
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(float x)
+        {
+            if (x < UInt16.MinValue || x > UInt16.MaxValue)
+                throw new ArgumentException("Value out of range for ushort: " + x);
+
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ushort ushortCast(double x)
+        {
+            if (x < UInt16.MinValue || x > UInt16.MaxValue)
+                throw new ArgumentException("Value out of range for ushort: " + x);
+
+            return (ushort)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(char x)
+        {
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(byte x)
+        {
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(sbyte x)
+        {
+            if (x < 0 || x > UInt32.MaxValue)
+                throw new ArgumentException("Value out of range for uint: " + x);
+
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(short x)
+        {
+            if (x < 0 || x > UInt32.MaxValue)
+                throw new ArgumentException("Value out of range for uint: " + x);
+
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(ushort x)
+        {
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(int x)
+        {
+            if (x < 0 || x > UInt32.MaxValue)
+                throw new ArgumentException("Value out of range for uint: " + x);
+
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(uint x)
+        {
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(long x)
+        {
+            if (x < 0 || x > UInt32.MaxValue)
+                throw new ArgumentException("Value out of range for uint: " + x);
+
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(ulong x)
+        {
+            if (x > (ulong)UInt32.MaxValue)
+                throw new ArgumentException("Value out of range for uint: " + x);
+
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(float x)
+        {
+            if (x < UInt32.MinValue || x > UInt32.MaxValue)
+                throw new ArgumentException("Value out of range for uint: " + x);
+
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static uint uintCast(double x)
+        {
+            if (x < UInt32.MinValue || x > UInt32.MaxValue)
+                throw new ArgumentException("Value out of range for uint: " + x);
+
+            return (uint)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(char x)
+        {
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(byte x)
+        {
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(sbyte x)
+        {
+            if (x < 0)
+                throw new ArgumentException("Value out of range for ulong: " + x);
+
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(short x)
+        {
+            if (x < 0)
+                throw new ArgumentException("Value out of range for ulong: " + x);
+
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(ushort x)
+        {
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(int x)
+        {
+            if (x < 0)
+                throw new ArgumentException("Value out of range for ulong: " + x);
+
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(uint x)
+        {
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(long x)
+        {
+            if (x < 0)
+                throw new ArgumentException("Value out of range for ulong: " + x);
+
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(ulong x)
+        {
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(float x)
+        {
+            if (x < UInt64.MinValue || x > UInt64.MaxValue)
+                throw new ArgumentException("Value out of range for ulong: " + x);
+
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static ulong ulongCast(double x)
+        {
+            if (x < UInt64.MinValue || x > UInt64.MaxValue)
+                throw new ArgumentException("Value out of range for ulong: " + x);
+
+            return (ulong)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(char x)
+        {
+            return (char)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(byte x)
+        {
+            return (char)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(sbyte x)
+        {
+            if (x < 0 || x > Char.MaxValue)
+                throw new ArgumentException("Value out of range for char: " + x);
+
+            return (char)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(short x)
+        {
+            if (x < 0 || x > Char.MaxValue)
+                throw new ArgumentException("Value out of range for char: " + x);
+
+            return (char)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(ushort x)
+        {
+            return (char)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(int x)
+        {
+            if (x < 0 || x > Char.MaxValue)
+                throw new ArgumentException("Value out of range for char: " + x);
+
+            return (char)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(uint x)
+        {
+            if (x > (ulong)Char.MaxValue)
+                throw new ArgumentException("Value out of range for char: " + x);
+
+            return (char)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(ulong x)
+        {
+            if (x > (ulong)Char.MaxValue)
+                throw new ArgumentException("Value out of range for char: " + x);
+
+            return (char)x;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]
+        public static char charCast(float x)
+        {
+            if (x < Char.MinValue || x > Char.MaxValue)
+                throw new ArgumentException("Value out of range for char: " + x);
+
+            return (char)x;
+        }
+
+        #endregion
+
         #region int casting
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly")]

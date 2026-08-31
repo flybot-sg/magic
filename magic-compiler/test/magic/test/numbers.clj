@@ -1,5 +1,6 @@
 (ns magic.test.numbers
-  (:require [clojure.test :refer [deftest testing]])
+  (:require [clojure.test :refer [deftest testing]]
+            [magic.api :as m])
   (:use magic.test.common))
 
 (deftest unchecked-cast-char
@@ -15,6 +16,81 @@
 (deftest object-to-narrow-numeric-cast
   (cljclr=magic (char (rand-nth [65])))
   (cljclr=magic (int (rand-nth [7]))))
+
+(def cast-targets '[byte sbyte short ushort int uint long ulong char])
+(def cast-sources '[byte sbyte short ushort int uint long ulong char float double])
+
+(defn cast-form
+  "Compares inside the compiled form, because an unsigned result does not
+   survive the host boundary."
+  [target source v]
+  (read-string
+   (str "(try (== " v " ((fn [^" source " x] (" target " x)) " v "))"
+        "  (catch ArgumentException e :threw))")))
+
+(deftest checked-narrowing-every-source-target-pair
+  (testing "a value every type can hold converts, so no pair loses its conversion"
+    (doseq [target cast-targets
+            source cast-sources]
+      (clojure.test/is (true? (m/eval (cast-form target source 1)))
+                       (str "(" target " ^" source " 1)"))))
+  (testing "a value the target cannot hold throws, and only where it cannot hold it"
+    (doseq [[target source v] [['byte   'long   300]
+                               ['byte   'int    300]
+                               ['byte   'ushort 300]
+                               ['sbyte  'byte   200]
+                               ['short  'uint   70000]
+                               ['short  'char   65535]
+                               ['ushort 'long   70000]
+                               ['ushort 'int    -1]
+                               ['int    'long   4294967296]
+                               ['int    'ulong  18446744073709551615]
+                               ['int    'double 1e300]
+                               ['int    'float  1e30]
+                               ['uint   'long   -1]
+                               ['uint   'double 1e300]
+                               ['long   'ulong  18446744073709551615]
+                               ['long   'double 1e300]
+                               ['ulong  'long   -1]
+                               ['ulong  'int    -1]
+                               ['char   'long   100000]
+                               ['char   'int    -1]
+                               ['char   'ulong  100000]]]
+      (clojure.test/is (= :threw (m/eval (cast-form target source v)))
+                       (str "(" target " ^" source " " v ")")))))
+
+(deftest checked-narrowing-keeps-value-preserving-conversions
+  (cljclr=magic ((fn [^int x] (long x)) 7))
+  (cljclr=magic ((fn [^uint x] (long x)) (uint 4294967295)))
+  (cljclr=magic ((fn [^uint x] (ulong x)) (uint 4294967295)))
+  (cljclr=magic ((fn [^char x] (int x)) \uFFFF))
+  (cljclr=magic ((fn [^long x] (int x)) 7))
+  (cljclr=magic ((fn [^double x] (int x)) Double/NaN)))
+
+(deftest unchecked-narrowing-cast-still-wraps
+  (cljclr=magic ((fn [^long x] (unchecked-int x)) 4294967296))
+  (clojure.test/is
+   (zero? (binding [*unchecked-math* true]
+            (m/eval '((fn [^long x] (int x)) 4294967296))))))
+
+(deftest checked-narrowing-call-sites
+  (clojure.test/are [form] (= :threw (m/eval form))
+    '(try (let [a (int-array [10 20 30])] ((fn [^long i] (aget a i)) 4294967296))
+          (catch ArgumentException e :threw))
+    '(try (let [a (int-array [10 20 30])] ((fn [^long i] (nth a i)) 4294967296))
+          (catch ArgumentException e :threw))
+    '(try (let [a (int-array [10 20 30])] ((fn [^long i] (aset a i 99)) 4294967296))
+          (catch ArgumentException e :threw))
+    '(try (let [a (int-array [10 20 30])] ((fn [^long v] (aset a 0 v)) 4294967296))
+          (catch ArgumentException e :threw))
+    '(try ((fn [^long n] (make-array Int32 n)) 4294967296)
+          (catch ArgumentException e :threw))
+    '(try ((fn [^long i] (.Substring "hello" i)) 4294967296)
+          (catch ArgumentException e :threw))
+    '(try ((fn [^long i] (System.Char/ConvertFromUtf32 i)) 4294967296)
+          (catch ArgumentException e :threw))
+    '(try ((fn [^long n] (String. \a n)) 4294967296)
+          (catch ArgumentException e :threw))))
 
 (deftest promote-narrow-integer-arithmetic
   (cljclr=magic (inc UInt32/MaxValue))

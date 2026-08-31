@@ -95,11 +95,11 @@
   [{:keys [args]} type compilers]
   (let [arg (reinterpret (first args) type)]
     [(magic/compile arg compilers)
-     (magic/convert arg type)]))
+     (magic/convert arg type (not *unchecked-math*))]))
 
 ;; Vars without an :inline (sbyte, uint, ulong, ushort) need no method entry.
 ;; The unchecked casts stay unkeyed: conversion-compiler emits the checked
-;; cast for Object sources, which would turn their wrapping into throwing.
+;; cast, which would turn their wrapping into throwing.
 (def conversions
   {'clojure.core/float  [Single "floatCast"]
    'clojure.core/double [Double "doubleCast"]
@@ -414,8 +414,7 @@
           index-arg (reinterpret index-arg Int32)]
       [(magic/compile array-arg compilers)
        (magic/compile index-arg compilers)
-       ;; TODO make sure this is conv.ovf
-       (magic/convert-type (ast-type index-arg) Int32)
+       (magic/convert-type (ast-type index-arg) Int32 (not *unchecked-math*))
        (magic/load-element type)]))
   [RT "aget" 2])
 
@@ -437,10 +436,9 @@
           statement? (magic/statement? ast)]
       [(magic/compile array-arg compilers)
        (magic/compile index-arg compilers)
-       ;; TODO make sure this is conv.ovf
-       (magic/convert-type (ast-type index-arg) Int32)
+       (magic/convert-type (ast-type index-arg) Int32 (not *unchecked-math*))
        (magic/compile value-arg compilers)
-       (magic/convert-type (ast-type value-arg) type)
+       (magic/convert-type (ast-type value-arg) type (not *unchecked-math*))
        (when-not statement?
          [(il/dup)
           (il/stloc val-return)])
@@ -462,7 +460,7 @@
        (if-not (= index-arg' index-arg)
          (magic/compile index-arg' compilers)
          [(magic/compile index-arg compilers)
-          (magic/convert index-arg Int32)])
+          (magic/convert index-arg Int32 (not *unchecked-math*))])
        (if value-type?
          (il/ldelem type)
          (il/ldelem-ref))]))
@@ -540,7 +538,7 @@
   (fn intrinsic-make-array-compiler
     [{[type-arg len-arg] :args} type compilers]
     [(magic/compile len-arg compilers)
-     (magic/convert len-arg Int32)
+     (magic/convert len-arg Int32 (not *unchecked-math*))
      (il/newarr (:val type-arg))]))
 
 (defintrinsic clojure.core/enum-or
