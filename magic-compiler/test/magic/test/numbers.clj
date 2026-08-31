@@ -65,6 +65,25 @@
       (clojure.test/is (= :threw (m/eval (cast-form target source v)))
                        (str "(" target " ^" source " " v ")")))))
 
+(deftest literal-narrowing-matches-runtime-semantics
+  (testing "an out-of-range literal throws at runtime, catchable, instead of aborting compilation"
+    (clojure.test/are [form] (= :threw (m/eval form))
+      '(try (int 4294967296) (catch ArgumentException e :threw))
+      '(try (uint -1) (catch ArgumentException e :threw))
+      '(try (byte 300) (catch ArgumentException e :threw))
+      '(try (ulong -1) (catch ArgumentException e :threw))))
+  (testing "a fractional literal truncates as the runtime cast does, not Convert's rounding"
+    ;; explicit expected values: cljclr=magic compares two MAGIC compilation
+    ;; paths and passes when both share the bug
+    (clojure.test/is (== 1 (m/eval '(int 1.5))))
+    (clojure.test/is (== 2 (m/eval '(int 2.5))))
+    (clojure.test/is (== -1 (m/eval '(long -1.5))))
+    (clojure.test/is (== 1 (m/eval '(byte 1.5)))))
+  (testing "an in-range literal still reinterprets"
+    (clojure.test/is (== 42 (m/eval '(int 42.0))))
+    (clojure.test/is (== 1.5 (m/eval '(float 1.5))))
+    (clojure.test/is (true? (m/eval '(== 4294967295 (uint 4294967295)))))))
+
 (deftest checked-narrowing-keeps-value-preserving-conversions
   (cljclr=magic ((fn [^int x] (long x)) 7))
   (cljclr=magic ((fn [^uint x] (long x)) (uint 4294967295)))

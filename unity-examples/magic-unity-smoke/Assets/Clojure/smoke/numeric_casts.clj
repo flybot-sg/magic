@@ -29,4 +29,8 @@
    (check "interop parameter narrowing throws"
           #(threw? (fn [] ((fn [^long i] (.Substring "hello" i)) 4294967296))) :threw)
    (check "boxed ulong casts through longCast"
-          #(int (identity (ulong 1))) 1)])
+          #(int (identity (ulong 1))) 1)
+   (check "fractional literal cast truncates"
+          #(int 1.5) 1)
+   (check "out-of-range literal cast throws at runtime"
+          #(threw? (fn [] (int 4294967296))) :threw)])
