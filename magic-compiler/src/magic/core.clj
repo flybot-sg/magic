@@ -63,8 +63,6 @@
       [(il/stloc loc)
        (il/ldloca loc)])))
 
-;; TODO overflows?
-;; can overflow opcodes replace e.g. RT.intCast?
 (def intrinsic-conv
   {Char   (il/conv-u2)
    SByte  (il/conv-i1)
@@ -81,224 +79,249 @@
 (def unsigned-integer
   #{Byte UInt16 UInt32 UInt64})
 
-(defn convert-type [from to]
-  (cond
-    (= from :magic.analyzer.types/disregard)
-    nil ; (throw (Exception. "cannot convert from disregarded type"))
-    (= to :magic.analyzer.types/disregard)
-    (throw (Exception. "cannot convert to disregarded type"))
+(def unsigned-primitive
+  (conj unsigned-integer Char))
 
-    (nil? from)
-    (recur Object to)
+(def integer-bits
+  {SByte 8 Byte 8
+   Int16 16 UInt16 16 Char 16
+   Int32 32 UInt32 32
+   Int64 64 UInt64 64})
 
-    (nil? to)
-    (recur from Object)
+(def rt-cast-method
+  "clojure.lang.RT cast to each primitive, checked and unchecked. Reference
+   Clojure converts through these rather than emitting conv.ovf, which throws a
+   different exception and rejects NaN."
+  {Char   {:checked "charCast"   :unchecked "uncheckedCharCast"}
+   SByte  {:checked "sbyteCast"  :unchecked "uncheckedSByteCast"}
+   Byte   {:checked "byteCast"   :unchecked "uncheckedByteCast"}
+   Int16  {:checked "shortCast"  :unchecked "uncheckedShortCast"}
+   UInt16 {:checked "ushortCast" :unchecked "uncheckedUShortCast"}
+   Int32  {:checked "intCast"    :unchecked "uncheckedIntCast"}
+   UInt32 {:checked "uintCast"   :unchecked "uncheckedUIntCast"}
+   Int64  {:checked "longCast"   :unchecked "uncheckedLongCast"}
+   UInt64 {:checked "ulongCast"  :unchecked "uncheckedULongCast"}
+   Single {:checked "floatCast"  :unchecked "uncheckedFloatCast"}
+   Double {:checked "doubleCast" :unchecked "uncheckedDoubleCast"}})
 
-    ;; do nothing if the types are the same
-    (= from to)
-    nil
+(defn rt-cast
+  "IL calling to's RT cast on a value of type from, nil when RT has no
+   overload taking from."
+  [from to kind]
+  (when-let [names (rt-cast-method to)]
+    (when-let [method (interop/method RT (names kind) from)]
+      (il/call method))))
 
-    (and (types/is-enum? from) (= Object to))
-    (il/box from)
+(defn value-preserving?
+  "True when every value of integer primitive from is representable in to."
+  [from to]
+  (let [from-bits (integer-bits from)
+        to-bits (integer-bits to)]
+    (boolean
+     (and from-bits to-bits
+          (if (unsigned-primitive from)
+            (if (unsigned-primitive to)
+              (<= from-bits to-bits)
+              (< from-bits to-bits))
+            (and (not (unsigned-primitive to))
+                 (<= from-bits to-bits)))))))
 
-    (types/is-enum? from)
-    (convert-type (Enum/GetUnderlyingType from) to)
+(defn checked-conv
+  "RT cast call for a narrowing primitive conversion, nil when the conversion
+   cannot lose a value. Only an integer target can overflow."
+  [from to]
+  (when (and (integer-bits to) (not (value-preserving? from to)))
+    (rt-cast from to :checked)))
 
-    (types/is-enum? to)
-    (convert-type from (Enum/GetUnderlyingType to))
+(defn convert-type
+  ([from to]
+   (convert-type from to false))
+  ([from to checked?]
+   (let [checked-cast (when (and checked?
+                                 (types/is-primitive? from)
+                                 (types/is-primitive? to))
+                        (checked-conv from to))]
+     (cond
+       (= from :magic.analyzer.types/disregard)
+       nil ; (throw (Exception. "cannot convert from disregarded type"))
+       (= to :magic.analyzer.types/disregard)
+       (throw (Exception. "cannot convert to disregarded type"))
 
-    ;; cannot convert nil to value type
-    (and (nil? from) (types/is-value-type? to))
-    (throw (Exception. (str "Cannot convert nil to value type " to)))
+       (nil? from)
+       (recur Object to checked?)
 
-    ;; TODO truthiness
-    (and (types/is-value-type? from)
-         (= to Boolean))
-    [(il/pop)
-     (il/ldc-i4-1)]
+       (nil? to)
+       (recur from Object checked?)
 
-    (and
-     (= from Object)
-     (= to Boolean))
-    (let [isbool (il/label)
-          end (il/label)]
-      [(il/dup)
-       (il/isinst Boolean)
-       (il/brtrue isbool)
+       ;; do nothing if the types are the same
+       (= from to)
+       nil
+
+       (and (types/is-enum? from) (= Object to))
+       (il/box from)
+
+       (types/is-enum? from)
+       (convert-type (Enum/GetUnderlyingType from) to checked?)
+
+       (types/is-enum? to)
+       (convert-type from (Enum/GetUnderlyingType to) checked?)
+
+       ;; cannot convert nil to value type
+       (and (nil? from) (types/is-value-type? to))
+       (throw (Exception. (str "Cannot convert nil to value type " to)))
+
+       ;; TODO truthiness
+       (and (types/is-value-type? from)
+            (= to Boolean))
+       [(il/pop)
+        (il/ldc-i4-1)]
+
+       (and
+        (= from Object)
+        (= to Boolean))
+       (let [isbool (il/label)
+             end (il/label)]
+         [(il/dup)
+          (il/isinst Boolean)
+          (il/brtrue isbool)
+          (il/ldnull)
+          (il/cgt-un)
+          (il/br end)
+          isbool
+          (il/unbox-any Boolean)
+          end])
+
+       (= to Boolean)
+       [(il/ldnull)
+        (il/cgt-un)]
+
+       (and (= from Boolean)
+            (= to Object))
+       (let [istrue (il/label)
+             end (il/label)]
+         [(il/brtrue istrue)
+          (il/ldsfld (interop/field Magic.Constants "False"))
+          (il/br end)
+          istrue
+          (il/ldsfld (interop/field Magic.Constants "True"))
+          end])
+
+       (and (= System.Void from) (not (types/is-value-type? to)))
        (il/ldnull)
-       (il/cgt-un)
-       (il/br end)
-       isbool
-       (il/unbox-any Boolean)
-       end])
 
-    (= to Boolean)
-    [(il/ldnull)
-     (il/cgt-un)]
+       (and (= System.Void to) (not= System.Void from))
+       (il/pop)
 
-    (and (= from Boolean)
-         (= to Object))
-    (let [istrue (il/label)
-          end (il/label)]
-      [(il/brtrue istrue)
-       (il/ldsfld (interop/field Magic.Constants "False"))
-       (il/br end)
-       istrue
-       (il/ldsfld (interop/field Magic.Constants "True"))
-       end])
+       (and (= System.Void from) (types/is-value-type? to))
+       (throw (Exception. (str "Cannot convert void to value type " to)))
 
-    (and (= System.Void from) (not (types/is-value-type? to)))
-    (il/ldnull)
+       ;; use user defined implicit conversion if it exists
+       (interop/method to "op_Implicit" from)
+       (il/call (interop/method to "op_Implicit" from))
 
-    (and (= System.Void to) (not= System.Void from))
-    (il/pop)
+       ;; use user defined explicit conversion if it exists
+       (interop/method to "op_Explicit" from)
+       (il/call (interop/method to "op_Explicit" from))
 
-    (and (= System.Void from) (types/is-value-type? to))
-    (throw (Exception. (str "Cannot convert void to value type " to)))
+       checked-cast
+       checked-cast
 
-    ;; use user defined implicit conversion if it exists
-    (interop/method to "op_Implicit" from)
-    (il/call (interop/method to "op_Implicit" from))
+       ;; widening to 8 bytes: extension follows source signedness, not the target
+       (and (types/integer-type? from)
+            (#{Int64 UInt64} to)
+            (not (#{Int64 UInt64} from)))
+       (if (unsigned-integer from) (il/conv-u8) (il/conv-i8))
 
-    ;; use user defined explicit conversion if it exists
-    (interop/method to "op_Explicit" from)
-    (il/call (interop/method to "op_Explicit" from))
+       ;; use intrinsic conv opcodes from primitive to primitive
+       (and (types/is-primitive? from) (types/is-primitive? to))
+       (intrinsic-conv to)
 
-    ;; widening to 8 bytes: extension follows source signedness, not the target
-    (and (types/integer-type? from)
-         (#{Int64 UInt64} to)
-         (not (#{Int64 UInt64} from)))
-    (if (unsigned-integer from) (il/conv-u8) (il/conv-i8))
+       ;; box valuetypes to objects
+       (and (types/is-value-type? from) (= to Object))
+       (il/box from)
 
-    ;; use intrinsic conv opcodes from primitive to primitive
-    (and (types/is-primitive? from) (types/is-primitive? to))
-    (intrinsic-conv to)
+       ;; RT casts
+       (and (= from Object) (rt-cast-method to))
+       (rt-cast Object to (if *unchecked-math* :unchecked :checked))
 
-    ;; box valuetypes to objects
-    (and (types/is-value-type? from) (= to Object))
-    (il/box from)
+       ;; unbox objects to valuetypes
+       ;; TODO this will throw an exception of the object
+       ;; does not have the exact runtime type of the valuetype
+       ;; ie it does not perform a conversion like the above clauses
+       (and (= from Object) (types/is-value-type? to))
+       (il/unbox-any to)
 
-    ;; RT casts
-    (and (= from Object) (= to Single))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedFloatCast" from)
-               (interop/method RT "floatCast" from)))
-    (and (= from Object) (= to Double))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedDoubleCast" from)
-               (interop/method RT "doubleCast" from)))
-    (and (= from Object) (= to Int32))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedIntCast" from)
-               (interop/method RT "intCast" from)))
-    (and (= from Object) (= to Int64))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedLongCast" from)
-               (interop/method RT "longCast" from)))
-    (and (= from Object) (= to Byte))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedByteCast" from)
-               (interop/method RT "byteCast" from)))
-    (and (= from Object) (= to SByte))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedSByteCast" from)
-               (interop/method RT "sbyteCast" from)))
-    (and (= from Object) (= to Int16))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedShortCast" from)
-               (interop/method RT "shortCast" from)))
-    (and (= from Object) (= to UInt16))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedUShortCast" from)
-               (interop/method RT "ushortCast" from)))
-    (and (= from Object) (= to UInt32))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedUIntCast" from)
-               (interop/method RT "uintCast" from)))
-    (and (= from Object) (= to UInt64))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedULongCast" from)
-               (interop/method RT "ulongCast" from)))
-    (and (= from Object) (= to Char))
-    (il/call (if *unchecked-math*
-               (interop/method RT "uncheckedCharCast" from)
-               (interop/method RT "charCast" from)))
+       ;; castclass if to is a subclass of from
+       (.IsSubclassOf to from)
+       (il/castclass to)
 
-    ;; unbox objects to valuetypes
-    ;; TODO this will throw an exception of the object
-    ;; does not have the exact runtime type of the valuetype
-    ;; ie it does not perform a conversion like the above clauses
-    (and (= from Object) (types/is-value-type? to))
-    (il/unbox-any to)
+       ;; do nothing if converting to super class
+       (.IsSubclassOf from to)
+       nil
 
-    ;; castclass if to is a subclass of from
-    (.IsSubclassOf to from)
-    (il/castclass to)
-
-    ;; do nothing if converting to super class
-    (.IsSubclassOf from to)
-    nil
-
-    (and (types/is-value-type? from)
-         (.IsAssignableFrom to from))
-    [(reference-to-type from)
-     (il/box from)]
+       (and (types/is-value-type? from)
+            (.IsAssignableFrom to from))
+       [(reference-to-type from)
+        (il/box from)]
     
-    ;; (.IsAssignableFrom to from)
-    ;; nil
+       ;; (.IsAssignableFrom to from)
+       ;; nil
 
-    (.IsAssignableFrom from to)
-    (il/castclass to)
+       (.IsAssignableFrom from to)
+       (il/castclass to)
 
-    ;; emit ToString when possible
-    (= to String)
-    [(reference-to-type from)
-     ((if (types/is-value-type? from)
-        il/call
-        il/callvirt)
-      (interop/method from "ToString"))]
+       ;; emit ToString when possible
+       (= to String)
+       [(reference-to-type from)
+        ((if (types/is-value-type? from)
+           il/call
+           il/callvirt)
+         (interop/method from "ToString"))]
 
-    (and (not (types/is-value-type? from))
-         (not (types/is-value-type? to)))
-    (il/castclass to)
+       (and (not (types/is-value-type? from))
+            (not (types/is-value-type? to)))
+       (il/castclass to)
 
-    (isa? from IConvertible)
-    (let [method (cond
-                   (= to Double) "ToDouble"
-                   (= to Single) "ToSingle"
-                   (= to Boolean) "ToBoolean"
-                   (= to Byte) "ToByte"
-                   (= to Char) "ToChar"
-                   (= to DateTime) "ToDateTime"
-                   (= to Decimal) "ToDecimal"
-                   (= to Int16) "ToInt16"
-                   (= to Int32) "ToInt32"
-                   (= to Int64) "ToInt64"
-                   (= to UInt16) "ToUInt16"
-                   (= to UInt32) "ToUInt32"
-                   (= to UInt64) "ToUInt64"
-                   (= to Byte) "ToByte"
-                   (= to SByte) "ToSByte"
-                   (= to String) "ToString")]
-      [(il/castclass IConvertible)
-       (il/ldnull)
-       (il/callvirt (magic.interop/method IConvertible method IFormatProvider))])
+       (isa? from IConvertible)
+       (let [method (cond
+                      (= to Double) "ToDouble"
+                      (= to Single) "ToSingle"
+                      (= to Boolean) "ToBoolean"
+                      (= to Byte) "ToByte"
+                      (= to Char) "ToChar"
+                      (= to DateTime) "ToDateTime"
+                      (= to Decimal) "ToDecimal"
+                      (= to Int16) "ToInt16"
+                      (= to Int32) "ToInt32"
+                      (= to Int64) "ToInt64"
+                      (= to UInt16) "ToUInt16"
+                      (= to UInt32) "ToUInt32"
+                      (= to UInt64) "ToUInt64"
+                      (= to Byte) "ToByte"
+                      (= to SByte) "ToSByte"
+                      (= to String) "ToString")]
+         [(il/castclass IConvertible)
+          (il/ldnull)
+          (il/callvirt (magic.interop/method IConvertible method IFormatProvider))])
     
-    :else
-    (throw (Exception. (str "Cannot convert " from " to " to)))))
+       :else
+       (throw (Exception. (str "Cannot convert " from " to " to)))))))
 
-(defn convert [ast to]
-  (when-not (:op ast)
-    (throw (Exception. (str "refactor, first arg to convert needs to be an ast map, got " ast))))
-  (cond
-    (and (= :const (:op ast))
-         (= (ast-type ast) Boolean)
-         (= Object to))
-    [(il/pop)
-     (if (-> ast :val)
-       (il/ldsfld (interop/field Magic.Constants "True"))
-       (il/ldsfld (interop/field Magic.Constants "False")))]
-    :else (convert-type (ast-type ast) to)))
+(defn convert
+  ([ast to]
+   (convert ast to false))
+  ([ast to checked?]
+   (when-not (:op ast)
+     (throw (Exception. (str "refactor, first arg to convert needs to be an ast map, got " ast))))
+   (cond
+     (and (= :const (:op ast))
+          (= (ast-type ast) Boolean)
+          (= Object to))
+     [(il/pop)
+      (if (-> ast :val)
+        (il/ldsfld (interop/field Magic.Constants "True"))
+        (il/ldsfld (interop/field Magic.Constants "False")))]
+     :else (convert-type (ast-type ast) to checked?))))
 
 (defmulti load-constant type)
 
@@ -884,13 +907,12 @@
 (defn static-method-compiler
   "Symbolic bytecode for static methods"
   [{:keys [method args] :as ast} compilers]
-  (let [arg-types (map ast-type args)]
-    [(interleave
-      (map #(compile % compilers) args)
-      (mapv convert
-            args
-            (interop/parameter-types method)))
-     (il/call method)]))
+  [(interleave
+    (map #(compile % compilers) args)
+    (mapv #(convert %1 %2 (not *unchecked-math*))
+          args
+          (interop/parameter-types method)))
+   (il/call method)])
 
 (defn instance-method-compiler
   "Symbolic bytecode for instance methods"
@@ -904,7 +926,7 @@
        (compile target compilers))
      (interleave
       (mapv #(compile % compilers) args)
-      (mapv convert args (interop/parameter-types method)))
+      (mapv #(convert %1 %2 (not *unchecked-math*)) args (interop/parameter-types method)))
      (cond
        non-virtual?
        (il/call method)
@@ -937,7 +959,7 @@
                       constructor)]
     [(interleave
       (map #(compile % compilers) args)
-      (map convert
+      (map #(convert %1 %2 (not *unchecked-math*))
            args
            (interop/parameter-types constructor)))
      (il/newobj constructor)]))
