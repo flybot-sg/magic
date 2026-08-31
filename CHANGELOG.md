@@ -5,6 +5,7 @@
 ### Compiler
 - `deftype`, `reify` and `proxy` bind a method to the slot it overrides rather than to one declaration of it, so a type can implement an interface that redeclares an inherited member. Writing `count` on `clojure.lang.IPersistentMap` used to fail with `No match binding method`, and naming the interface to get past it left the sibling declarations throwing `NotImplementedException` at run time. A return type hint on the method name picks between overloads that differ only in return type, as it does on ClojureCLR, and the compiler names the choices when the hint is missing - [#146](https://github.com/flybot-sg/magic/issues/146).
 - A narrowing cast on a type-hinted primitive throws when the value does not fit instead of discarding the high bits, so `(int 4294967296)` on a `^long` throws `ArgumentException` rather than returning `0`, as on ClojureCLR and JVM Clojure - [#148](https://github.com/flybot-sg/magic/issues/148).
+- A cast on a numeric literal behaves like the same cast at runtime: `(int 1.5)` returns 1 instead of 2, and an out-of-range literal like `(int 4294967296)` throws a catchable `ArgumentException` at runtime instead of aborting compilation with a bare `OverflowException` - [#153](https://github.com/flybot-sg/magic/issues/153).
 
 ### Runtime
 - Casting a boxed `UInt64` converts instead of throwing `InvalidCastException`, so `(int (identity (ulong 1)))` returns 1 - [#151](https://github.com/flybot-sg/magic/issues/151).

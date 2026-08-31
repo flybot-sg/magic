@@ -9,21 +9,28 @@
      [types :refer [ast-type numeric integer]]])
   (:import [System.Reflection BindingFlags]))
 
-;; TODO idk if this is in the right place
-(defn reinterpret-value [val to-type]
-  (let [v (condp = to-type
-            Single (Convert/ToSingle val)
-            Double (Convert/ToDouble val)
-            Byte (Convert/ToByte val)
-            SByte (Convert/ToSByte val)
-            Int16 (Convert/ToInt16 val)
-            UInt16 (Convert/ToUInt16 val)
-            Int32 (Convert/ToInt32 val)
-            UInt32 (Convert/ToUInt32 val)
-            Int64 (Convert/ToInt64 val)
-            UInt64 (Convert/ToUInt64 val)
-            val)]
-    v))
+(defn reinterpret-value
+  "Convert rounds (and Mono saturates) where the cast truncates and throws, so
+   a floating-point or out-of-range literal keeps its type and narrows at
+   runtime through the checked RT cast instead."
+  [val to-type]
+  (if (and (integer to-type)
+           (or (instance? Single val) (instance? Double val)))
+    val
+    (try
+      (condp = to-type
+        Single (Convert/ToSingle val)
+        Double (Convert/ToDouble val)
+        Byte (Convert/ToByte val)
+        SByte (Convert/ToSByte val)
+        Int16 (Convert/ToInt16 val)
+        UInt16 (Convert/ToUInt16 val)
+        Int32 (Convert/ToInt32 val)
+        UInt32 (Convert/ToUInt32 val)
+        Int64 (Convert/ToInt64 val)
+        UInt64 (Convert/ToUInt64 val)
+        val)
+      (catch OverflowException _ val))))
 
 ;; TODO is this better than e.g. a peephope pass?
 (defn reinterpret [{:keys [literal? op val] :as ast} to-type]
