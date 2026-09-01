@@ -10,6 +10,9 @@
 ### Runtime
 - Casting a boxed `UInt64` converts instead of throwing `InvalidCastException`, so `(int (identity (ulong 1)))` returns 1 - [#151](https://github.com/flybot-sg/magic/issues/151).
 
+### Stdlib
+- `spit` and `writer` truncate the file they overwrite, and `:append` appends, matching the JVM. A write used to open at position 0 without truncating, so shorter content produced a mix of new and old bytes, and `:append` was silently dropped - [#155](https://github.com/flybot-sg/magic/issues/155).
+
 ### Nostrand
 - `nos build` compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and narrowing casts keep their overflow checks instead of wrapping silently. A namespace that wants wrapping sets the flag itself - [#149](https://github.com/flybot-sg/magic/issues/149).
 - `nos build` copies the C# assemblies a library ships into the output dir, so a consumer no longer writes its own `File/Copy` to get them there. Point `:csharp-out` at a second dir to keep them out of `:out`, which `:clean?` deletes on every build: Unity then imports the plugin once and its GUID holds, instead of a new one on every build - [#144](https://github.com/flybot-sg/magic/issues/144).
