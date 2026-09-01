@@ -4,7 +4,7 @@
 ;; from. bb check-drift re-records this file and fails if a source
 ;; changed without its DLL being refreshed and committed.
 {
- clojure.clr.io {:source "magic-compiler/src/stdlib/clojure/clr/io.clj", :sha256 "ef7ea7d3bf39644d06bdc85c68f59ba94e38deabe4db199837b85b2861ed073c"}
+ clojure.clr.io {:source "magic-compiler/src/stdlib/clojure/clr/io.clj", :sha256 "aaf94e20567eeba46aea272fbb2d83bc4b037aead03a68a04f102ed16482bae7"}
  clojure.clr.shell {:source "magic-compiler/src/stdlib/clojure/clr/shell.clj", :sha256 "22f036ad1d1dc4965324400d8e9d9663984ac13fc6a483539bf19a332633413a"}
  clojure.core {:source "magic-compiler/src/stdlib/clojure/core.clj", :sha256 "2823a838f7e883b1653077388a7d2fcd37c47cf805be530401b4bff378cbc74c"}
  clojure.core.protocols {:source "magic-compiler/src/stdlib/clojure/core/protocols.clj", :sha256 "38490ad78ad6fabf2d0d965788d6b42b052748ce9d664e24f34033de7e90e378"}
