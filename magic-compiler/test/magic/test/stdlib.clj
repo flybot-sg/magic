@@ -271,3 +271,10 @@
 (deftest test-print-tagged-object-qualified-name
   (clojure.test/is (= "System.Text.StringBuilder" (object-tag (System.Text.StringBuilder.))))
   (clojure.test/is (= "clojure.lang.Atom" (object-tag (atom 1)))))
+
+;;; #error carries the :message value, not just the label
+
+(deftest test-print-throwable-message
+  (clojure.test/is (= "\"boom\""
+                      (second (re-find #"\n   :message (\S+)\n"
+                                       (pr-str (ex-info "boom" {:a 1})))))))

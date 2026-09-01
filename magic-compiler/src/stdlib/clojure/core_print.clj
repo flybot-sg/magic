@@ -580,6 +580,7 @@
         print-via #(do (.Write w "{:type ")
 		               (print-method (:type %) w)
 					   (.Write w "\n   :message ")
+					   (print-method (:message %) w)
              (when-let [data (:data %)]
                (.Write w "\n   :data ")
                (print-method data w))
