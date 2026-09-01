@@ -106,9 +106,11 @@
     (print-meta o w))
   (.Write w "#object[")
   (let [c (class o)]
+    ;; NOTE: dead code on the CLR -- arrays dispatch to the ICollection print-method
+    ;; below and print as seqs. Kept for parity
     (if (.IsArray c)                               ;;; .isArray
-      (print-method (.Name c) w)                   ;;; .getName
-      (.Write w (.Name c))))                       ;;; .getName
+      (print-method (.FullName c) w)               ;;; .getName
+      (.Write w (.FullName c))))                   ;;; .getName
   (.Write w " ")
   (.Write w (format "0x%x " (System.Runtime.CompilerServices.RuntimeHelpers/GetHashCode o)))   ;;; (System/identityHashCode o)
   (print-method rep w)
