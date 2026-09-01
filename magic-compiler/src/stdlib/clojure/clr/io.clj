@@ -208,9 +208,10 @@
   
 (defn- ^FileMode file-mode [mode opts]
   (or (:file-mode opts)
-      (if (= mode :read)
-          FileMode/Open
-          FileMode/OpenOrCreate)))
+      (cond
+        (= mode :read) FileMode/Open
+        (:append opts) FileMode/Append
+        :else          FileMode/Create)))
   
 (defn- ^FileShare file-share [opts]
   (or (:file-share opts) FileShare/None))

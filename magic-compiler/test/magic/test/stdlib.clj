@@ -226,3 +226,39 @@
    (= :from-meta
       (clojure.core.protocols/datafy
        (with-meta {} {`clojure.core.protocols/datafy (fn [_] :from-meta)})))))
+
+;;; spit: a write truncates, :append appends (JVM-verified expected values)
+
+(defn- with-spit-file [f]
+  (let [path (System.IO.Path/Combine (System.IO.Path/GetTempPath)
+                                     (str (gensym "magic-spit-test") ".txt"))]
+    (try (f path)
+         (finally (System.IO.File/Delete path)))))
+
+(deftest test-spit-truncates
+  (with-spit-file
+    (fn [path]
+      (spit path "DATA-PRESENT")
+      (spit path "AB")
+      (clojure.test/is (= "AB" (slurp path))))))
+
+(deftest test-spit-empty-clears
+  (with-spit-file
+    (fn [path]
+      (spit path "DATA-PRESENT")
+      (spit path nil)
+      (clojure.test/is (= "" (slurp path))))))
+
+(deftest test-spit-append
+  (with-spit-file
+    (fn [path]
+      (spit path "AAA")
+      (spit path "BBB" :append true)
+      (clojure.test/is (= "AAABBB" (slurp path))))))
+
+(deftest test-spit-file-mode-still-wins
+  (with-spit-file
+    (fn [path]
+      (spit path "AAA")
+      (spit path "BBB" :file-mode System.IO.FileMode/Append)
+      (clojure.test/is (= "AAABBB" (slurp path))))))
