@@ -262,3 +262,12 @@
       (spit path "AAA")
       (spit path "BBB" :file-mode System.IO.FileMode/Append)
       (clojure.test/is (= "AAABBB" (slurp path))))))
+
+;;; #object[...] carries the qualified type name, as (.getName c) does on the JVM
+
+(defn- object-tag [o]
+  (second (re-find #"^#object\[(\S+) " (pr-str o))))
+
+(deftest test-print-tagged-object-qualified-name
+  (clojure.test/is (= "System.Text.StringBuilder" (object-tag (System.Text.StringBuilder.))))
+  (clojure.test/is (= "clojure.lang.Atom" (object-tag (atom 1)))))

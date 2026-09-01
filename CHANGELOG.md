@@ -12,6 +12,7 @@
 
 ### Stdlib
 - `spit` and `writer` truncate the file they overwrite, and `:append` appends, matching the JVM. A write used to open at position 0 without truncating, so shorter content produced a mix of new and old bytes, and `:append` was silently dropped - [#155](https://github.com/flybot-sg/magic/issues/155).
+- `#object[...]` prints the qualified type name, so `(pr-str (System.Text.StringBuilder.))` names `System.Text.StringBuilder` instead of `StringBuilder`. `print-tagged-object` wrote `.Name`, which drops the namespace and cannot identify a type, while `print-method` on the type object already wrote `.FullName` - [#142](https://github.com/flybot-sg/magic/issues/142).
 
 ### Nostrand
 - `nos build` compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and narrowing casts keep their overflow checks instead of wrapping silently. A namespace that wants wrapping sets the flag itself - [#149](https://github.com/flybot-sg/magic/issues/149).
