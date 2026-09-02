@@ -286,7 +286,7 @@
                               (if (clojure.lang.Util/equals nil (maybe-special-tag tag))         ;;; clojure.lang.Compiler$HostExpr
                                 (let [c (clojure.lang.RT/classForName tag-name)]                                 ;;; clojure.lang.Compiler$HostExpr  maybeClass
                                   (if c
-                                    (with-meta argvec (assoc m :tag (clojure.lang.Symbol/intern (.Name c))))                         ;;; .getName
+                                    (with-meta argvec (assoc m :tag (clojure.lang.Symbol/intern (.FullName c))))                         ;;; .getName
                                     argvec))
                                 argvec)
                               argvec)
