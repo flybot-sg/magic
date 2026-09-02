@@ -15,6 +15,7 @@
 - `#object[...]` prints the qualified type name, so `(pr-str (System.Text.StringBuilder.))` names `System.Text.StringBuilder` instead of `StringBuilder`. `print-tagged-object` wrote `.Name`, which drops the namespace and cannot identify a type, while `print-method` on the type object already wrote `.FullName` - [#142](https://github.com/flybot-sg/magic/issues/142).
 - `pr-str` of an exception writes the `:message` value, so `#error` output carries the message instead of a bare `:message` key with nothing after it. The `:via` map was left with an odd number of forms - [#158](https://github.com/flybot-sg/magic/issues/158).
 - `defn` records the qualified type name in an arglist `:tag`, so a hint like `^Regex` is stored as `System.Text.RegularExpressions.Regex` and resolves from any namespace instead of only where the import is in scope - [#162](https://github.com/flybot-sg/magic/issues/162).
+- `sort` and `sort-by` carry the collection's metadata through to the sorted seq - [#163](https://github.com/flybot-sg/magic/issues/163).
 
 ### Nostrand
 - `nos build` compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and narrowing casts keep their overflow checks instead of wrapping silently. A namespace that wants wrapping sets the flag itself - [#149](https://github.com/flybot-sg/magic/issues/149).

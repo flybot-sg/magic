@@ -3156,7 +3156,7 @@
    (sort compare coll))
   ([comp coll]     ;;;   We can't pass in a Comparator directly at this point, only a ClojureRuntimeDelegate :  [^java.util.Comparator comp coll]
    (if (seq coll)
-     (. clojure.lang.RT (SortedSeq (seq coll) comp))
+     (with-meta (. clojure.lang.RT (SortedSeq (seq coll) comp)) (meta coll))
      ())))
 
 (defn sort-by
