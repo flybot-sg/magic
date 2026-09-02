@@ -6,7 +6,7 @@
 {
  clojure.clr.io {:source "magic-compiler/src/stdlib/clojure/clr/io.clj", :sha256 "aaf94e20567eeba46aea272fbb2d83bc4b037aead03a68a04f102ed16482bae7"}
  clojure.clr.shell {:source "magic-compiler/src/stdlib/clojure/clr/shell.clj", :sha256 "22f036ad1d1dc4965324400d8e9d9663984ac13fc6a483539bf19a332633413a"}
- clojure.core {:source "magic-compiler/src/stdlib/clojure/core.clj", :sha256 "2823a838f7e883b1653077388a7d2fcd37c47cf805be530401b4bff378cbc74c"}
+ clojure.core {:source "magic-compiler/src/stdlib/clojure/core.clj", :sha256 "0adadcd9a9c6b9c5aafaebc48008b30c64f7843ef3e16ea302f0a5908277ecb0"}
  clojure.core.protocols {:source "magic-compiler/src/stdlib/clojure/core/protocols.clj", :sha256 "38490ad78ad6fabf2d0d965788d6b42b052748ce9d664e24f34033de7e90e378"}
  clojure.core.reducers {:source "magic-compiler/src/stdlib/clojure/core/reducers.clj", :sha256 "f3f10fef6c91217cf6780c37f358e0f9caecdb106fb5339ac3cdc28b46be950d"}
  clojure.core.server {:source "magic-compiler/src/stdlib/clojure/core/server.clj", :sha256 "7ba07179820a71f856dfd4c9e1a2a06dbad06eb6e9aeb9bcddeb268959cf82e2"}
