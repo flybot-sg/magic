@@ -41,7 +41,7 @@
  clojure.uuid {:source "magic-compiler/src/stdlib/clojure/uuid.clj", :sha256 "04bb8e17c967f2998796b1c313b9503198b7388956dd496bd6a4a5b168487009"}
  clojure.walk {:source "magic-compiler/src/stdlib/clojure/walk.clj", :sha256 "3dcae5221cae67f13a69c3ff02de6021c3a87cbc1a6b7ee9bc4fc84c8bef877b"}
  clojure.zip {:source "magic-compiler/src/stdlib/clojure/zip.clj", :sha256 "b16e741a48aba671d437e94da04839dbeaf2dcff4c0c0c4b1c51f3de4c386276"}
- mage.core {:source "mage/src/mage/core.clj", :sha256 "434324953383554a7d7f176076bb4faa9a3bee00233ed98afe0ac0fa56cf7824"}
+ mage.core {:source "mage/src/mage/core.clj", :sha256 "4f9e615a01401f1e5b24c58e884ab981af80ef9f14afd2fd0e937138c51c8177"}
  magic.analyzer {:source "magic-compiler/src/magic/analyzer.clj", :sha256 "011b9a71f432d6632c35fd2a29a5462b0ec401714e63926160bddbaf39ab013d"}
  magic.analyzer.analyze_host_forms {:source "magic-compiler/src/magic/analyzer/analyze_host_forms.clj", :sha256 "1dbbb4208265896fc7c146c1bef63af78b3d097384b1f8ca6ccfc1869e3eb20d"}
  magic.analyzer.binder {:source "magic-compiler/src/magic/analyzer/binder.clj", :sha256 "bfb28ea9f585912fed8251f7e3ca95df69562af32af8790de9712bd5948536d1"}
