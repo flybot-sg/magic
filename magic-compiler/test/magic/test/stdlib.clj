@@ -278,3 +278,11 @@
   (clojure.test/is (= "\"boom\""
                       (second (re-find #"\n   :message (\S+)\n"
                                        (pr-str (ex-info "boom" {:a 1})))))))
+
+;;; defn records a qualified arglist :tag, as (.getName c) does on the JVM
+
+(defn tagged-fn ^StringBuilder [] (System.Text.StringBuilder.))
+
+(deftest test-defn-arglist-tag-qualified
+  (clojure.test/is (= 'System.Text.StringBuilder
+                      (:tag (meta (first (:arglists (meta #'tagged-fn))))))))
