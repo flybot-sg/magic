@@ -24,7 +24,8 @@
    magic.test.flags
    magic.test.protocol
    magic.test.errors
-   magic.test.load)
+   magic.test.load
+   magic.test.mage)
   (:use clojure.test))
 
 (defn- check-summary!
@@ -63,7 +64,8 @@
     'magic.test.flags
     'magic.test.protocol
     'magic.test.errors
-    'magic.test.load)))
+    'magic.test.load
+    'magic.test.mage)))
 
 (defn run [& namespaces]
   (check-summary! (apply run-tests namespaces)))
