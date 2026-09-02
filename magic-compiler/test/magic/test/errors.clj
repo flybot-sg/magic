@@ -113,3 +113,25 @@
                 (str (m/eval (list 'fn [] (System.Random.))))
                 (catch Exception e (root-message e)))]
       (is (string/includes? msg "print-dup")))))
+
+;;; a non-IFn callee throws a catchable cast error rather than failing verification
+
+(defn- root-type-name [^Exception e]
+  (if-let [inner (.InnerException e)]
+    (recur inner)
+    (.Name (.GetType e))))
+
+(defn- eval-outcome [form]
+  (try (m/eval form) :no-throw
+       (catch Exception e (root-type-name e))))
+
+(deftest non-ifn-callee-throws-cast-error
+  (testing "a value-typed callee is boxed, so the method verifies and the cast throws"
+    (doseq [form ['(1 2)                       ; boxed
+                  '(true 2)                    ; a const Boolean converts to Magic.Constants instead
+                  '(let [x (int 1)] (x 2))]]   ; value-typed, and not a literal
+      (is (= "InvalidCastException" (eval-outcome form)) (pr-str form))))
+  (testing "a reference-typed callee already behaved"
+    (is (= "InvalidCastException" (eval-outcome '("s" 2)))))
+  (testing "an IFn callee still runs"
+    (is (= 20 (m/eval '([10 20] 1))))))

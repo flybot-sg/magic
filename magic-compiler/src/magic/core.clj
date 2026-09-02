@@ -1157,13 +1157,18 @@
   (apply interop/method IFn "invoke" (concat (repeat 20 Object) [System.Object|[]|])))
 
 (defn ifn-invoke-compiler [{:keys [args] :as ast} compilers]
-  (let [positional-args (take 20 args)
+  (let [callee (:fn ast)
+        positional-args (take 20 args)
         rest-args (drop 20 args)
         invoke-method
         (if (empty? rest-args)
           (ifn-invoke-methods (count args))
           variadic-ifn-invoke-method)]
-    [(il/castclass IFn)
+    ;; castclass needs an object reference, so a value-typed callee is boxed
+    ;; first or the method it lands in fails verification
+    [(when (types/is-value-type? (ast-type callee))
+       (convert callee Object))
+     (il/castclass IFn)
      (interleave
       (map #(compile % compilers) positional-args)
       (map #(convert % Object) positional-args))
