@@ -17,6 +17,8 @@
 - `defn` records the qualified type name in an arglist `:tag`, so a hint like `^Regex` is stored as `System.Text.RegularExpressions.Regex` and resolves from any namespace instead of only where the import is in scope - [#162](https://github.com/flybot-sg/magic/issues/162).
 - `sort` and `sort-by` carry the collection's metadata through to the sorted seq - [#163](https://github.com/flybot-sg/magic/issues/163).
 - A namespace map prints its keys in the map's own order, so `#:a{...}` no longer reorders them once the map outgrows an array-map - [#165](https://github.com/flybot-sg/magic/issues/165).
+- `clojure.pprint/pprint` writes collection metadata when `*print-meta*` is true, so a pretty-printed value carries its metadata like `pr` does - [#166](https://github.com/flybot-sg/magic/issues/166).
+- `clojure.repl/doc` prints a special form's docstring once instead of repeating it after the "Please see" line - [#167](https://github.com/flybot-sg/magic/issues/167).
 
 ### Nostrand
 - `nos build` compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and narrowing casts keep their overflow checks instead of wrapping silently. A namespace that wants wrapping sets the flag itself - [#149](https://github.com/flybot-sg/magic/issues/149).
