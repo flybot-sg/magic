@@ -286,3 +286,9 @@
 (deftest test-defn-arglist-tag-qualified
   (clojure.test/is (= 'System.Text.StringBuilder
                       (:tag (meta (first (:arglists (meta #'tagged-fn))))))))
+
+;;; sort carries the collection's metadata (1.10, CLJ-2417)
+
+(deftest test-sort-retains-meta
+  (clojure.test/is (= {:x 1} (meta (sort (with-meta [3 1 2] {:x 1})))))
+  (clojure.test/is (= [1 2 3] (sort [3 1 2]))))
