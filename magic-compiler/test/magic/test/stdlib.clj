@@ -292,3 +292,14 @@
 (deftest test-sort-retains-meta
   (clojure.test/is (= {:x 1} (meta (sort (with-meta [3 1 2] {:x 1})))))
   (clojure.test/is (= [1 2 3] (sort [3 1 2]))))
+
+;;; namespace maps print in the map's own key order (1.10, CLJ-2469)
+
+(deftest test-namespace-map-key-order
+  (binding [*print-namespace-maps* true]
+    (clojure.test/is (= "#:a{:k0 0, :k1 1, :k2 2, :k3 3, :k4 4, :k5 5, :k6 6, :k7 7, :k8 8, :k9 9}"
+                        (pr-str (array-map :a/k0 0 :a/k1 1 :a/k2 2 :a/k3 3 :a/k4 4
+                                           :a/k5 5 :a/k6 6 :a/k7 7 :a/k8 8 :a/k9 9))))
+    (clojure.test/is (= "{:x 1, :a/y 2}"
+                        (pr-str (array-map :x 1 :a/y 2)))
+                     "an unqualified key blocks the lift")))
