@@ -303,3 +303,21 @@
     (clojure.test/is (= "{:x 1, :a/y 2}"
                         (pr-str (array-map :x 1 :a/y 2)))
                      "an unqualified key blocks the lift")))
+
+;;; pprint writes collection metadata under *print-meta* (1.10, CLJ-1445)
+
+(deftest test-pprint-print-meta
+  (require 'clojure.pprint)
+  (let [pp (resolve 'clojure.pprint/pprint)]
+    (binding [*print-meta* true]
+      (clojure.test/is (= "^{:x 1} [1 2]\n" (with-out-str (pp (with-meta [1 2] {:x 1})))))
+      (clojure.test/is (= "^{:x 1} #{1}\n" (with-out-str (pp (with-meta #{1} {:x 1}))))))
+    (clojure.test/is (= "[1 2]\n" (with-out-str (pp (with-meta [1 2] {:x 1}))))
+                     "no metadata written when *print-meta* is false")))
+
+;;; doc prints a special form's docstring once (1.10, CLJ-2295)
+
+(deftest test-doc-special-form-once
+  (require 'clojure.repl)
+  (let [out (with-out-str (eval '(clojure.repl/doc if)))]
+    (clojure.test/is (= 1 (count (re-seq #"Evaluates test" out))))))
