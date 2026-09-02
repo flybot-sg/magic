@@ -25,12 +25,12 @@
  clojure.pprint {:source "magic-compiler/src/stdlib/clojure/pprint.clj", :sha256 "a9ff9b336906ba64943de80038fa1a1ddad9aecedb518c16525c5838473ec90f"}
  clojure.pprint.cl_format {:source "magic-compiler/src/stdlib/clojure/pprint/cl_format.clj", :sha256 "d260fe991b3acc55c40e3c80fef1627e335f472329b9b4bd8d97d03179105ac5"}
  clojure.pprint.column_writer {:source "magic-compiler/src/stdlib/clojure/pprint/column_writer.clj", :sha256 "bd175e6d656adc69de69e231fd46e6aa00049e740bbe08ea826d11cb6f9cb8d1"}
- clojure.pprint.dispatch {:source "magic-compiler/src/stdlib/clojure/pprint/dispatch.clj", :sha256 "2ce913e9b28901167af05d2cb1f05c71194ca541e32496a9943ce5d4c7e91f96"}
+ clojure.pprint.dispatch {:source "magic-compiler/src/stdlib/clojure/pprint/dispatch.clj", :sha256 "a43f40158467887550864f82af0f3e5f63ebf613e0237f5f80aff10588203a55"}
  clojure.pprint.pprint_base {:source "magic-compiler/src/stdlib/clojure/pprint/pprint_base.clj", :sha256 "d04a66ac0e985c0b575662a1e47af4da858dcc11e437d10a70b1c047758a3813"}
  clojure.pprint.pretty_writer {:source "magic-compiler/src/stdlib/clojure/pprint/pretty_writer.clj", :sha256 "8d16c54647cbb97b0ddf4acefbca4a0566933b626ce23a6188a8526437d2496b"}
  clojure.pprint.print_table {:source "magic-compiler/src/stdlib/clojure/pprint/print_table.clj", :sha256 "9abdefc9a5ceeab44ce91d0c6d4816db7482fb100f3b70be6a88bd9132430a56"}
  clojure.pprint.utilities {:source "magic-compiler/src/stdlib/clojure/pprint/utilities.clj", :sha256 "85891c3656a9e877232302d2b8c2937bdbb1ebfb14794cd79dc94105dfc20b09"}
- clojure.repl {:source "magic-compiler/src/stdlib/clojure/repl.clj", :sha256 "d12ade964f6a9dafe5d4227985c3b4faed14221db9886340abe9582634735c04"}
+ clojure.repl {:source "magic-compiler/src/stdlib/clojure/repl.clj", :sha256 "f559000e8be08d2491e0daf48bf6ed62b7f522eb04e640a7c56d5acc8ed116a6"}
  clojure.set {:source "magic-compiler/src/stdlib/clojure/set.clj", :sha256 "1eebc2d19ad2c1a1f7c03fc53b5da9bff7eb00a5355609316f7b0f40897d8f0c"}
  clojure.spec.alpha {:source "magic-compiler/src/stdlib/clojure/spec/alpha.clj", :sha256 "8ba9e4e0d5826e64734cb58f986a680b9a09d328453c37db0f454cfb4a41ab90"}
  clojure.spec.gen.alpha {:source "magic-compiler/src/stdlib/clojure/spec/gen/alpha.clj", :sha256 "7529d23186c7622592fce537e119efb914dc54398bdbef45209a6a24ed54ebc4"}
