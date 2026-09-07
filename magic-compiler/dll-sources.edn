@@ -35,7 +35,7 @@
  clojure.spec.alpha {:source "magic-compiler/src/stdlib/clojure/spec/alpha.clj", :sha256 "8ba9e4e0d5826e64734cb58f986a680b9a09d328453c37db0f454cfb4a41ab90"}
  clojure.spec.gen.alpha {:source "magic-compiler/src/stdlib/clojure/spec/gen/alpha.clj", :sha256 "7529d23186c7622592fce537e119efb914dc54398bdbef45209a6a24ed54ebc4"}
  clojure.stacktrace {:source "magic-compiler/src/stdlib/clojure/stacktrace.clj", :sha256 "a0065d213e7d7931130956a3c098392d2be0b91b9537b5f13c97bb670beb6b9c"}
- clojure.string {:source "magic-compiler/src/stdlib/clojure/string.clj", :sha256 "c34346ea918e1d316d99a178c4f3225a8b0f9a4ff4a6b6f72793807556275e12"}
+ clojure.string {:source "magic-compiler/src/stdlib/clojure/string.clj", :sha256 "4a1288d7608febb5cf109df44b7d6148cf4308654077e01cb7aab5abbad8612a"}
  clojure.template {:source "magic-compiler/src/stdlib/clojure/template.clj", :sha256 "b31d7b0bbcab1f44f8970d187aa193640069ca14301daa3d57e8ab47dfeccebb"}
  clojure.test {:source "magic-compiler/src/stdlib/clojure/test.clj", :sha256 "12f173c4a3c79a0ed81d7b7958f57ba7a8a70441f3d415bd67d198087d820682"}
  clojure.uuid {:source "magic-compiler/src/stdlib/clojure/uuid.clj", :sha256 "04bb8e17c967f2998796b1c313b9503198b7388956dd496bd6a4a5b168487009"}
