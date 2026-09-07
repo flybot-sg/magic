@@ -218,15 +218,30 @@ Design notes for clojure.string:
 
 (defn split
   "Splits string on a regular expression.  Optional argument limit is
-  the maximum number of splits. Not lazy. Returns vector of the splits."
+  the maximum number of splits. Not lazy. Returns vector of the splits.
+  Trailing empty strings are not returned - pass limit of -1 to return all."
   {:added "1.2"}
   ([^String s ^Regex re]                                                   ;;; ^Pattern 
-     (LazilyPersistentVector/createOwning (.Split re s)))                  ;;; .split
+     (split s re 0))
   ([^String s ^Regex re limit]                                             ;;; ^Pattern 
-     (LazilyPersistentVector/createOwning (.Split re s limit))))           ;;; .split
+     ;; Java's limit rules and its zero-width-at-0 rule are applied here,
+     ;; because .NET's Regex.Split has none of them.
+     (if (pos? limit)
+       (LazilyPersistentVector/createOwning (.Split re s limit))            ;;; .split
+       (let [m     (.Match re s)
+             split (LazilyPersistentVector/createOwning (.Split re s))      ;;; .split
+             parts (if (and (.Success m) (zero? (.Index m)) (zero? (.Length m)))
+                     (subvec split 1)
+                     split)]
+         (if (or (neg? limit) (= 1 (count parts)))
+           parts
+           (loop [parts parts]
+             (if (and (seq parts) (= "" (peek parts)))
+               (recur (pop parts))
+               parts)))))))
  
 (defn split-lines
-  "Splits s on \\n or \\r\\n."
+  "Splits s on \\n or \\r\\n. Trailing empty lines are not returned."
   {:added "1.2"}
   [^String s]
   (split s #"\r?\n"))
