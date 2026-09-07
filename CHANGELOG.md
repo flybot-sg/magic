@@ -20,6 +20,7 @@
 - A namespace map prints its keys in the map's own order, so `#:a{...}` no longer reorders them once the map outgrows an array-map - [#165](https://github.com/flybot-sg/magic/issues/165).
 - `clojure.pprint/pprint` writes collection metadata when `*print-meta*` is true, so a pretty-printed value carries its metadata like `pr` does - [#166](https://github.com/flybot-sg/magic/issues/166).
 - `clojure.repl/doc` prints a special form's docstring once instead of repeating it after the "Please see" line - [#167](https://github.com/flybot-sg/magic/issues/167).
+- `clojure.string/split` drops trailing empty strings, and a negative limit returns every part. `(split "a b " #" ")` returned `["a" "b" ""]`. `split-lines` gained a final `""` on a trailing newline, and the negative limit threw. A pattern that matches nothing at the start no longer adds a leading `""`, so `(split "abc" #"")` returns `["a" "b" "c"]` - [#174](https://github.com/flybot-sg/magic/issues/174).
 
 ### Mage
 - `il/type`'s short arities work, so a caller can write `(il/type "Name" body)` instead of spelling out attributes, interfaces, supertype, generic parameters and custom attributes every time. Every arity below the 7-arity threw `ArityException` - [#143](https://github.com/flybot-sg/magic/issues/143).

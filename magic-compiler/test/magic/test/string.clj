@@ -5,7 +5,20 @@
 (deftest t-split
   (is (= ["a" "b"] (clojure.string/split "a-b" #"-")))
   (is (= ["a" "b-c"] (clojure.string/split "a-b-c" #"-" 2)))
-  (is (vector? (clojure.string/split "abc" #"-"))))
+  (is (vector? (clojure.string/split "abc" #"-")))
+  (is (= ["a" "b"] (clojure.string/split "a b " #" ")))
+  (is (= ["a"] (clojure.string/split "a,," #",")))
+  (is (= [] (clojure.string/split "," #",")))
+  (is (= [""] (clojure.string/split "" #",")))
+  (is (= ["a" "" "b"] (clojure.string/split "a,,b" #",")))
+  (is (= ["a" "b"] (clojure.string/split "a b " #" " 0)))
+  (is (= ["a" "b" ""] (clojure.string/split "a b " #" " -1)))
+  (is (= ["a" "b" "c"] (clojure.string/split "abc" #"")))
+  (is (= ["a" "b" "c" ""] (clojure.string/split "abc" #"" -1)))
+  (is (= [""] (clojure.string/split "" #"")))
+  (is (= ["" "a"] (clojure.string/split ",a" #",")))
+  (is (= ["" "" "a"] (clojure.string/split "XaX" #"X*")))
+  (is (= ["a" "" "b" "" "c"] (clojure.string/split "aXbXc" #"X*"))))
 
 (deftest t-reverse
   (is (= "tab" (clojure.string/reverse "bat"))))
@@ -103,7 +116,14 @@
 (deftest t-split-lines
   (is (= ["one" "two" "three"] (clojure.string/split-lines "one\ntwo\r\nthree")))
   (is (vector? (clojure.string/split-lines "one\ntwo\r\nthree")))
-  (is (= (list "foo") (clojure.string/split-lines "foo"))))
+  (is (= (list "foo") (clojure.string/split-lines "foo")))
+  (is (= ["a" "b"] (clojure.string/split-lines "a\nb\n")))
+  (is (= ["a" "b"] (clojure.string/split-lines "a\r\nb\r\n")))
+  (is (= [""] (clojure.string/split-lines "")))
+  (is (= [] (clojure.string/split-lines "\n")))
+  (is (= [] (clojure.string/split-lines "\n\n")))
+  (is (= ["foo"] (clojure.string/split-lines "foo\n\n")))
+  (is (= ["" "bar"] (clojure.string/split-lines "\nbar"))))
 
 (deftest t-index-of
   (is (let [sb  "tacos"] (= 2  (clojure.string/index-of sb "c"))))
