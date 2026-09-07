@@ -1,0 +1,20 @@
+{
+    "name": "Magic.Unity.Editor.Reload",
+    "rootNamespace": "",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Clojure.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "!MAGIC_RUNTIME_IN_EDITOR"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

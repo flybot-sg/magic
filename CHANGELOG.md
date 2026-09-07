@@ -29,6 +29,9 @@
 - `nos build` compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and narrowing casts keep their overflow checks instead of wrapping silently. A namespace that wants wrapping sets the flag itself - [#149](https://github.com/flybot-sg/magic/issues/149).
 - `nos build` copies the C# assemblies a library ships into the output dir, so a consumer no longer writes its own `File/Copy` to get them there. Point `:csharp-out` at a second dir to keep them out of `:out`, which `:clean?` deletes on every build: Unity then imports the plugin once and its GUID holds, instead of a new one on every build - [#144](https://github.com/flybot-sg/magic/issues/144).
 
+### Unity
+- The package ships `Magic.Unity.ClojureReloader`, so saving a `.clj`, `.cljc` or `.cljr` re-evaluates it in the ClojureCLR Editor on the one save. A consumer's own `FileSystemWatcher` hook fires two or three events per save, so a reload took several saves before - [#157](https://github.com/flybot-sg/magic/issues/157).
+
 ## v0.12.1 - 2026-08-20
 
 The Editor runs **ClojureCLR 1.11.0-flybot3**, so `sort` and `compare` order values there the way MAGIC does. `nos` also reads a submodule's `deps-clr.edn`, so a library can leave `deps.edn` to the JVM.
