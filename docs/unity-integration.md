@@ -27,9 +27,7 @@ This is the consumer-side guide. For the package's C# API and install reference,
             :csharp-out "Assets/Plugins/CSharp"}}
    ```
 
-   The two output folders are [explained below](#the-two-plugin-folders).
-
-   A project with custom build/test steps can hand-write a `dotnet.clj` instead; see [the porting guide](./porting-libraries-to-magic.md).
+   The two output folders are [explained below](#the-two-plugin-folders). A project with custom build/test steps can hand-write a `dotnet.clj` instead; see [the porting guide](./porting-libraries-to-magic.md).
 
 4. **Compile before opening Unity:**
 
@@ -37,9 +35,7 @@ This is the consumer-side guide. For the package's C# API and install reference,
    nos build
    ```
 
-   This drops your compiled DLLs into `Assets/Plugins/Magic/`, named by the source extension (`.clj.dll`, `.cljc.dll`, `.cljr.dll`), where Unity loads them.
-
-   If a dependency ships a C# assembly, the build copies that into `Assets/Plugins/CSharp/`.
+   This drops your compiled DLLs into `Assets/Plugins/Magic/`, named by the source extension (`.clj.dll`, `.cljc.dll`, `.cljr.dll`), where Unity loads them. A dependency's C# assembly is copied into `Assets/Plugins/CSharp/`.
 
 5. **Write a loader, then Play.** Unity doesn't know which DLLs are Clojure or which var is the entry point, so a `MonoBehaviour` has to require and invoke it (pattern: [`SmokeTestRunner.cs`](../unity-examples/magic-unity-smoke/Assets/Scripts/SmokeTestRunner.cs)):
 
@@ -101,6 +97,7 @@ Note that:
 
 - **API Compatibility Level must be `.NET Framework`** (`Project Settings > Player`) for ClojureCLR, as it needs assemblies the .NET Standard profile lacks.
 - In the default state, `Clojure.Require`/`GetVar` drive ClojureCLR, not MAGIC: the same C# calls, executed by whichever runtime the Editor loaded. ClojureCLR compiles from source, so Editor `Require` needs your Clojure sources on its load path (`CLOJURE_LOAD_PATH`); the DLLs that `nos build` wrote are MAGIC output and stay excluded from the Editor in this state.
+- **Hot reload is yours to wire up.** A saved Clojure source can be re-evaluated into the running Editor, but nothing in the package does it: construct a [`Magic.Unity.ClojureReloader`](../magic-unity/README.md#editor-api) over your source roots and poll it from your main-thread loop.
 
 ## Shipping your own compiled DLLs
 
