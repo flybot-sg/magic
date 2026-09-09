@@ -30,6 +30,7 @@
 - `nos build` copies the C# assemblies a library ships into the output dir, so a consumer no longer writes its own `File/Copy` to get them there. Point `:csharp-out` at a second dir to keep them out of `:out`, which `:clean?` deletes on every build: Unity then imports the plugin once and its GUID holds, instead of a new one on every build - [#144](https://github.com/flybot-sg/magic/issues/144).
 
 ### Unity
+- The Editor loads ClojureCLR 1.11.0-flybot5, so both Editor runtimes agree on the stdlib fixes it carries. `spit` and `writer` truncate the file they overwrite, a printed double reads back equal, and `(long x)` on a boxed `UInt64` converts. `clojure.string/split` drops trailing empty strings, a stack frame names the code that ran, and a string, map or record hashes to the JVM's value - [clojure-1.11.0-flybot4](https://github.com/flybot-sg/clojure-clr/releases/tag/clojure-1.11.0-flybot4), [clojure-1.11.0-flybot5](https://github.com/flybot-sg/clojure-clr/releases/tag/clojure-1.11.0-flybot5).
 - The package ships `Magic.Unity.ClojureReloader`, so saving a `.clj`, `.cljc` or `.cljr` re-evaluates it in the ClojureCLR Editor on the one save. A consumer's own `FileSystemWatcher` hook fires two or three events per save, so a reload took several saves before - [#157](https://github.com/flybot-sg/magic/issues/157).
 
 ## v0.12.1 - 2026-08-20
