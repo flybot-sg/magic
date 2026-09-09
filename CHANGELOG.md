@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## v0.13.0 - 2026-09-09
+
+**`nos build` copies a library's C# assemblies into the build output**, so shipping a compiled assembly to Unity takes no hand-written `File/Copy`, and Unity imports the plugin once instead of on every build. **Saving a `.clj`, `.cljc` or `.cljr` re-evaluates it in the ClojureCLR Editor**, on the one save rather than the third.
+
+`nos build` also compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and a narrowing cast throw on overflow instead of wrapping silently. Fifteen fixes across the compiler, runtime, stdlib and Mage align behaviour with JVM Clojure and ClojureCLR. The Editor runs ClojureCLR 1.11.0-flybot5.
 
 ### Compiler
 - Calling something that is not a function throws a catchable `InvalidCastException`, the way JVM Clojure throws `ClassCastException`, instead of `InvalidProgramException: Invalid IL code`. The compiler boxes a value-typed callee before casting it to `IFn`, so the method it lands in verifies; `(1 2)` and `(let [x (int 1)] (x 2))` each produced a method the JIT refused to load - [#171](https://github.com/flybot-sg/magic/issues/171).
