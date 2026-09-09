@@ -23,6 +23,9 @@ public static class CoexistenceProbe
     // The same extensions as in Magic.Unity's PlayerCljAssemblies
     static readonly string[] Extensions = { ".clj", ".cljc", ".cljr" };
 
+    // The unconstrained plugin, expected in both Editor states.
+    const string CsharpName = "smoke_csharp";
+
     static bool IsCljAssembly(string name, string suffix)
     {
         return Extensions.Any(e => name.EndsWith(e + suffix, StringComparison.OrdinalIgnoreCase));
@@ -30,6 +33,10 @@ public static class CoexistenceProbe
 
     public static void Run()
     {
+        var csharpInDomain = AppDomain
+            .CurrentDomain.GetAssemblies()
+            .Any(a => a.GetName().Name == CsharpName);
+
         var preloaded = AppDomain
             .CurrentDomain.GetAssemblies()
             .Select(a => a.GetName().Name)
@@ -67,17 +74,32 @@ public static class CoexistenceProbe
                 + $"core-clj-load={loadDetail} "
                 + $"clojure-versions=[{string.Join(",", clojureVersions)}] "
                 + $"editor-clj-refs={CljReferences(AssembliesType.Editor)} "
-                + $"player-clj-refs={CljReferences(AssembliesType.PlayerWithoutTestAssemblies)}"
+                + $"player-clj-refs={CljReferences(AssembliesType.PlayerWithoutTestAssemblies)} "
+                + $"csharp-in-domain={csharpInDomain.ToString().ToLowerInvariant()} "
+                + $"csharp-editor-refs={CsharpReferences(AssembliesType.Editor)}"
+        );
+    }
+
+    static int ReferenceCount(AssembliesType type, Func<string, bool> matches)
+    {
+        return CompilationPipeline
+            .GetAssemblies(type)
+            .SelectMany(a => a.allReferences)
+            .Where(matches)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count();
+    }
+
+    static int CsharpReferences(AssembliesType type)
+    {
+        return ReferenceCount(
+            type,
+            r => r.EndsWith("/" + CsharpName + ".dll", StringComparison.OrdinalIgnoreCase)
         );
     }
 
     static int CljReferences(AssembliesType type)
     {
-        return CompilationPipeline
-            .GetAssemblies(type)
-            .SelectMany(a => a.allReferences)
-            .Where(r => IsCljAssembly(r, ".dll"))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Count();
+        return ReferenceCount(type, r => IsCljAssembly(r, ".dll"));
     }
 }

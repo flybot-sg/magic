@@ -1,31 +1,10 @@
 (ns dotnet
-  "Compile and test the smoke project under MAGIC.
+  "Run the smoke suites under MAGIC.
 
-  Invoked from the repo root via `nos dotnet/build` and `nos dotnet/run-tests`.
-
-  Shape: one root namespace, production compiler flags pinned
-  (`*direct-linking*`, `*strongly-typed-invokes*`, `*elide-meta*`),
-  transitive deps pulled in by `compile`. Output drops into
-  Assets/Plugins/Magic which the Unity project picks up automatically.
-
-  `run-tests` exercises the smoke suites under Mono before opening Unity, so
-  pure-CLR (non-IL2CPP) regressions surface without a Unity round-trip."
+  Compiling is `nos build`, configured in magic.edn. This holds the one task
+  that has no built-in: the suites are not clojure.test, they are maps a
+  SmokeTestRunner MonoBehaviour reads, so `nos test` cannot drive them."
   (:require [nostrand.tasks :as tasks]))
-
-(def root-namespaces
-  "Root namespaces to compile. Everything they `require` is compiled
-  transitively. Add a namespace here if the smoke runner needs to
-  load it directly."
-  '[smoke.runner])
-
-(defn build
-  "nos dotnet/build
-
-  Wipes Assets/Plugins/Magic and recompiles every root namespace
-  (and its transitive deps) into that folder using the same compiler
-  flags as production. Unity sees the new DLLs on next focus."
-  []
-  (tasks/compile-project :namespaces root-namespaces :out "Assets/Plugins/Magic" :clean? true))
 
 (defn run-tests
   "nos dotnet/run-tests

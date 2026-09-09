@@ -16,6 +16,8 @@ obj/
 !nostrand/references/*.dll
 !magic-unity/Runtime/magic/*.dll
 !unity-examples/magic-unity-coexist/Assets/Plugins/Consumer/*.dll
+!unity-examples/magic-unity-smoke/csharp-lib/src_classes/*.dll
+!unity-examples/magic-unity-smoke/Assets/Plugins/CSharp/*.dll
 !magic-unity/Runtime/clojure-clr/*.dll
 
 # macOS

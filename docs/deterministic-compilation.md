@@ -183,6 +183,26 @@ A refresh that fails to compile anything deploys nothing and exits non-zero, so 
 
 `magic/Clojure.dll` and `magic/Magic.Runtime.dll` are built by csproj, and their csproj stamps a `SourceRevisionId` from `git describe` into the assembly. Their bytes change with every commit by design, and no rebuild reproduces the committed ones. `check-drift` restores those two from HEAD, and maintainers refresh them deliberately.
 
+## Committing an assembly you compiled yourself
+
+The same property matters one level out. A library that ships a hand-written C# class commits the DLL `csc` produced ([a library's C# assembly](./native-assemblies.md)), and the same rule applies: if the command that built it is not reproducible, every rebuild moves the committed file and the team learns to ignore real changes.
+
+`-deterministic` covers the first half. Without it Roslyn stamps a fresh module id and timestamp into every build. Mono's older `mcs` produces stable bytes without the flag and accepts it silently, so a build script can pass it always instead of detecting which compiler is installed.
+
+The `-out:` basename is the trap the flag does not cover. The assembly and module identity come from it, and every C# compiler writes them into the metadata, so renaming the file afterwards does not rename the module inside it. A temp directory is fine, a temp name is not.
+
+```bash
+# stable: the module name is my_lib, the name the committed DLL already has
+csc -deterministic -out:/tmp/build/my_lib.dll MyLib.cs
+mv /tmp/build/my_lib.dll src_classes/
+
+# not stable: the module name is tmp, so the bytes differ from the committed DLL
+csc -deterministic -out:/tmp/build/tmp.dll MyLib.cs
+mv /tmp/build/tmp.dll src_classes/my_lib.dll
+```
+
+Every other flag lands in the bytes too, `-optimize+` included, and so does the compiler version. Record the exact command beside the source.
+
 ## Where it came from
 
 Staleness has been handled three ways over the years: by convention, where a DLL import named the upstream commit it was built from; by CI, publishing built artifacts so nobody had to rely on their local tree; and by a check inside the repo, first over sources and now over bytes.

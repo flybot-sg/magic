@@ -49,19 +49,23 @@ Two ingredients smoke lacks:
 1. **An immutable (PackageCache) install.** `bb coexist-noise` installs from a
    repacked tarball; `magic-unity-smoke` is a mutable `file:` install, on which
    this bug class cannot appear.
-2. **Consumer-compiled Clojure DLLs outside the package.**
-   `Assets/Plugins/Consumer/` stands in for a consumer's own compiled
-   namespaces, with one DLL of each load shape: `smoke.control_flow.clj.dll`
-   has fn types implementing `Magic.Function` (typed invoke), so unconstrained
-   in a ClojureCLR Editor it fails type load and Unity unloads it as broken --
-   the loud symptom; `smoke.interop.cljr.dll` has none, loads cleanly against
-   ClojureCLR's `Clojure.dll`, and covers the silent-bind shape. Their `.meta`s
-   are package *output*, written by the constrainer on import, so the metas are
-   gitignored and deleted before each import; committing them would turn the
-   constraining into setup.
+2. **DLLs a consumer compiled, sitting outside the package**, in
+   `Assets/Plugins/Consumer/`, one per load shape.
 
 The ClojureCLR runtime comes from the package, exactly as a consumer's would,
 which is why the project runs API Compatibility Level `.NET Framework`.
+
+### The three load shapes
+
+| `Assets/Plugins/Consumer/` | What it holds | What it pins |
+|---|---|---|
+| `smoke.control_flow.clj.dll` | fn types implementing `Magic.Function`, so typed invoke | unconstrained in a ClojureCLR Editor it fails type load and Unity unloads it as broken, the loud symptom |
+| `smoke.interop.cljr.dll` | no `Magic.Function` types | it binds cleanly to ClojureCLR's `Clojure.dll`, the silent shape |
+| `smoke_csharp.dll` | plain C#, the kind a library ships | the constrainer matches the three compiled-Clojure extensions only, so it walks past this one and both Editor states load it |
+
+The `.meta`s are package output, written by the constrainer on import, so they
+are gitignored and deleted before each import. Committing them would turn the
+constraining into setup.
 
 ## Running it
 
@@ -83,7 +87,7 @@ The `[CoexistenceProbe]` marker line in the editor log carries the per-run
 state:
 
 ```
-[CoexistenceProbe] symbol=unset preloaded-clj=0 core-clj-loadable=false core-clj-load=FileNotFoundException clojure-versions=[1.11.0.0] editor-clj-refs=0 player-clj-refs=39
+[CoexistenceProbe] symbol=unset preloaded-clj=0 core-clj-loadable=false core-clj-load=FileNotFoundException clojure-versions=[1.11.0.0] editor-clj-refs=0 player-clj-refs=39 csharp-in-domain=true csharp-editor-refs=1
 ```
 
 Player builds are unaffected by the selection; the end-to-end confirmation is

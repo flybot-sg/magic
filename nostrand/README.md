@@ -150,7 +150,7 @@ A project that pins its dependencies as git submodules can treat `.gitmodules` a
 
 ### Build and test tasks
 
-`nos build` and `nos test` ship with the host, so most projects need no task file at all. Both derive the namespaces they work on by scanning the project's own source paths, and an optional `magic.edn` at the root states whatever differs from the defaults.
+`nos build` and `nos test` ship with the host, so most projects need no task file at all. Both derive the namespaces they work on by scanning the project's own source paths, and an optional `magic.edn` at the root states whatever differs from the defaults. `nos build` also copies the C# assemblies a dependency ships into the output, so a library's hand-written C# travels with the Clojure that imports it ([a library's C# assembly](../docs/native-assemblies.md)).
 
 The pieces they are made of are public in `nostrand.tasks`, so a custom task composes them instead of restating them: `compile-project`, `run-clojure-tests`, `project-namespaces`, and the `production-flags` and `test-flags` maps. [The `nos` CLI](../docs/nos-cli.md) is the full reference for the tasks, the `magic.edn` keys, and the compiler flags each one binds.
 

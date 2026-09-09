@@ -100,7 +100,7 @@ Only `test.check` needs an override, because only `test.check` lives somewhere e
 
 ### A shipped path reaches the JVM too
 
-The downside of using an alias shows up with CLR-only load paths, the kind [pre-compiled assembly loading](./native-assemblies.md) needs. You have to declare that path in the root `:paths` of `deps.edn`, which means it ships on the JVM too. That is only a problem if you also run the lib on the JVM.
+The downside of using an alias shows up with CLR-only load paths, the kind [a library's C# assembly](./native-assemblies.md) needs. You have to declare that path in the root `:paths` of `deps.edn`, which means it ships on the JVM too. That is only a problem if you also run the lib on the JVM.
 
 ## Activating aliases, since `nos` takes no alias flag
 

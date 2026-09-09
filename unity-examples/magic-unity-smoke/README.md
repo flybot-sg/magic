@@ -11,10 +11,10 @@ Runtime regression suite for MAGIC's IL2CPP output. Catches bugs that only repro
 
 ```bash
 cd unity-examples/magic-unity-smoke
-nos dotnet/build
+nos build
 ```
 
-That reads `deps.edn` + `dotnet.clj`, wipes `Assets/Plugins/Magic/`, and recompiles `smoke.runner` plus its transitive deps into that directory using the production compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`).
+That reads `deps.edn` + `magic.edn`, wipes `Assets/Plugins/Magic/`, and recompiles `smoke.runner` plus its transitive deps into that directory using the production compiler flags (`*direct-linking*`, `*strongly-typed-invokes*`). The C# assembly that `csharp-lib` ships lands in `Assets/Plugins/CSharp/`; the wipe covers `Assets/Plugins/Magic/` only.
 
 Then in Unity:
 
@@ -22,7 +22,7 @@ Then in Unity:
 2. Open `Assets/Smoke.unity` (the scene has one GameObject with `SmokeTestRunner.cs` attached).
 3. Use **MAGIC → Smoke → Build & Run IL2CPP** to build and launch the player. The built player shows a green PASS / red FAIL panel and writes the same report to `Player.log`.
 
-To re-run after a Clojure edit: rerun `nos dotnet/build`, then the menu item again.
+To re-run after a Clojure edit: rerun `nos build`, then the menu item again.
 
 To run the same suites under Mono (no Unity round-trip): `nos dotnet/run-tests` from this directory. Catches regressions that surface independent of IL2CPP and exits non-zero on any failure.
 
@@ -39,14 +39,42 @@ One namespace per edge-case family. Each exports `(suite)` returning a vector of
 | `smoke.read-print`   | 12 | Floating point through the reader and the printer: out-of-range literals reading as infinity, and doubles and floats surviving `pr-str` then `read-string`. IL2CPP supplies its own `Double.ToString` and exception handling, so Mono does not cover this. |
 | `smoke.stdlib-1-10`  | 11 | Clojure 1.10 stdlib surface: `symbol`, `read+string`, `PrintWriter-on`, `tap>`, `Throwable->map`, ex-triage, extend-via-metadata. |
 | `smoke.interop`      | 2  | `by-ref` on a type-hinted local. Written as `.cljr`, so the source-extension handling is exercised too. |
+| `smoke.intrinsics`   | 5  | Intrinsic lowering, and the fallback when an intrinsic declines. |
+| `smoke.compare`      | 10 | `compare` and `sort` ordering by UTF-16 code unit rather than OS collation. |
+| `smoke.csharp`       | 3  | Calls into a C# assembly a library ships (see below). |
 
-75 checks total. All green under Mono and Standalone Mac IL2CPP.
+93 checks total. All green under Mono and Standalone Mac IL2CPP.
+
+## The C# assembly example
+
+`csharp-lib/` is a library in the shape [docs/native-assemblies.md](../../docs/native-assemblies.md) describes, consumed here as a `:local/root` dep:
+
+```
+csharp-lib/
+  deps-clr.edn                   {:paths ["src" "src_classes"]}
+  Greeter.cs                     the source
+  src/smoke_csharp/load_dll.cljr the loader, scanning CLOJURE_LOAD_PATH
+  src_classes/smoke_csharp.dll   the assembly, committed
+```
+
+Rebuild the assembly with the command it was built with, from `csharp-lib/`:
+
+```bash
+csc -nologo -deterministic -optimize+ -target:library \
+    -out:src_classes/smoke_csharp.dll Greeter.cs
+```
+
+Use that command as written. The flags and the compiler version are both part of the output bytes ([why](../../docs/deterministic-compilation.md#committing-an-assembly-you-compiled-yourself)); these come from Roslyn 3.9. The repo commits the result in three places, here plus `Assets/Plugins/CSharp/` and `magic-unity-coexist/Assets/Plugins/Consumer/`, so rebuild it and update all three; `bb check-drift` fails if they diverge.
+
+`smoke.csharp` requires the loader and imports `[smoke_csharp Greeter]`, so `nos build` resolves the types through the loader at compile time, then copies `smoke_csharp.dll` into `:csharp-out`. Unity imports it as a plain managed plugin: no define constraint applies, so both Editor runtimes load it and a player build carries it.
+
+`Assets/Plugins/CSharp/` is committed here, `.meta` files included, so a clone has the assembly before anyone runs `nos build`. That part is a choice ([the two plugin folders](../../docs/unity-integration.md#the-two-plugin-folders)); the folder split is not, because `:clean?` deletes `Assets/Plugins/Magic/` on every build and a plugin living there would be reimported under a new GUID each time.
 
 ## Adding a new edge case
 
 1. Add the minimal repro to the matching `smoke/*.clj` (or a new namespace, then `:require` it from `smoke.runner`).
 2. Express it as `(check "name" #(...) expected-value)`. The harness wraps each thunk in try/catch and pretty-prints failures.
-3. `nos dotnet/build`, then **MAGIC → Smoke → Build & Run IL2CPP**. Confirm green.
+3. `nos build`, then **MAGIC → Smoke → Build & Run IL2CPP**. Confirm green.
 4. Commit the smoke case alongside the fix.
 
 Rules:

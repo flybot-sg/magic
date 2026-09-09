@@ -226,3 +226,98 @@
    (= :from-meta
       (clojure.core.protocols/datafy
        (with-meta {} {`clojure.core.protocols/datafy (fn [_] :from-meta)})))))
+
+;;; spit: a write truncates, :append appends (JVM-verified expected values)
+
+(defn- with-spit-file [f]
+  (let [path (System.IO.Path/Combine (System.IO.Path/GetTempPath)
+                                     (str (gensym "magic-spit-test") ".txt"))]
+    (try (f path)
+         (finally (System.IO.File/Delete path)))))
+
+(deftest test-spit-truncates
+  (with-spit-file
+    (fn [path]
+      (spit path "DATA-PRESENT")
+      (spit path "AB")
+      (clojure.test/is (= "AB" (slurp path))))))
+
+(deftest test-spit-empty-clears
+  (with-spit-file
+    (fn [path]
+      (spit path "DATA-PRESENT")
+      (spit path nil)
+      (clojure.test/is (= "" (slurp path))))))
+
+(deftest test-spit-append
+  (with-spit-file
+    (fn [path]
+      (spit path "AAA")
+      (spit path "BBB" :append true)
+      (clojure.test/is (= "AAABBB" (slurp path))))))
+
+(deftest test-spit-file-mode-still-wins
+  (with-spit-file
+    (fn [path]
+      (spit path "AAA")
+      (spit path "BBB" :file-mode System.IO.FileMode/Append)
+      (clojure.test/is (= "AAABBB" (slurp path))))))
+
+;;; #object[...] carries the qualified type name, as (.getName c) does on the JVM
+
+(defn- object-tag [o]
+  (second (re-find #"^#object\[(\S+) " (pr-str o))))
+
+(deftest test-print-tagged-object-qualified-name
+  (clojure.test/is (= "System.Text.StringBuilder" (object-tag (System.Text.StringBuilder.))))
+  (clojure.test/is (= "clojure.lang.Atom" (object-tag (atom 1)))))
+
+;;; #error carries the :message value, not just the label
+
+(deftest test-print-throwable-message
+  (clojure.test/is (= "\"boom\""
+                      (second (re-find #"\n   :message (\S+)\n"
+                                       (pr-str (ex-info "boom" {:a 1})))))))
+
+;;; defn records a qualified arglist :tag, as (.getName c) does on the JVM
+
+(defn tagged-fn ^StringBuilder [] (System.Text.StringBuilder.))
+
+(deftest test-defn-arglist-tag-qualified
+  (clojure.test/is (= 'System.Text.StringBuilder
+                      (:tag (meta (first (:arglists (meta #'tagged-fn))))))))
+
+;;; sort carries the collection's metadata (1.10, CLJ-2417)
+
+(deftest test-sort-retains-meta
+  (clojure.test/is (= {:x 1} (meta (sort (with-meta [3 1 2] {:x 1})))))
+  (clojure.test/is (= [1 2 3] (sort [3 1 2]))))
+
+;;; namespace maps print in the map's own key order (1.10, CLJ-2469)
+
+(deftest test-namespace-map-key-order
+  (binding [*print-namespace-maps* true]
+    (clojure.test/is (= "#:a{:k0 0, :k1 1, :k2 2, :k3 3, :k4 4, :k5 5, :k6 6, :k7 7, :k8 8, :k9 9}"
+                        (pr-str (array-map :a/k0 0 :a/k1 1 :a/k2 2 :a/k3 3 :a/k4 4
+                                           :a/k5 5 :a/k6 6 :a/k7 7 :a/k8 8 :a/k9 9))))
+    (clojure.test/is (= "{:x 1, :a/y 2}"
+                        (pr-str (array-map :x 1 :a/y 2)))
+                     "an unqualified key blocks the lift")))
+
+;;; pprint writes collection metadata under *print-meta* (1.10, CLJ-1445)
+
+(deftest test-pprint-print-meta
+  (require 'clojure.pprint)
+  (let [pp (resolve 'clojure.pprint/pprint)]
+    (binding [*print-meta* true]
+      (clojure.test/is (= "^{:x 1} [1 2]\n" (with-out-str (pp (with-meta [1 2] {:x 1})))))
+      (clojure.test/is (= "^{:x 1} #{1}\n" (with-out-str (pp (with-meta #{1} {:x 1}))))))
+    (clojure.test/is (= "[1 2]\n" (with-out-str (pp (with-meta [1 2] {:x 1}))))
+                     "no metadata written when *print-meta* is false")))
+
+;;; doc prints a special form's docstring once (1.10, CLJ-2295)
+
+(deftest test-doc-special-form-once
+  (require 'clojure.repl)
+  (let [out (with-out-str (eval '(clojure.repl/doc if)))]
+    (clojure.test/is (= 1 (count (re-seq #"Evaluates test" out))))))

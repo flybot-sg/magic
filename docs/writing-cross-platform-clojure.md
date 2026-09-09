@@ -104,7 +104,7 @@ For a reference type, `require` the namespace that defines it and then import th
   (-> p (update :x + dx) (update :y + dy)))
 ```
 
-The `require` is not optional and its position is not either. `:import` resolves a name against the assemblies already loaded in the process, never against the disk, so the namespace defining `Point` has to be loaded first or the compile fails with `Could not find type my.lib.shapes.Point during import`. Clauses run in written order, which is what makes `:require` first sufficient. It is the same rule a precompiled C# assembly runs into, in its harder form, where nothing loads the assembly for you at all ([native assemblies](./native-assemblies.md)).
+The `require` is not optional and its position is not either. `:import` resolves a name against the assemblies already loaded in the process, never against the disk, so the namespace defining `Point` has to be loaded first or the compile fails with `Could not find type my.lib.shapes.Point during import`. Clauses run in written order, which is what makes `:require` first sufficient. It is the same rule a precompiled C# assembly runs into, in its harder form, where nothing loads the assembly for you at all ([C# assemblies](./native-assemblies.md)).
 
 A hint that cannot resolve is a hard error rather than a warning, so a typo or a missing import fails at compile time. Two hints to avoid: a collection's element type, which has no hint syntax at all, and a map's concrete class, which flips between `PersistentArrayMap` and `PersistentHashMap` with size. Hint the interface `clojure.lang.IPersistentMap` instead.
 

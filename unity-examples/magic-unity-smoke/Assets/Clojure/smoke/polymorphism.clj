@@ -8,7 +8,9 @@
   rejects at C++ compile time. The protocol-hinted parameter check
   is bound to the hint-relax fix: a ^Protocol param used to cast to
   the protocol's generated interface, which extend-protocol
-  implementers are not instances of. The rest of the suite is broad
+  implementers are not instances of. The IPersistentMap deftype is the
+  only shape here that emits two methods differing solely in return
+  type, which no C# source can express. The rest of the suite is broad
   construct coverage to catch dispatch-related regressions."
   (:require [smoke.check :refer [check]]))
 
@@ -36,6 +38,16 @@
   IAccum
   (add-item [this x] (set! items (conj items x)) this)
   (item-vec [_] items))
+
+(deftype MapBox [m]
+  clojure.lang.IPersistentMap
+  (count [_] (count m))
+  (^clojure.lang.IPersistentCollection cons [_ e] (MapBox. (conj m e)))
+  (^clojure.lang.IPersistentMap assoc [_ k v] (MapBox. (assoc m k v)))
+  (^clojure.lang.Associative assoc [_ k v] (MapBox. (assoc m k v)))
+  (valAt [_ k] (get m k))
+  (valAt [_ k nf] (get m k nf))
+  (seq [_] (seq m)))
 
 (defprotocol IStrLen
   (str-len [s]))
@@ -107,6 +119,12 @@
    (check "protocol-hinted param with extend-protocol implementer"
           #(hinted-len "hello")
           5)
+   (check "deftype over IPersistentMap counts through the Counted slot"
+          #(count (MapBox. {:a 1 :b 2})) 2)
+   (check "return-type-hinted cons overload"
+          #(count (conj (MapBox. {:a 1}) [:b 2])) 2)
+   (check "return-type-hinted assoc overload"
+          #(get (assoc (MapBox. {:a 1}) :b 2) :b) 2)
    (check "multimethod :dog"
           #(animal-sound {:kind :dog}) "woof")
    (check "multimethod default"

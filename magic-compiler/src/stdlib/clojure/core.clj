@@ -286,7 +286,7 @@
                               (if (clojure.lang.Util/equals nil (maybe-special-tag tag))         ;;; clojure.lang.Compiler$HostExpr
                                 (let [c (clojure.lang.RT/classForName tag-name)]                                 ;;; clojure.lang.Compiler$HostExpr  maybeClass
                                   (if c
-                                    (with-meta argvec (assoc m :tag (clojure.lang.Symbol/intern (.Name c))))                         ;;; .getName
+                                    (with-meta argvec (assoc m :tag (clojure.lang.Symbol/intern (.FullName c))))                         ;;; .getName
                                     argvec))
                                 argvec)
                               argvec)
@@ -3156,7 +3156,7 @@
    (sort compare coll))
   ([comp coll]     ;;;   We can't pass in a Comparator directly at this point, only a ClojureRuntimeDelegate :  [^java.util.Comparator comp coll]
    (if (seq coll)
-     (. clojure.lang.RT (SortedSeq (seq coll) comp))
+     (with-meta (. clojure.lang.RT (SortedSeq (seq coll) comp)) (meta coll))
      ())))
 
 (defn sort-by

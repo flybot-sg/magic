@@ -6,7 +6,8 @@
   which is the part most likely to break under IL2CPP AOT. Throwable->map
   walks the InnerException chain and reads stack frames via
   System.Diagnostics.StackTrace. ex-triage/ex-str exercise the
-  String.Join array overload and the Printf formatter under AOT."
+  String.Join array overload and the Printf formatter under AOT. sort reaches
+  the meta and with-meta Vars from inside clojure.core."
   (:require [smoke.check :refer [check]]
             [clojure.main :as cmain]))
 
@@ -87,4 +88,7 @@
           :from-meta)
    (check "extend-via-metadata falls through to extend table"
           #(smoke-via-meta {})
-          :extend-table)])
+          :extend-table)
+   (check "sort carries the collection's metadata"
+          #(meta (sort (with-meta [3 1 2] {:x 1})))
+          {:x 1})])

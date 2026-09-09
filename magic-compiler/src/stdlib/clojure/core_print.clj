@@ -106,9 +106,11 @@
     (print-meta o w))
   (.Write w "#object[")
   (let [c (class o)]
+    ;; NOTE: dead code on the CLR -- arrays dispatch to the ICollection print-method
+    ;; below and print as seqs. Kept for parity
     (if (.IsArray c)                               ;;; .isArray
-      (print-method (.Name c) w)                   ;;; .getName
-      (.Write w (.Name c))))                       ;;; .getName
+      (print-method (.FullName c) w)               ;;; .getName
+      (.Write w (.FullName c))))                   ;;; .getName
   (.Write w " ")
   (.Write w (format "0x%x " (System.Runtime.CompilerServices.RuntimeHelpers/GetHashCode o)))   ;;; (System/identityHashCode o)
   (print-method rep w)
@@ -265,14 +267,14 @@
   (print-meta v w)
   (print-sequential "[" pr-on " " "]" v w))
 
-(defn- print-prefix-map [prefix m print-one w]
+(defn- print-prefix-map [prefix kvs print-one w]
   (print-sequential
     (str prefix "{")
-    (fn [e ^System.IO.TextWriter w]
-      (do (print-one (key e) w) (.Write w \space) (print-one (val e) w)))
+    (fn [[k v] ^System.IO.TextWriter w]
+      (do (print-one k w) (.Write w \space) (print-one v w)))
     ", "
     "}"
-    (seq m) w))
+    kvs w))
  
  (defn- print-map [m print-one w]
   (print-prefix-map nil m print-one w))
@@ -284,25 +286,25 @@
     (keyword nil (name named))))
 
 (defn- lift-ns
-  "Returns [lifted-ns lifted-map] or nil if m can't be lifted."
+  "Returns [lifted-ns lifted-kvs] or nil if m can't be lifted."
   [m]
   (when *print-namespace-maps*
     (loop [ns nil
            [[k v :as entry] & entries] (seq m)
-           lm {}]
+           kvs []]
       (if entry
-        (when (or (keyword? k) (symbol? k))
+        (when (qualified-ident? k)
           (if ns
             (when (= ns (namespace k))
-              (recur ns entries (assoc lm (strip-ns k) v)))
+              (recur ns entries (conj kvs [(strip-ns k) v])))
             (when-let [new-ns (namespace k)]
-              (recur new-ns entries (assoc lm (strip-ns k) v)))))
-        [ns (apply conj (empty m) lm)]))))
+              (recur new-ns entries (conj kvs [(strip-ns k) v])))))
+        [ns kvs]))))
 
 (defmethod print-method clojure.lang.IPersistentMap [m, ^System.IO.TextWriter w]
-  (let [[ns lift-map] (lift-ns m)]
+  (let [[ns lift-kvs] (lift-ns m)]
     (if ns
-      (print-prefix-map (str "#:" ns) lift-map pr-on w)
+      (print-prefix-map (str "#:" ns) lift-kvs pr-on w)
       (print-map m pr-on w))))
 
 (defmethod print-dup System.Collections.IDictionary [m, ^System.IO.TextWriter w]    ;;; java.util.Map
@@ -578,6 +580,7 @@
         print-via #(do (.Write w "{:type ")
 		               (print-method (:type %) w)
 					   (.Write w "\n   :message ")
+					   (print-method (:message %) w)
              (when-let [data (:data %)]
                (.Write w "\n   :data ")
                (print-method data w))

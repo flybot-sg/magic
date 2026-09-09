@@ -19,7 +19,7 @@ flowchart LR
 
 **4. Run the tests and wire up CI.** The rest of this page.
 
-If the library ships a precompiled C# assembly next to its Clojure, it needs a loader namespace as well: see [loading precompiled native assemblies](./native-assemblies.md).
+If the library ships a precompiled C# assembly next to its Clojure, it needs a loader namespace as well: see [a library's C# assembly](./native-assemblies.md).
 
 ## Running the tests: two runners, not one
 

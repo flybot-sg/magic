@@ -91,6 +91,7 @@
               [magic.unity :as unity])
    :depends [regen-callsites refresh-stdlib sync-upm-version]
    :task (do (unity/check-constraints!) ; run after refresh-stdlib has written the metas
+             (drift/check-copies!)
              (drift/check!))}
 
   ;; ============================================================

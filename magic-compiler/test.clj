@@ -11,6 +11,7 @@
    magic.test.special
    magic.test.proxy
    magic.test.reify
+   magic.test.deftype
    magic.test.fn
    magic.test.letfn
    magic.test.pipeline
@@ -23,7 +24,8 @@
    magic.test.flags
    magic.test.protocol
    magic.test.errors
-   magic.test.load)
+   magic.test.load
+   magic.test.mage)
   (:use clojure.test))
 
 (defn- check-summary!
@@ -49,6 +51,7 @@
     'magic.test.dynamic
     'magic.test.proxy
     'magic.test.reify
+    'magic.test.deftype
     'magic.test.fn
     'magic.test.letfn
     'magic.test.pipeline
@@ -61,7 +64,8 @@
     'magic.test.flags
     'magic.test.protocol
     'magic.test.errors
-    'magic.test.load)))
+    'magic.test.load
+    'magic.test.mage)))
 
 (defn run [& namespaces]
   (check-summary! (apply run-tests namespaces)))

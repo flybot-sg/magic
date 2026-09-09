@@ -1,0 +1,3 @@
+{:build {:namespaces [smoke.runner]
+         :out        "Assets/Plugins/Magic"
+         :csharp-out "Assets/Plugins/CSharp"}}

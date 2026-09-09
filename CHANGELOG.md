@@ -1,5 +1,42 @@
 # Changelog
 
+## v0.13.0 - 2026-09-09
+
+**`nos build` copies a library's C# assemblies into the build output**, so shipping a compiled assembly to Unity takes no hand-written `File/Copy`, and Unity imports the plugin once instead of on every build. **Saving a `.clj`, `.cljc` or `.cljr` re-evaluates it in the ClojureCLR Editor**, on the one save rather than the third.
+
+`nos build` also compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and a narrowing cast throw on overflow instead of wrapping silently. Fifteen fixes across the compiler, runtime, stdlib and Mage align behaviour with JVM Clojure and ClojureCLR. The Editor runs ClojureCLR 1.11.0-flybot5.
+
+### Compiler
+- Calling something that is not a function throws a catchable `InvalidCastException`, the way JVM Clojure throws `ClassCastException`, instead of `InvalidProgramException: Invalid IL code`. The compiler boxes a value-typed callee before casting it to `IFn`, so the method it lands in verifies; `(1 2)` and `(let [x (int 1)] (x 2))` each produced a method the JIT refused to load - [#171](https://github.com/flybot-sg/magic/issues/171).
+- `deftype`, `reify` and `proxy` bind a method to the slot it overrides rather than to one declaration of it, so a type can implement an interface that redeclares an inherited member. Writing `count` on `clojure.lang.IPersistentMap` used to fail with `No match binding method`, and naming the interface to get past it left the sibling declarations throwing `NotImplementedException` at run time. A return type hint on the method name picks between overloads that differ only in return type, as it does on ClojureCLR, and the compiler names the choices when the hint is missing - [#146](https://github.com/flybot-sg/magic/issues/146).
+- A narrowing cast on a type-hinted primitive throws when the value does not fit instead of discarding the high bits, so `(int 4294967296)` on a `^long` throws `ArgumentException` rather than returning `0`, as on ClojureCLR and JVM Clojure - [#148](https://github.com/flybot-sg/magic/issues/148).
+- A cast on a numeric literal behaves like the same cast at runtime: `(int 1.5)` returns 1 instead of 2, and an out-of-range literal like `(int 4294967296)` throws a catchable `ArgumentException` at runtime instead of aborting compilation with a bare `OverflowException` - [#153](https://github.com/flybot-sg/magic/issues/153).
+
+### Runtime
+- Casting a boxed `UInt64` converts instead of throwing `InvalidCastException`, so `(int (identity (ulong 1)))` returns 1 - [#151](https://github.com/flybot-sg/magic/issues/151).
+
+### Stdlib
+- `spit` and `writer` truncate the file they overwrite, and `:append` appends, matching the JVM. A write used to open at position 0 without truncating, so shorter content produced a mix of new and old bytes, and `:append` was silently dropped - [#155](https://github.com/flybot-sg/magic/issues/155).
+- `#object[...]` prints the qualified type name, so `(pr-str (System.Text.StringBuilder.))` names `System.Text.StringBuilder` instead of `StringBuilder`. `print-tagged-object` wrote `.Name`, which drops the namespace and cannot identify a type, while `print-method` on the type object already wrote `.FullName` - [#142](https://github.com/flybot-sg/magic/issues/142).
+- `pr-str` of an exception writes the `:message` value, so `#error` output carries the message instead of a bare `:message` key with nothing after it. The `:via` map was left with an odd number of forms - [#158](https://github.com/flybot-sg/magic/issues/158).
+- `defn` records the qualified type name in an arglist `:tag`, so a hint like `^Regex` is stored as `System.Text.RegularExpressions.Regex` and resolves from any namespace instead of only where the import is in scope - [#162](https://github.com/flybot-sg/magic/issues/162).
+- `sort` and `sort-by` carry the collection's metadata through to the sorted seq - [#163](https://github.com/flybot-sg/magic/issues/163).
+- A namespace map prints its keys in the map's own order, so `#:a{...}` no longer reorders them once the map outgrows an array-map - [#165](https://github.com/flybot-sg/magic/issues/165).
+- `clojure.pprint/pprint` writes collection metadata when `*print-meta*` is true, so a pretty-printed value carries its metadata like `pr` does - [#166](https://github.com/flybot-sg/magic/issues/166).
+- `clojure.repl/doc` prints a special form's docstring once instead of repeating it after the "Please see" line - [#167](https://github.com/flybot-sg/magic/issues/167).
+- `clojure.string/split` drops trailing empty strings, and a negative limit returns every part. `(split "a b " #" ")` returned `["a" "b" ""]`. `split-lines` gained a final `""` on a trailing newline, and the negative limit threw. A pattern that matches nothing at the start no longer adds a leading `""`, so `(split "abc" #"")` returns `["a" "b" "c"]` - [#174](https://github.com/flybot-sg/magic/issues/174).
+
+### Mage
+- `il/type`'s short arities work, so a caller can write `(il/type "Name" body)` instead of spelling out attributes, interfaces, supertype, generic parameters and custom attributes every time. Every arity below the 7-arity threw `ArityException` - [#143](https://github.com/flybot-sg/magic/issues/143).
+
+### Nostrand
+- `nos build` compiles with `*unchecked-math*` false, Clojure's default, so arithmetic and narrowing casts keep their overflow checks instead of wrapping silently. A namespace that wants wrapping sets the flag itself - [#149](https://github.com/flybot-sg/magic/issues/149).
+- `nos build` copies the C# assemblies a library ships into the output dir, so a consumer no longer writes its own `File/Copy` to get them there. Point `:csharp-out` at a second dir to keep them out of `:out`, which `:clean?` deletes on every build: Unity then imports the plugin once and its GUID holds, instead of a new one on every build - [#144](https://github.com/flybot-sg/magic/issues/144).
+
+### Unity
+- The Editor loads ClojureCLR 1.11.0-flybot5, so both Editor runtimes agree on the stdlib fixes it carries. `spit` and `writer` truncate the file they overwrite, a printed double reads back equal, and `(long x)` on a boxed `UInt64` converts. `clojure.string/split` drops trailing empty strings, a stack frame names the code that ran, and a string, map or record hashes to the JVM's value - [clojure-1.11.0-flybot4](https://github.com/flybot-sg/clojure-clr/releases/tag/clojure-1.11.0-flybot4), [clojure-1.11.0-flybot5](https://github.com/flybot-sg/clojure-clr/releases/tag/clojure-1.11.0-flybot5).
+- The package ships `Magic.Unity.ClojureReloader`, so saving a `.clj`, `.cljc` or `.cljr` re-evaluates it in the ClojureCLR Editor on the one save. A consumer's own `FileSystemWatcher` hook fires two or three events per save, so a reload took several saves before - [#157](https://github.com/flybot-sg/magic/issues/157).
+
 ## v0.12.1 - 2026-08-20
 
 The Editor runs **ClojureCLR 1.11.0-flybot3**, so `sort` and `compare` order values there the way MAGIC does. `nos` also reads a submodule's `deps-clr.edn`, so a library can leave `deps.edn` to the JVM.

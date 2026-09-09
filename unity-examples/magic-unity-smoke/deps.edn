@@ -1,2 +1,2 @@
 {:paths ["Assets/Clojure"]
- :deps  {}}
+ :deps  {sg.flybot/smoke-csharp {:local/root "csharp-lib"}}}

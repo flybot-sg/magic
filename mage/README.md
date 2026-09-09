@@ -6,26 +6,22 @@ Quick Example
 -------------
 ```clojure
 (require '[mage.core :as il])
-(import '[System.Reflection TypeAttributes])
 
 (il/emit!
   (il/assembly "Example"
     [(il/module "Example.dll"
-      [(il/type "ExampleType" TypeAttributes/Public [] System.Object nil
+      [(il/type "ExampleType"
         [(il/method
           "AddIntegers"
           Int32 [Int32 Int32]
           [(il/ldarg-1)
            (il/ldarg-2)
            (il/add)
-           (il/ret)])]
-        [])])]))
+           (il/ret)])])])]))
 
 (.AddIntegers (ExampleType.) 5 6)
 ;; 11
 ```
-
-`il/type` is the one constructor that has to be spelled out in full: its shorter arities are currently unreachable, so pass attributes, interfaces, supertype, generic parameters, body and custom attributes every time.
 
 Overview
 --------

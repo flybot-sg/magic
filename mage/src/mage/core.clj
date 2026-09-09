@@ -437,7 +437,7 @@
   ([name attributes interfaces body]
    (type name attributes interfaces System.Object body))
   ([name attributes interfaces super body]
-   (type name attributes interfaces super nil body))
+   (type name attributes interfaces super nil body []))
   ([name attributes interfaces super generic-parameters body custom-attributes]
    {::type name 
     ::attributes attributes 
