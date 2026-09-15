@@ -489,7 +489,7 @@
                   body-sexp (:form body)
                   body-env (:env body)
                   analyzefn (find-var 'magic.analyzer/analyze)
-                  {locals* :locals} (update-bindings bindings**)]
+                  locals* (reduce (fn [m b] (assoc m (:name b) b)) *typed-pass-locals* bindings**)]
               (binding [*typed-pass-locals* locals*
                         gt/*reusable-types* (atom (set/difference (loop-bindings/collect-incomplete-types) external-incomplete-types))]
                 (assoc ast
