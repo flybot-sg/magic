@@ -54,7 +54,7 @@
  magic.analyzer.novel {:source "magic-compiler/src/magic/analyzer/novel.clj", :sha256 "fa1a06041b8ea03aaa8817aec640cc63472ce9a3f8ce66a7a93438dc8af4f416"}
  magic.analyzer.reflection {:source "magic-compiler/src/magic/analyzer/reflection.clj", :sha256 "16de58b74c60882c7ee36df8410f30e8d16cec6bb8168d899bcf9a463cb0f8f3"}
  magic.analyzer.remove_local_children {:source "magic-compiler/src/magic/analyzer/remove_local_children.clj", :sha256 "e5f8971111f3e5b6ad7e9873f1ae1f53a0e8e214da463ed5162b8ffb3948c8d1"}
- magic.analyzer.typed_passes {:source "magic-compiler/src/magic/analyzer/typed_passes.clj", :sha256 "2a99953a27124c360a74dc66a396f6d448fda30eecc61608dd11807f589a34ae"}
+ magic.analyzer.typed_passes {:source "magic-compiler/src/magic/analyzer/typed_passes.clj", :sha256 "5729f2b0b0626a4f0350a54c4d7019d358963d242f98ccd5ac20f3b662e755f9"}
  magic.analyzer.types {:source "magic-compiler/src/magic/analyzer/types.clj", :sha256 "e47a7cf02ac85df1976c0fa23d8389f251f381171aaa98c10b453bea7d6389d9"}
  magic.analyzer.uniquify {:source "magic-compiler/src/magic/analyzer/uniquify.clj", :sha256 "8efe465c85094d3c1a788403231f5f84dde5c6a169ec66ca897da93bb4794d7a"}
  magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "19e7f4f2a357f2c265e373dcb1175f336baaf09b5d380744433a4d25f87c4a94"}
