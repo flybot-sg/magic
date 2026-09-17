@@ -182,3 +182,32 @@
         (is (= 1 @(ns-resolve (find-ns sym) 'a)))
         (is (= 2 @(ns-resolve (find-ns sym) 'b)))
         (finally (Directory/Delete dir true))))))
+
+(deftest loop-binding-widened-by-recur-still-saves
+  (testing "a fn in a loop init is not re-analyzed into an orphan TypeBuilder"
+    ;; The recur passes nil, widening q away from the fn type, which sends the
+    ;; :loop typed pass down its re-analysis branch. Re-running the binding
+    ;; pass there used to mint a second TypeBuilder for the same fn that
+    ;; nothing ever completed, so only the disk-writing path failed.
+    (let [dir (temp-dir)
+          sym (symbol (str "magic.test.tmp.loopfn" (gensym)))
+          dll (Path/Combine dir (str (api/assembly-name (str sym) ".clj") ".dll"))]
+      (try
+        (write-ns! dir sym ".clj"
+                   (str "(ns " sym ")"
+                        "(defn widened [xs]"
+                        "  (loop [q (fn [] xs) n 0]"
+                        "    (if (zero? n) (recur nil (inc n)) q)))"
+                        "(defn closure [xs]"
+                        "  (loop [q (fn [] xs) n 0]"
+                        "    (if (pos? n) (recur nil (inc n)) q)))"))
+        (binding [*load-paths* [dir] *compile-path* dir]
+          (api/compile-namespace sym {:write-files true :suppress-print-forms true}))
+        (is (File/Exists dll))
+        (remove-ns sym)
+        (load-in dir sym)
+        (testing "the widened binding carries the recur value"
+          (is (nil? ((ns-resolve (find-ns sym) 'widened) 42))))
+        (testing "and the fn minted in the init is complete and callable"
+          (is (= 42 (((ns-resolve (find-ns sym) 'closure) 42)))))
+        (finally (Directory/Delete dir true))))))
