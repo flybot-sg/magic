@@ -8,9 +8,10 @@ Find the file you touched, run the task on its row, then `bb test`.
 
 | You changed | Run | Runs |
 |---|---|---|
-| any C# in `clojure-runtime/`, `magic-runtime/` or `nostrand/` | `bb build-runtime` | one `dotnet build` |
+| any C# in `clojure-runtime/`, `magic-runtime/` or `nostrand/` | `bb build-runtime` | a `dotnet build`, then one compile pass over nostrand |
 | a callsite `.mustache` template | `bb dev-callsites` | `regen-callsites` → `build-runtime` |
 | `magic-compiler/src/stdlib/**/*.clj`, outside the `clojure.core` family | `bb refresh-stdlib` | one compile pass over the stdlib |
+| `nostrand/nostrand/**/*.clj` | `bb build-runtime` | a `dotnet build`, then one compile pass over nostrand |
 | `magic-compiler/src/magic/**/*.clj`, `mage/src/`, or the `clojure.core` family | `bb dev-compiler` | `bootstrap` → `bootstrap` |
 | a fresh clone | `bb build` | clean, then all of the above |
 
@@ -18,7 +19,7 @@ A compiler change needs two bootstrap passes, hence the convenience task `bb dev
 
 ## Building
 
-**`bb build-runtime`** builds `nostrand/NostrandMain.csproj` in Release. `clojure-runtime` and `magic-runtime` come along through `ProjectReference`, so it covers the C# the host and the compiled DLLs run on.
+**`bb build-runtime`** builds `nostrand/NostrandMain.csproj` in Release. `clojure-runtime` and `magic-runtime` come along through `ProjectReference`, so it covers the C# the host and the compiled DLLs run on. It then recompiles nostrand's own eight namespaces with the host it just built.
 
 **`bb bootstrap`** is one pass of the compiler's own rebuild: compile with the compiler currently in `references/`, deploy over it, re-record `dll-sources.edn`. Extra arguments reach `nos`, which is how a spell is enabled for a pass:
 
@@ -30,14 +31,14 @@ bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'
 
 **`bb build`** is the fresh-clone path and the one CI runs. It cleans first, so the bootstrap is always redone from scratch. **`bb clean`** removes the `bin/` directories and `magic-compiler/bootstrap/`.
 
-`bb build`, `bb bootstrap` and `bb refresh-stdlib` stamp the committed DLL mtimes before compiling, which is what decides whether a namespace loads from its DLL or recompiles from source. That is why a raw `dotnet build` is not a substitute ([deterministic compilation](./deterministic-compilation.md)).
+`bb build`, `bb bootstrap`, `bb refresh-stdlib` and `bb build-runtime` stamp the committed DLL mtimes before compiling, which is what decides whether a namespace loads from its DLL or recompiles from source. That is why a raw `dotnet build` is not a substitute ([deterministic compilation](./deterministic-compilation.md)).
 
 ## Regenerating what is committed
 
 - **`bb regen-callsites`** writes the 97 `.g.cs` under `magic-runtime/Magic.Runtime/Generated/` from five `.mustache` templates. A template edit is only real once this has run.
 - **`bb sync-upm-version`** copies the version from `version.edn` into `magic-unity/package.json`.
 - **`bb write-metas`** creates a Unity `.meta` (with its runtime-selection define constraint) for every `magic-unity` DLL that lacks one; existing metas are never rewritten. The constraint blocks are verified by `bb check-drift`; what they say and why is beside `runtime-sets` in `bb/magic/unity.clj`.
-- **`bb check-drift`** runs all three plus `refresh-stdlib` and the constraint verification, then fails if any checked path differs from HEAD. Run it after a fresh `bb build`, as CI does. What it byte-diffs and what it only restores are in [deterministic compilation](./deterministic-compilation.md).
+- **`bb check-drift`** runs all three plus `refresh-stdlib`, `refresh-nostrand` and the constraint verification, then fails if any checked path differs from HEAD. Run it after a fresh `bb build`, as CI does. What it byte-diffs and what it only restores are in [deterministic compilation](./deterministic-compilation.md).
 
 ## Testing
 

@@ -26,10 +26,16 @@
              (unity/write-metas!))}
 
   build-runtime
-  {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand.
+  {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand, then recompile nostrand's own .clj into the committed nostrand.*.clj.dll.
          No magic-compiler bootstrap.
          Fast."
-   :task (shell "dotnet build" "nostrand/NostrandMain.csproj" "-c" "Release")}
+   :task (do (shell "dotnet build" "nostrand/NostrandMain.csproj" "-c" "Release")
+             (nos/refresh! "nostrand"))}
+
+  refresh-nostrand
+  {:doc "Recompile the committed nostrand.*.clj.dll from nostrand/nostrand/**/*.clj."
+   :depends [-check-nostrand]
+   :task (nos/refresh! "nostrand")}
 
   bootstrap
   {:doc "One bootstrap pass: compile magic-compiler with the compiler in references/, deploy over it (rebuilds nostrand) and into magic-unity `magic-unity/Runtime/magic`, re-record dll-sources.edn.
@@ -45,15 +51,12 @@
   refresh-stdlib
   {:doc "Recompile every committed stdlib clojure.*.clj.dll from source, redeploy to nostrand/references/, the built host, and `magic-unity/Runtime/magic`, then re-record dll-sources.edn.
          Use after editing any magic-compiler/src/stdlib/**/*.clj.
-         Owns every stdlib namespace outside the clojure.core family; every other committed DLL belongs to `bb bootstrap`.
+         Owns every stdlib namespace outside the clojure.core family; the nostrand namespaces belong to `bb refresh-nostrand` and every other committed DLL to `bb bootstrap`.
          See docs/bootstrap.md."
-   :requires ([magic.drift :as drift]
-              [magic.unity :as unity])
+   :requires ([magic.unity :as unity])
    :depends [-check-nostrand]
-   :task (do (drift/touch-dlls!)
-             (nos/nos! "refresh/stdlib")
-             (unity/write-metas!)
-             (drift/record!))}
+   :task (do (nos/refresh! "stdlib")
+             (unity/write-metas!))}
 
   ;; ============================================================
   ;; Generated outputs
@@ -83,13 +86,13 @@
              (unity/check-constraints!))}
 
   check-drift
-  {:doc "Regenerate everything generated (callsite .g.cs, stdlib .clj.dll, dll-sources.edn, UPM version), verify the runtime-selection constraints, and fail if any checked path differs from HEAD.
+  {:doc "Regenerate everything generated (callsite .g.cs, stdlib and nostrand .clj.dll, dll-sources.edn, UPM version), verify the runtime-selection constraints, and fail if any checked path differs from HEAD.
          Committed DLLs are byte-diffed.
          Run after a fresh `bb build` so the bootstrap set is covered too, as CI does.
          See docs/deterministic-compilation.md."
    :requires ([magic.drift :as drift]
               [magic.unity :as unity])
-   :depends [regen-callsites refresh-stdlib sync-upm-version]
+   :depends [regen-callsites refresh-stdlib refresh-nostrand sync-upm-version]
    :task (do (unity/check-constraints!) ; run after refresh-stdlib has written the metas
              (drift/check-copies!)
              (drift/check!))}

@@ -4,7 +4,7 @@ MAGIC compiles deterministically since v0.10.0, with the last two nondeterminism
 
 That is what makes the drift check simple. After a bootstrap reaches its fixpoint (two passes when the compiler changed, [the bootstrap](./bootstrap.md)), `git status` names exactly the committed DLLs a fix affected, and CI byte-diffs every one of them against a fresh rebuild. A committed DLL whose bytes no longer match that rebuild has **drifted**. Before the bytes were reproducible there was nothing to compare, so the check hashed sources instead, and a whole class of staleness got through.
 
-Two directories hold those committed binaries: `nostrand/references/`, the 73 `.clj.dll` that are the compiler and stdlib themselves, and `magic-unity/Runtime/magic/`, the 37 stdlib `.clj.dll` plus the two C# runtime DLLs that Unity ships. What each holds and why is in [the bootstrap](./bootstrap.md#what-is-committed-and-why).
+Two directories hold those committed binaries: `nostrand/references/`, the 81 `.clj.dll` that are the compiler and stdlib themselves, and `magic-unity/Runtime/magic/`, the 37 stdlib `.clj.dll` plus the two C# runtime DLLs that Unity ships. What each holds and why is in [the bootstrap](./bootstrap.md#what-is-committed-and-why).
 
 ## A DLL can go stale without its source changing
 
@@ -175,7 +175,7 @@ The callsite templates are the easy case: five Mustache templates, one per calls
 
 `package.json` is checked because the monorepo keeps one version, in `version.edn`, which `Directory.Build.props` feeds to every C# project automatically. The Unity package's `package.json` is plain JSON that MSBuild cannot reach, so a task copies the version across and the check catches a `version.edn` bump that forgot it.
 
-`refresh-stdlib` rewrites 28 of the 73 committed DLLs; the rest belong to `bb bootstrap` ([which task owns what](./bootstrap.md#which-task-to-run)). That is why the check wants a fresh `bb build` in front of it: CI runs that sequence, and so does the pre-PR checklist in [CONTRIBUTING.md](../CONTRIBUTING.md).
+`refresh-stdlib` rewrites 28 of the 81 committed DLLs and `refresh-nostrand` another 8; the rest belong to `bb bootstrap` ([which task owns what](./bootstrap.md#which-task-to-run)). That is why the check wants a fresh `bb build` in front of it: CI runs that sequence, and so does the pre-PR checklist in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 A refresh that fails to compile anything deploys nothing and exits non-zero, so a half-written set of committed DLLs is not a state you can reach. And a red run already holds its remedy: the regeneration happens before the diff, so the refreshed files are sitting in the working tree, ready for the paired refresh commit ([CONTRIBUTING.md](../CONTRIBUTING.md)).
 

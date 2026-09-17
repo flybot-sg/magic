@@ -38,8 +38,7 @@
     (fs/delete-tree smoke-dir)
     (fs/create-dirs staging)
     ;; bin/Release/net471/ is self-contained: nos launcher, NostrandMain.exe,
-    ;; runtime DLLs, all .clj.dll, and the nostrand/ source subdir that the
-    ;; runtime loads at startup. Recursive copy of contents.
+    ;; runtime DLLs, and all .clj.dll including nostrand's own.
     (shell "cp" "-R" "nostrand/bin/Release/net471/." (str staging "/"))
     (shell {:dir "target"} "tar" "czf" (str dist-name ".tar.gz") dist-name)
     (println "Wrote" tarball)

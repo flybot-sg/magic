@@ -36,6 +36,14 @@
   (shell "dotnet build -t:Bootstrap;MagicUnity")
   (drift/record!))
 
+(defn refresh!
+  "Recompile the committed .clj.dll a refresh task owns and re-record the
+   manifest. Must run after a `dotnet build`: the host must match the current C#."
+  [task]
+  (drift/touch-dlls!)
+  (nos! (str "refresh/" task))
+  (drift/record!))
+
 (defn prepl-eval!
   "Send one form to a running prepl server and print the reply maps until :ret."
   [args]

@@ -1,18 +1,19 @@
 (ns refresh
-  "Recompile every committed stdlib clojure.*.clj.dll from its source file and
-   redeploy to nostrand/references/, nostrand/bin/Release/net471/, and
-   magic-unity/Runtime/magic/. Use after editing any
-   magic-compiler/src/stdlib/**/*.clj.
+  "Recompile committed .clj.dll files from their source and redeploy them to
+   nostrand/references/ and nostrand/bin/Release/net471/. Run after editing a
+   source file below.
 
-   Invoke with: nos refresh/stdlib  (or `bb refresh-stdlib`)
+   refresh/stdlib    clojure.*.clj.dll from magic-compiler/src/stdlib/**/*.clj,
+                     also deployed to magic-unity/Runtime/magic/
+   refresh/nostrand  nostrand.*.clj.dll from nostrand/nostrand/**/*.clj
 
    Why this exists: clojure.core/load-one picks between .clj source and .clj.dll
    by mtime comparison. git checkout sets arbitrary mtimes. If the DLL on disk
    does not contain a source fix, the runtime may silently use the stale DLL
-   and the fix has no effect. This task ensures both stay in lockstep.
+   and the fix has no effect. These tasks keep both in lockstep.
    Compilation is deterministic, so `bb check-drift` byte-diffs the redeployed
    DLLs against HEAD: a stale DLL shows up as a byte difference, whatever
-   caused it (the stdlib source, the compiler, or the C# runtime)."
+   caused it (the source, the compiler, or the C# runtime)."
   (:require [magic.api :as api]
             [clojure.string :as str])
   (:import [System.IO File Path Directory FileInfo StreamReader]))
@@ -21,6 +22,7 @@
 (def ^:private bin "../nostrand/bin/Release/net471")
 (def ^:private unity "../magic-unity/Runtime/magic")
 (def ^:private stdlib-root "src/stdlib")
+(def ^:private nostrand-root "../nostrand")
 
 (def ^:private bootstrap-namespaces
   "Namespaces this task must not recompile: clojure.core plus the eight units
@@ -95,6 +97,33 @@
             []
             namespaces)))
 
+(defn- compile-and-deploy!
+  "Deploys only if every namespace compiles."
+  [task namespaces tmp-dir glob dests]
+  (when (Directory/Exists tmp-dir) (Directory/Delete tmp-dir true))
+  (Directory/CreateDirectory tmp-dir)
+
+  (when-let [failures (seq (compile-namespaces! namespaces tmp-dir))]
+    (println (str (count failures) " of " (count namespaces)
+                  " namespaces failed to compile, so nothing was deployed"
+                  " and the committed DLLs are untouched:"))
+    (doseq [[ns message] failures]
+      (println (str "  " ns " - " message)))
+    (throw (ex-info (str "refresh/" task " did not compile every namespace")
+                    {:failed (mapv first failures)})))
+
+  (let [produced (->> (Directory/EnumerateFiles tmp-dir glob)
+                      (map #(Path/GetFileName ^String %))
+                      sort
+                      vec)]
+    (println (str "compiled " (count produced) " DLLs to " tmp-dir))
+    (doseq [f produced
+            :let [src (Path/Combine tmp-dir f)]
+            dest dests]
+      (File/Copy src (Path/Combine dest f) true))
+    (Directory/Delete tmp-dir true))
+  (println "done."))
+
 (defn stdlib [& _args]
   ;; ordinal sort: compile order feeds the gensym stream, and the default
   ;; culture-sensitive string compare orders differently across OS collations
@@ -119,8 +148,7 @@
         ;; parent's compile has interned the vars they reference. The mtime
         ;; rules keep the parent's own (load ...) from re-emitting them, so
         ;; without this explicit pass they would never be recompiled.
-        subfile-nss   (vec (remove (set top-level-nss) sourced-nss))
-        tmp-dir       (Path/GetFullPath "target/refresh-stdlib")]
+        subfile-nss   (vec (remove (set top-level-nss) sourced-nss))]
     (println (str "found " (count all-nss) " deployed stdlib DLLs, "
                   (count top-level-nss) " top-level, "
                   (count subfile-nss) " sub-files, "
@@ -129,29 +157,29 @@
     (when (seq missing-src)
       (doseq [ns missing-src] (println "  missing source for" ns)))
 
-    (when (Directory/Exists tmp-dir) (Directory/Delete tmp-dir true))
-    (Directory/CreateDirectory tmp-dir)
+    (compile-and-deploy! "stdlib"
+                         (concat top-level-nss subfile-nss)
+                         (Path/GetFullPath "target/refresh-stdlib")
+                         "clojure.*.clj.dll"
+                         [refs bin unity])))
 
-    (let [to-compile (concat top-level-nss subfile-nss)]
-      ;; a half-refreshed set of committed DLLs is what this task exists to prevent
-      (when-let [failures (seq (compile-namespaces! to-compile tmp-dir))]
-        (println (str (count failures) " of " (count to-compile)
-                      " namespaces failed to compile, so nothing was deployed"
-                      " and the committed DLLs are untouched:"))
-        (doseq [[ns message] failures]
-          (println (str "  " ns " - " message)))
-        (throw (ex-info "refresh/stdlib did not compile every namespace"
-                        {:failed (mapv first failures)}))))
+(def ^:private nostrand-namespaces
+  ;; compile a namespace only after the namespaces it requires
+  '[nostrand.deps.shell
+    nostrand.deps.nuget
+    nostrand.deps.git
+    nostrand.deps.submodules
+    nostrand.deps.basis
+    nostrand.core
+    nostrand.repl
+    nostrand.tasks])
 
-    (let [produced (->> (Directory/EnumerateFiles tmp-dir "clojure.*.clj.dll")
-                        (map #(Path/GetFileName ^String %))
-                        sort
-                        vec)]
-      (println (str "compiled " (count produced) " DLLs to " tmp-dir))
-      (doseq [f produced
-              :let [src (Path/Combine tmp-dir f)]]
-        (File/Copy src (Path/Combine refs f) true)
-        (File/Copy src (Path/Combine bin f) true)
-        (File/Copy src (Path/Combine unity f) true))
-      (Directory/Delete tmp-dir true))
-    (println "done.")))
+(defn nostrand [& _args]
+  (println (str "compiling " (count nostrand-namespaces) " nostrand namespaces"))
+  ;; nostrand's sources are outside magic-compiler's :paths
+  (binding [clojure.core/*load-paths* (conj (vec clojure.core/*load-paths*) nostrand-root)]
+    (compile-and-deploy! "nostrand"
+                         nostrand-namespaces
+                         (Path/GetFullPath "target/refresh-nostrand")
+                         "nostrand.*.clj.dll"
+                         [refs bin])))
