@@ -6,6 +6,7 @@
 - A `loop` whose `recur` widens a binding whose init contains `fn`, `for` or `lazy-seq` now compiles to a DLL - [#179](https://github.com/flybot-sg/magic/issues/179).
 
 ### Nostrand
+- `nos` ships its own eight namespaces as committed `nostrand.*.clj.dll` instead of compiling them in memory at every startup, so a short invocation starts roughly twice as fast. `bb build-runtime` recompiles them - [#183](https://github.com/flybot-sg/magic/issues/183).
 - `*load-paths*` holds each root once, and `set-load-path` drops roots it no longer names - [#182](https://github.com/flybot-sg/magic/issues/182).
 
 ## v0.13.0 - 2026-09-09

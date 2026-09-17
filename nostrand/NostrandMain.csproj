@@ -8,9 +8,6 @@
   <ItemGroup>
     <Content Include="Scripts/nos-core" Link="nos" CopyToOutputDirectory="PreserveNewest" Condition="'$(TargetFramework)' == 'net6.0'" />
     <Content Include="Scripts/nos-framework" Link="nos" CopyToOutputDirectory="PreserveNewest" Condition="'$(TargetFramework)' == 'net471'" />
-    <Content Include="nostrand/**/*.*">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>  
   </ItemGroup>
 
   <ItemGroup>

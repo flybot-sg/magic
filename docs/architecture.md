@@ -196,17 +196,17 @@ The C# half is `Nostrand.cs`. It loads every `.clj.dll` sitting next to `Clojure
 
 The Clojure half is under `nostrand/`. It puts source paths on the load path, reads `deps-clr.edn`/`deps.edn` and fetches git dependencies, defines the tasks, and hosts the REPLs. None of it could have run a moment earlier. [CLR dependency resolution](./clr-dependency-files.md) and [the nos CLI](./nos-cli.md) cover what it does.
 
-The output directory makes this concrete. `nostrand/bin/Release/net471/` holds `NostrandMain.exe`, `Clojure.dll` and `Magic.Runtime.dll`, and then two kinds of Clojure side by side: 73 compiled `.clj.dll`, and nostrand's own Clojure (`core.clj`, `tasks.clj`, `repl.clj`, the deps code) as plain source.
+The output directory makes this concrete. `nostrand/bin/Release/net471/` holds `NostrandMain.exe`, `Clojure.dll`, `Magic.Runtime.dll` and 81 compiled `.clj.dll`. No Clojure source at all: nostrand's own (`core.clj`, `tasks.clj`, `repl.clj`, the deps code) ships as the eight `nostrand.*.clj.dll` compiled from it.
 
 They differ because three separate compilations happen, at three different times.
 
 | What is compiled | When | Where the result goes |
 |---|---|---|
 | the compiler and the stdlib | rarely, during a bootstrap | `nostrand/references/`, committed to git |
-| nostrand's own `.clj` | every `nos` startup | memory only, gone when the process exits |
+| nostrand's own `.clj` | rarely, via `bb build-runtime` | `nostrand/references/`, committed to git |
 | your project | when you run `nos build` | `.clj.dll` next to your sources |
 
-The compiler is a DLL out of necessity: it cannot compile itself into existence, so [the bootstrap](./bootstrap.md) builds it rarely and the result is committed, which is why `references/` is in git. Nostrand's Clojure has no such constraint, because by the time it loads MAGIC is already running, and source is the cheaper form: a committed DLL would need a refresh after every task edit and every compiler change, while a fresh in-memory compile of a thousand lines is fast and can never be stale.
+The compiler is a DLL out of necessity: it cannot compile itself into existence, so [the bootstrap](./bootstrap.md) builds it rarely and the result is committed, which is why `references/` is in git. Nostrand's Clojure is committed for speed instead: compiling it at every startup dominated the runtime of a short `nos` invocation.
 
 ## The Unity package
 

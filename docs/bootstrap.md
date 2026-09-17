@@ -25,7 +25,7 @@ flowchart LR
     end
 
     subgraph era2["since Oct 2020: MAGIC compiles MAGIC"]
-        refs["nostrand/references/<br/>73 committed .clj.dll<br/>the previous MAGIC"]
+        refs["nostrand/references/<br/>81 committed .clj.dll<br/>the previous MAGIC"]
         c2(["compile"])
         out["fresh .clj.dll<br/>the next MAGIC"]
         refs --> c2 --> out
@@ -37,7 +37,7 @@ flowchart LR
     mem ==>|"produced the first committed set"| refs
 ```
 
-ClojureCLR rebuilt MAGIC from source at every startup and kept nothing, so no MAGIC output existed in the tree at all. Self-hosting began the day that output was committed instead, and the 73 `.clj.dll` in `nostrand/references/` are what it grew into.
+ClojureCLR rebuilt MAGIC from source at every startup and kept nothing, so no MAGIC output existed in the tree at all. Self-hosting began the day that output was committed instead, and the 81 `.clj.dll` in `nostrand/references/` are what it grew into.
 
 ## What is committed, and why
 
@@ -45,48 +45,16 @@ Two directories hold committed `.clj.dll`, and only one of them holds a compiler
 
 | Directory | Holds | Loaded by |
 |---|---|---|
-| `nostrand/references/` | 73 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), and the stdlib (37 `clojure.*`) | `nos`, at every startup |
+| `nostrand/references/` | 81 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), the stdlib (37 `clojure.*`), and nostrand's own namespaces (8 `nostrand.*`) | `nos`, at every startup |
 | `magic-unity/Runtime/magic/` | the same 37 stdlib `.clj.dll`, plus `Clojure.dll` and `Magic.Runtime.dll` | Unity, at play time and in players |
 
 No compiler ships to Unity, because Unity never compiles Clojure. You compile with `nos` first, and Unity loads the result as ordinary .NET assemblies ([Unity integration](./unity-integration.md)).
 
-A third copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 73 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
+A third copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 81 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
 
-`Nostrand.cs` picks them up at startup, in one function. Here is the Nostrand boot:
+`Nostrand.cs` loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and binds `clojure.core`'s empty compiler slots to `magic.api` ([Nostrand](./architecture.md#nostrand)).
 
-```csharp
-static void BootClojureAndNostrand()
-{
-    // the committed compiler, loaded as plain assemblies:
-    // every .clj.dll sitting next to Clojure.dll
-    var assemblyPath = Path.GetDirectoryName(Assembly.Load("Clojure").Location);
-    foreach(var cljDll in Directory.EnumerateFiles(assemblyPath, "*.clj.dll"))
-    {
-        Assembly.LoadFile(cljDll);
-    }
-
-    // run their Initialize methods. Clojure exists after this, and so does MAGIC
-    RT.Initialize(doRuntimePostBoostrap: false);
-    RT.TryLoadInitType("clojure/core");
-    RT.TryLoadInitType("magic/api");
-
-    // the fork has no compiler, so clojure.core's compile, eval and load slots
-    // are empty. binding them to magic.api is what makes them work, and nothing
-    // that calls them ever knows whose compiler answered
-    RT.var("clojure.core", "*load-fn*").bindRoot(RT.var("clojure.core", "-load"));
-    RT.var("clojure.core", "*eval-form-fn*").bindRoot(RT.var("magic.api", "eval"));
-    RT.var("clojure.core", "*load-file-fn*").bindRoot(RT.var("magic.api", "runtime-load-file"));
-    RT.var("clojure.core", "*compile-file-fn*").bindRoot(RT.var("magic.api", "runtime-compile-file"));
-    RT.var("clojure.core", "*macroexpand-1-fn*").bindRoot(RT.var("magic.api", "runtime-macroexpand-1"));
-
-    // nostrand's own Clojure: compiled into memory by MAGIC, on every single run,
-    // which is why none of it is committed
-    RT.var("clojure.core", "*load-fn*").invoke("nostrand/core");
-    RT.var("clojure.core", "*load-fn*").invoke("nostrand/tasks");
-}
-```
-
-These 73 binaries are versioned like source, because for this compiler they are source: they are the only form of MAGIC that another MAGIC can be built from.
+These 81 binaries are versioned like source, because for this compiler they are source: they are the only form of MAGIC that another MAGIC can be built from.
 
 Since **v0.10.0** rebuilding unchanged sources produces the same bytes on any machine, with the last two nondeterminism holes closed in **v0.11.0**. That is what makes a byte diff worth running: after a rebuild, `git status` lists exactly the DLLs your fix affected and nothing else, and CI runs the same diff on every pull request, so a stale binary fails the build. [Deterministic compilation](./deterministic-compilation.md) covers how that holds.
 
@@ -104,7 +72,7 @@ sequenceDiagram
     participant exp as magic/
 
     Note over refs,exp: bb build stamps every committed DLL's mtime, then -t:Clean wipes bin/ and bootstrap/
-    refs->>host: -t:Nostrand builds NostrandMain.exe against the committed 73
+    refs->>host: -t:Nostrand builds NostrandMain.exe against the committed 81
     host->>rt: the same build compiles Clojure.dll and Magic.Runtime.dll from source
     host->>boot: -t:Magic runs nos build/bootstrap, compiling src/ into 48 fresh .clj.dll
     boot->>refs: -t:Bootstrap copies all 48 over the committed set
@@ -121,7 +89,7 @@ Two silent no-ops guard this path, both deliberate. `magic.api/compile-file` ref
 
 48 namespaces get compiled in a fixed order. The order follows the require graph.
 
-The compile step in the middle is `magic-compiler/build.clj`. It names those 48, and they are the first four rows below. The fifth row is the rest of the 73, and no part of `bb build` touches it.
+The compile step in the middle is `magic-compiler/build.clj`. It names those 48, and they are the first four rows below. The last two rows are the rest of the 81, and no part of `bb build` touches them.
 
 | Group | Count | Owned by |
 |---|---|---|
@@ -130,16 +98,17 @@ The compile step in the middle is `magic-compiler/build.clj`. It names those 48,
 | `clojure.string`, `clojure.set`, `clojure.walk`, which the compiler requires | 3 | `bb refresh-stdlib` |
 | `clojure.core` and the 8 units compiled with it, last | 9 | `bb bootstrap` |
 | the rest of the stdlib (`pprint`, `spec`, `test`, `zip`, `datafy`, ...) | 25 | `bb refresh-stdlib` |
+| nostrand's own namespaces (`core`, `tasks`, `repl`, `deps.*`) | 8 | `bb refresh-nostrand` (or `bb build-runtime`) |
 
 Six of the nine in that fourth row are not libraries of their own, whatever their DLL names suggest. `core_proxy`, `core_print`, `genclass`, `core_deftype`, `gvec` and `core_clr` each open with `(in-ns 'clojure.core)`, so everything they define lands in `clojure.core`, and `core.clj` pulls them in with `(load ...)` exactly as on the JVM. One namespace, split across seven files, emitted as seven DLLs. The other two are real namespaces: `clojure.core.protocols`, which `core.clj` loads, and `clojure.clr.io`, which it requires.
 
 `clojure.core` goes last on purpose. Compiling it re-executes its top-level forms in the running image, which redefines `clojure.core/*load-paths*` and breaks `find-file` for everything after it.
 
-The bootstrap is not a cold boot. `Nostrand.cs` has already loaded all 73 DLLs and initialised `clojure.core` before `build.clj` starts, so nothing has to be built before its dependencies. What the order buys instead is that each namespace is compiled against dependencies the same run just recompiled, rather than a mix of fresh and committed ones, and that nothing recompiled early breaks the process doing the compiling. `clojure.core` last is the sharpest case of the second.
+The bootstrap is not a cold boot. `Nostrand.cs` has already loaded all 81 DLLs and initialised `clojure.core` before `build.clj` starts, so nothing has to be built before its dependencies. What the order buys instead is that each namespace is compiled against dependencies the same run just recompiled, rather than a mix of fresh and committed ones, and that nothing recompiled early breaks the process doing the compiling. `clojure.core` last is the sharpest case of the second.
 
 ## Which task to run
 
-Three tasks write committed DLLs, and each owns a different slice of the 73.
+Four tasks write committed DLLs, and each owns a different slice of the 81.
 
 `bb build` and `bb bootstrap` both produce the same 48 and deploy them the same way, with `dotnet build -t:Bootstrap;MagicUnity`. So steps 4 to 7 of the diagram above are the same for either. They differ in how they get there.
 
@@ -155,7 +124,9 @@ Use `bb build` after a fresh clone, when there is no host to run yet. Use `bb bo
 
 `bb refresh-stdlib` owns 28, every namespace under `magic-compiler/src/stdlib/**/*.clj` outside the `clojure.core` family, and is what to run after editing one. It recompiles them and copies each into `references/`, the host's `bin/Release/net471/`, and `magic/` in one go. When a namespace fails to compile it deploys nothing and exits non-zero, so a partial refresh cannot pass for a complete one.
 
-`bb check-drift` therefore runs `refresh-stdlib` itself, and wants a fresh `bb build` in front of it. Between them, that is the only way to cover all 73.
+`bb refresh-nostrand` owns the last 8, under `nostrand/nostrand/**/*.clj`, and behaves the same. Prefer `bb build-runtime`, which rebuilds the host first.
+
+`bb check-drift` therefore runs `refresh-stdlib` and `refresh-nostrand` itself, and wants a fresh `bb build` in front of it. Between them, that is the only way to cover all 81.
 
 ### Why `clojure.core` cannot be refreshed
 
@@ -277,7 +248,7 @@ The last box has its own history. `bc629a67` changed the `hasheq` of every quali
 
 **The rule:** a baked-value change is not done until both the bootstrap set and the stdlib set are refreshed. `bb check-drift` runs `refresh-stdlib` itself for exactly this reason.
 
-The same reasoning explains a pin that otherwise looks like an oversight: `AssemblyVersion` stays at `1.0.0.0` in `Directory.Build.props` rather than following `version.edn`, because every emitted `.clj.dll` bakes it into its assembly references and tying it to the release version would invalidate all 73 on every release.
+The same reasoning explains a pin that otherwise looks like an oversight: `AssemblyVersion` stays at `1.0.0.0` in `Directory.Build.props` rather than following `version.edn`, because every emitted `.clj.dll` bakes it into its assembly references and tying it to the release version would invalidate all 81 on every release.
 
 ### A runtime signature change: bridge, then clean
 
@@ -346,11 +317,11 @@ timeline
 
 From June 2016 `nostrand` committed exactly one binary: ClojureCLR's full `Clojure.dll`, 4.7 MB at the time. `Main` called `RT.load("clojure/core")`, and the DLR compiler inside that DLL read the `.clj` sources at startup. Requiring `magic.api` compiled MAGIC on the spot, every run.
 
-That changed in one commit, `ecddba98` (2020-10-12), titled "Start work on MAGIC Nostrand bootstrap", with the body "Working but not 100% reproducible yet". `Clojure.dll` drops from 5,967,360 bytes to 559,616, the compiler-free fork replacing the full runtime, and 71 `.clj.dll` appear next to it. `RT.load` gives way to the loop that still runs today. Eleven days later `References/` became `references/` and nostrand's own 8 `.clj.dll` were dropped, since its CLI and task code is recompiled into memory at every startup.
+That changed in one commit, `ecddba98` (2020-10-12), titled "Start work on MAGIC Nostrand bootstrap", with the body "Working but not 100% reproducible yet". `Clojure.dll` drops from 5,967,360 bytes to 559,616, the compiler-free fork replacing the full runtime, and 71 `.clj.dll` appear next to it. `RT.load` gives way to the loop that still runs today. Eleven days later `References/` became `references/` and nostrand's own 8 `.clj.dll` were dropped, leaving its CLI and task code to be recompiled into memory at every startup until they were committed again in September 2026.
 
 The first hazard showed up nine days in, when `sparse-case` was added to handle hash values that "break across runtimes". Two years later the contract work that fixed hashing for real used exactly that escape hatch. The same stretch replaced `clojure.core/compile` with the MAGIC API in `build.clj` (`903ae224`), ending a double compilation, and gave `build.clj` the explicit ordered list it still has.
 
-The remaining changes all came from a committed binary going stale unnoticed. In May 2026 a `pprint` source fix went in with no committed DLL behind it, so whether the fix took effect came down to the mtimes a given clone happened to get. That exposed the real gap: the bootstrap chain ends at `clojure.core` and never touched most of the stdlib, so a fix there could not be re-emitted by any build flow. `bb refresh-stdlib` closed it (`254e387b`), and that is why the 73 are owned by two tasks today rather than one.
+The remaining changes all came from a committed binary going stale unnoticed. In May 2026 a `pprint` source fix went in with no committed DLL behind it, so whether the fix took effect came down to the mtimes a given clone happened to get. That exposed the real gap: the bootstrap chain ends at `clojure.core` and never touched most of the stdlib, so a fix there could not be re-emitted by any build flow. `bb refresh-stdlib` closed it (`254e387b`), and that is why the 81 are owned by several tasks today rather than one.
 
 Two blind spots closed after that, and both are rules above. `case` jump tables meant a DLL could go stale from a C# runtime change its own source never mentions, which only a byte diff can see. And the seven `(load ...)` sub-files no flow re-emitted were still carrying their 2020 and 2022 bytes, which only became visible once a rebuild was expected to reproduce them.
 

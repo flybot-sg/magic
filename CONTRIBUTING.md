@@ -92,7 +92,7 @@ Reference the related GitHub issue in the title or body, e.g. `(#42)` or `Closes
 
 ### Paired bootstrap refresh
 
-When a change affects the committed `.clj.dll`s under `nostrand/references/` and `magic-unity/Runtime/magic/` (a stdlib or compiler `.clj` edit, or a C# runtime change that alters what the compiler emits), refresh them and commit the new binaries in a paired commit:
+When a change affects the committed `.clj.dll`s under `nostrand/references/` and `magic-unity/Runtime/magic/` (a stdlib, compiler or `nostrand/nostrand/**/*.clj` edit, or a C# runtime change that alters what the compiler emits), refresh them and commit the new binaries in a paired commit:
 
     chore(bootstrap): refresh <name> DLL for <short reason> (#<issue>)
 
