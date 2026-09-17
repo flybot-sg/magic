@@ -43,6 +43,5 @@
   </Target>
   <Target Name="PostBuild" AfterTargets="Build">
     <Exec Command="sh Scripts/unpatch-assembly-info.sh" />
-    <Exec Command="sh Scripts/aot-assemblies.sh $(OutDir)" Condition="'$(Configuration)'=='Release'" />
   </Target> -->
 </Project>
