@@ -15,7 +15,9 @@ namespace Magic.Unity
     // install does not dirty the project, so the callback never re-runs for those.
     internal sealed class CljPluginConstraints : AssetPostprocessor
     {
-        // Synced with the :magic block in bb/magic/unity.clj
+        // The block stamped onto an unconstrained plugin. Synced with the
+        // :magic block in bb/magic/unity.clj; NeedsConstraint accepts any block
+        // that keeps the plugin out of a ClojureCLR Editor, not just this one.
         const string MagicConstraint = "!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR";
 
         const string Tag = "[Magic.Unity/CljPluginConstraints]";
@@ -228,12 +230,33 @@ namespace Magic.Unity
                 );
         }
 
+        // Entries AND, terms within an entry OR. A ClojureCLR Editor defines
+        // UNITY_EDITOR and leaves MAGIC_RUNTIME_IN_EDITOR undefined, so one
+        // entry with every term false is enough to keep the plugin out of it.
         static bool NeedsConstraint(string[] constraints)
         {
-            return constraints == null
-                || !constraints.Any(c =>
-                    string.Equals(c?.Trim(), MagicConstraint, StringComparison.Ordinal)
-                );
+            return constraints == null || !constraints.Any(GatedInClojureClrEditor);
+        }
+
+        static bool GatedInClojureClrEditor(string entry)
+        {
+            if (string.IsNullOrWhiteSpace(entry))
+            {
+                return false;
+            }
+            var terms = entry.Split('|')
+                .Select(term => term.Trim())
+                .Where(term => term.Length > 0)
+                .ToList();
+            return terms.Count > 0 && terms.All(DefeatedInClojureClrEditor);
+        }
+
+        // Anything else is assumed satisfied: the consumer's defines are unknown
+        // and assuming the plugin loads is the safe direction.
+        static bool DefeatedInClojureClrEditor(string term)
+        {
+            return string.Equals(term, EditorRuntime.Symbol, StringComparison.Ordinal)
+                || string.Equals(term, "!UNITY_EDITOR", StringComparison.Ordinal);
         }
 
         static string[] Constrain(string[] constraints)
