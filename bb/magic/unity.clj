@@ -72,6 +72,22 @@
   (str/includes? (slurp constrainer-path)
                  (str "\"" (first (runtime-sets :magic)) "\"")))
 
+(defn- defeated-term?
+  "Whether a term is false in a ClojureCLR Editor: UNITY_EDITOR is defined there
+   and the MAGIC symbol is not. Any other term counts as satisfied."
+  [term]
+  (contains? #{magic-symbol "!UNITY_EDITOR"} (str/trim term)))
+
+(defn- gated-in-clojure-clr-editor?
+  "Whether a constraint block keeps a plugin out of a ClojureCLR Editor: entries
+   AND and terms OR, so one entry with every term defeated suffices."
+  [entries]
+  (boolean
+   (some (fn [entry]
+           (let [terms (remove str/blank? (str/split (str entry) #"\|"))]
+             (and (seq terms) (every? defeated-term? terms))))
+         entries)))
+
 ;;; The Clojure-output extension lists
 
 (defn- quoted-strings [s]
@@ -187,6 +203,18 @@
       (apply log/fail! "define constraints are wrong"
              (concat ["" "These shipped DLLs do not carry the runtime-selection block" ""]
                      wrong)))
+    ;; The block a set authors must also pass the semantic gate the constrainer
+    ;; applies to consumer DLLs; only sets that ship Clojure output are gated.
+    (when-let [ungated (seq (for [[_ expected dlls] sets
+                                  dll  dlls
+                                  :when (some #(str/ends-with? (str dll) %) clj-extensions)
+                                  :when (not (gated-in-clojure-clr-editor? expected))]
+                              (str "  " dll ".meta\n"
+                                   "    " (pr-str expected)
+                                   " does not keep it out of a ClojureCLR Editor")))]
+      (apply log/fail! "define constraints are wrong"
+             (concat ["" "These Clojure-output DLLs are not gated on the Editor's runtime" ""]
+                     ungated)))
     (when-not (constrainer-agrees?)
       (log/fail! "define constraints are wrong"
                  ""
