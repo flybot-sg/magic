@@ -36,12 +36,9 @@
         :when (not= v (get fields k))]
     (str (name k) "=" (pr-str (get fields k)) " (expected " (pr-str v) ")")))
 
-(defn- clj-dlls [dir]
-  (mapcat #(fs/glob dir (str "*" %)) unity/clj-extensions))
-
 (defn- shipped-clj-count []
-  (+ (count (clj-dlls (unity/runtime-dir :magic)))
-     (count (clj-dlls consumer-dir))))
+  (+ (count (unity/clj-dlls (unity/plugin-dir :magic)))
+     (count (unity/clj-dlls consumer-dir))))
 
 (def ^:private csharp-fields
   "The C# assembly carries no define constraint, so both states report it alike."
@@ -52,7 +49,8 @@
   "The two valid Editor states, keyed by the runtime the Editor loads, each
    with the probe fields that must hold."
   (delay
-    (let [n (str (shipped-clj-count))]
+    (let [n (str (shipped-clj-count))
+          c (str (count (unity/clj-dlls (unity/plugin-dir :compiler))))]
       {:clojure-clr {:symbol? false
                      :probe   (merge csharp-fields
                                      {:symbol            "unset"
@@ -60,7 +58,8 @@
                                       :core-clj-loadable "false"
                                       :clojure-versions  "[1.11.0.0]"
                                       :editor-clj-refs   "0"
-                                      :player-clj-refs   n})}
+                                      :player-clj-refs   n
+                                      :compiler-in-domain "0"})}
        :magic       {:symbol? true
                      :probe   (merge csharp-fields
                                      {:symbol            "set"
@@ -68,7 +67,8 @@
                                       :core-clj-loadable "true"
                                       :clojure-versions  "[1.0.0.0]"
                                       :editor-clj-refs   n
-                                      :player-clj-refs   n})}})))
+                                      :player-clj-refs   n
+                                      :compiler-in-domain c})}})))
 
 (defn- pack-tarball!
   "Pack pkg into a UPM tarball at tgz; exclude paths are relative to pkg."
@@ -274,7 +274,7 @@
   "Each fixture consumer DLL's meta state: :constrained, :unconstrained, or :no-meta."
   []
   (into (sorted-map)
-        (for [dll (clj-dlls consumer-dir)
+        (for [dll (unity/clj-dlls consumer-dir)
               :let [meta-file (str dll ".meta")]]
           [(str (fs/file-name dll))
            (cond
@@ -316,7 +316,7 @@
                        (str "Reconcile brought " brought " assembl" (if (= 1 brought) "y" "ies")
                             " but the baseline left " (count before)
                             " unconstrained, so something else constrained the rest"))
-        leaked       (field-mismatches {:preloaded-clj "0" :editor-clj-refs "0"} fields)
+        leaked       (field-mismatches {:preloaded-clj "0" :editor-clj-refs "0" :compiler-in-domain "0"} fields)
         ;; Two mechanisms each keep this at 1: Reconcile pre-constrains the
         ;; metas, and the import callback batches its report behind a delayCall.
         ;; A regression in one is invisible until the other goes too.

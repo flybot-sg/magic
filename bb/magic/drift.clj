@@ -12,12 +12,16 @@
             [babashka.tasks :refer [shell]]
             [clojure.edn]
             [clojure.string :as str]
-            [magic.log :as log])
+            [magic.log :as log]
+            [magic.unity :as unity])
   (:import [java.security MessageDigest]))
 
 (def manifest-path "magic-compiler/dll-sources.edn")
 
 (def ^:private references-dir "nostrand/references")
+(def ^:private magic-dir (unity/plugin-dir :magic))
+(def ^:private compiler-dir (unity/plugin-dir :compiler))
+(def ^:private clojure-clr-dir (unity/plugin-dir :clojure-clr))
 
 ;; The vendored clojure.tools.analyzer.* DLLs resolve in none of these: they
 ;; are the only committed DLLs with no in-tree source.
@@ -43,7 +47,8 @@
 
 (def ^:private dll-dirs
   [references-dir
-   "magic-unity/Runtime/magic"
+   magic-dir
+   compiler-dir
    "nostrand/bin/Release/net471"])
 
 (defn touch-dlls!
@@ -128,12 +133,13 @@
   (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
                        manifest-path
                        "magic-unity/package.json"
-                       "magic-unity/Runtime/clojure-clr"
-                       "nostrand/references"
-                       "magic-unity/Runtime/magic"]
+                       clojure-clr-dir
+                       references-dir
+                       magic-dir
+                       compiler-dir]
         _ (shell "git" "checkout" "--"
-                 "magic-unity/Runtime/magic/Clojure.dll"
-                 "magic-unity/Runtime/magic/Magic.Runtime.dll")
+                 (str magic-dir "/Clojure.dll")
+                 (str magic-dir "/Magic.Runtime.dll"))
         {:keys [out]} (apply shell {:continue true :out :string}
                              "git" "status" "--porcelain" "--" checked-paths)]
     (when-not (str/blank? out)

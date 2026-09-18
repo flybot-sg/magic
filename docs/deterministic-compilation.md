@@ -4,7 +4,7 @@ MAGIC compiles deterministically since v0.10.0, with the last two nondeterminism
 
 That is what makes the drift check simple. After a bootstrap reaches its fixpoint (two passes when the compiler changed, [the bootstrap](./bootstrap.md)), `git status` names exactly the committed DLLs a fix affected, and CI byte-diffs every one of them against a fresh rebuild. A committed DLL whose bytes no longer match that rebuild has **drifted**. Before the bytes were reproducible there was nothing to compare, so the check hashed sources instead, and a whole class of staleness got through.
 
-Two directories hold those committed binaries: `nostrand/references/`, the 84 `.clj.dll` that are the compiler and stdlib themselves, and `magic-unity/Runtime/magic/`, the 37 stdlib `.clj.dll` plus the two C# runtime DLLs that Unity ships. What each holds and why is in [the bootstrap](./bootstrap.md#what-is-committed-and-why).
+Three directories hold those committed binaries; what each holds and why is in [the bootstrap](./bootstrap.md#what-is-committed-and-why).
 
 ## A DLL can go stale without its source changing
 
@@ -30,7 +30,7 @@ flowchart TD
     cmp -->|"does the<br/>transforming"| compile
     rt -->|"the compiler runs on it,<br/>so values it computes get<br/>baked in as constants<br/>(hasheq case tables)"| compile
     drv -->|"sets the flags and<br/>the compile order"| compile
-    compile --> dll["clojure.spec.alpha.clj.dll<br/>committed to both directories above"]
+    compile --> dll["clojure.spec.alpha.clj.dll<br/>committed to references/ and Runtime/magic/"]
 ```
 
 ## Making the bytes reproducible

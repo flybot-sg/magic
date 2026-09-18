@@ -26,6 +26,9 @@ public static class CoexistenceProbe
     // The unconstrained plugin, expected in both Editor states.
     const string CsharpName = "smoke_csharp";
 
+    // Both package sets are .clj.dll, so the compiler set is told apart by directory.
+    const string CompilerDir = "/Editor/Compiler/";
+
     static bool IsCljAssembly(string name, string suffix)
     {
         return Extensions.Any(e => name.EndsWith(e + suffix, StringComparison.OrdinalIgnoreCase));
@@ -37,12 +40,14 @@ public static class CoexistenceProbe
             .CurrentDomain.GetAssemblies()
             .Any(a => a.GetName().Name == CsharpName);
 
-        var preloaded = AppDomain
+        var loadedClj = AppDomain
             .CurrentDomain.GetAssemblies()
-            .Select(a => a.GetName().Name)
-            .Where(n => IsCljAssembly(n, ""))
-            .OrderBy(n => n)
+            .Where(a => IsCljAssembly(a.GetName().Name, ""))
             .ToArray();
+
+        // Unity loads editor-eligible plugins eagerly, isExplicitlyReferenced notwithstanding.
+        var compilerInDomain = loadedClj.Count(FromCompilerDir);
+        var preloaded = loadedClj.Length - compilerInDomain;
 
         bool coreLoadable;
         string loadDetail;
@@ -69,7 +74,8 @@ public static class CoexistenceProbe
 
         Debug.Log(
             $"[CoexistenceProbe] symbol={SymbolState} "
-                + $"preloaded-clj={preloaded.Length} "
+                + $"preloaded-clj={preloaded} "
+                + $"compiler-in-domain={compilerInDomain} "
                 + $"core-clj-loadable={coreLoadable.ToString().ToLowerInvariant()} "
                 + $"core-clj-load={loadDetail} "
                 + $"clojure-versions=[{string.Join(",", clojureVersions)}] "
@@ -101,5 +107,10 @@ public static class CoexistenceProbe
     static int CljReferences(AssembliesType type)
     {
         return ReferenceCount(type, r => IsCljAssembly(r, ".dll"));
+    }
+
+    static bool FromCompilerDir(Assembly a)
+    {
+        return !a.IsDynamic && a.Location.Contains(CompilerDir);
     }
 }

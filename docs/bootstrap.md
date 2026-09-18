@@ -41,16 +41,15 @@ ClojureCLR rebuilt MAGIC from source at every startup and kept nothing, so no MA
 
 ## What is committed, and why
 
-Two directories hold committed `.clj.dll`, and only one of them holds a compiler.
+Three directories hold committed `.clj.dll`, and two of them hold a compiler.
 
 | Directory | Holds | Loaded by |
 |---|---|---|
 | `nostrand/references/` | 84 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), the stdlib (37 `clojure.*`), and nostrand's own namespaces (11 `nostrand.*`) | `nos`, at every startup |
 | `magic-unity/Runtime/magic/` | the same 37 stdlib `.clj.dll`, plus `Clojure.dll` and `Magic.Runtime.dll` | Unity, at play time and in players |
+| `magic-unity/Editor/Compiler/` | the compiler and its analyzer dependency (36), and 9 of the 11 `nostrand.*`, all but `nostrand.cli` and `nostrand.main` | a MAGIC Editor only, never a player |
 
-No compiler ships to Unity, because Unity never compiles Clojure. You compile with `nos` first, and Unity loads the result as ordinary .NET assemblies ([Unity integration](./unity-integration.md)).
-
-A third copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 84 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
+A fourth copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 84 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
 
 `Nostrand.Runtime.Boot` loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and binds `clojure.core`'s empty compiler slots to `magic.api` ([Nostrand](./architecture.md#nostrand)).
 

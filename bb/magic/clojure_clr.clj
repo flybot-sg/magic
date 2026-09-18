@@ -8,7 +8,7 @@
 
 (def ^:private repo "flybot-sg/clojure-clr")
 
-(def ^:private clojure-clr-dir (unity/runtime-dir :clojure-clr))
+(def ^:private clojure-clr-dir (unity/plugin-dir :clojure-clr))
 
 (defn- newest-release-tag []
   ;; Not /releases/latest as it skips prereleases. /releases is newest-first.

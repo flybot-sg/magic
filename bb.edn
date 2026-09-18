@@ -33,12 +33,12 @@
              (nos/refresh! "nostrand"))}
 
   refresh-nostrand
-  {:doc "Recompile the committed nostrand.*.clj.dll from nostrand-lib/nostrand/**/*.clj and nostrand/nostrand/cli.clj."
+  {:doc "Recompile the committed nostrand.*.clj.dll from nostrand-lib/nostrand/**/*.clj and nostrand/nostrand/{cli,main}.clj, also deploying all but nostrand.cli and nostrand.main to `magic-unity/Editor/Compiler`."
    :depends [-check-nostrand]
    :task (nos/refresh! "nostrand")}
 
   bootstrap
-  {:doc "One bootstrap pass: compile magic-compiler with the compiler in references/, deploy over it (rebuilds nostrand) and into magic-unity `magic-unity/Runtime/magic`, re-record dll-sources.edn.
+  {:doc "One bootstrap pass: compile magic-compiler with the compiler in references/, deploy over it (rebuilds nostrand) and into `magic-unity/Runtime/magic` and `magic-unity/Editor/Compiler`, re-record dll-sources.edn.
          Slow.
          Extra args go to nos build/bootstrap, e.g. `bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'`.
          One pass is not the fixpoint; `bb dev-compiler` runs the usual two.
@@ -53,10 +53,8 @@
          Use after editing any magic-compiler/src/stdlib/**/*.clj.
          Owns every stdlib namespace outside the clojure.core family; the nostrand namespaces belong to `bb refresh-nostrand` and every other committed DLL to `bb bootstrap`.
          See docs/bootstrap.md."
-   :requires ([magic.unity :as unity])
    :depends [-check-nostrand]
-   :task (do (nos/refresh! "stdlib")
-             (unity/write-metas!))}
+   :task (nos/refresh! "stdlib")}
 
   ;; ============================================================
   ;; Generated outputs
@@ -93,7 +91,7 @@
    :requires ([magic.drift :as drift]
               [magic.unity :as unity])
    :depends [regen-callsites refresh-stdlib refresh-nostrand sync-upm-version]
-   :task (do (unity/check-constraints!) ; run after refresh-stdlib has written the metas
+   :task (do (unity/check-constraints!) ; run after the refresh tasks have written the metas
              (drift/check-copies!)
              (drift/check!))}
 

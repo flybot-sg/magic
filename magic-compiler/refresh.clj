@@ -6,7 +6,8 @@
    refresh/stdlib    clojure.*.clj.dll from magic-compiler/src/stdlib/**/*.clj,
                      also deployed to magic-unity/Runtime/magic/
    refresh/nostrand  nostrand.*.clj.dll from nostrand-lib/nostrand/**/*.clj and
-                     nostrand/nostrand/cli.clj
+                     nostrand/nostrand/{cli,main}.clj, all but nostrand.cli and
+                     nostrand.main also deployed to magic-unity/Editor/Compiler/
 
    Why this exists: clojure.core/load-one picks between .clj source and .clj.dll
    by mtime comparison. git checkout sets arbitrary mtimes. If the DLL on disk
@@ -22,8 +23,10 @@
 (def ^:private refs "../nostrand/references")
 (def ^:private bin "../nostrand/bin/Release/net471")
 (def ^:private unity "../magic-unity/Runtime/magic")
+(def ^:private unity-compiler "../magic-unity/Editor/Compiler")
 (def ^:private stdlib-root "src/stdlib")
-(def ^:private nostrand-roots ["../nostrand-lib" "../nostrand"])
+(def ^:private nostrand-lib-root "../nostrand-lib")
+(def ^:private nostrand-roots [nostrand-lib-root "../nostrand"])
 
 (def ^:private bootstrap-namespaces
   "Namespaces this task must not recompile: clojure.core plus the eight units
@@ -66,13 +69,13 @@
       symbol))
 
 (defn- ns-symbol->source-file
-  "clojure.pprint.pretty-writer -> magic-compiler/src/stdlib/clojure/pprint/pretty_writer.clj
-   (returns FileInfo or nil if not found)."
-  [ns-sym]
+  "ns-sym's .clj under root, e.g. clojure.pprint.pretty-writer under src/stdlib
+   -> src/stdlib/clojure/pprint/pretty_writer.clj (FileInfo, or nil if absent)."
+  [root ns-sym]
   (let [rel (-> (str ns-sym)
                 (str/replace \- \_)
                 (str/replace \. (System.IO.Path/DirectorySeparatorChar)))
-        p   (Path/Combine stdlib-root (str rel ".clj"))]
+        p   (Path/Combine root (str rel ".clj"))]
     (when (File/Exists p) (FileInfo. p))))
 
 (defn- compile-namespaces!
@@ -99,7 +102,8 @@
             namespaces)))
 
 (defn- compile-and-deploy!
-  "Deploys only if every namespace compiles."
+  "Deploys only if every namespace compiles. dests maps each destination
+   directory to a predicate on the DLL file name."
   [task namespaces tmp-dir glob dests]
   (when (Directory/Exists tmp-dir) (Directory/Delete tmp-dir true))
   (Directory/CreateDirectory tmp-dir)
@@ -120,7 +124,8 @@
     (println (str "compiled " (count produced) " DLLs to " tmp-dir))
     (doseq [f produced
             :let [src (Path/Combine tmp-dir f)]
-            dest dests]
+            [dest accept?] dests
+            :when (accept? f)]
       (File/Copy src (Path/Combine dest f) true))
     (Directory/Delete tmp-dir true))
   (println "done."))
@@ -134,7 +139,7 @@
                            vec)
         all-nss       (mapv dll->ns-symbol dll-files)
         ns->src       (into {} (for [ns all-nss
-                                     :let [f (ns-symbol->source-file ns)]
+                                     :let [f (ns-symbol->source-file stdlib-root ns)]
                                      :when f]
                                  [ns f]))
         bootstrap-nss (filter bootstrap-namespaces all-nss)
@@ -162,7 +167,7 @@
                          (concat top-level-nss subfile-nss)
                          (Path/GetFullPath "target/refresh-stdlib")
                          "clojure.*.clj.dll"
-                         [refs bin unity])))
+                         {refs any? bin any? unity any?})))
 
 (def ^:private nostrand-namespaces
   ;; compile a namespace only after the namespaces it requires
@@ -178,6 +183,13 @@
     nostrand.exec
     nostrand.main])
 
+(defn- nostrand-lib-dll?
+  "Whether dll's source is under nostrand-lib. nostrand/'s cli and main stay out
+   of the Editor: cli needs Mono.Terminal, which the package does not ship, and
+   main exits the process."
+  [dll]
+  (some? (ns-symbol->source-file nostrand-lib-root (dll->ns-symbol dll))))
+
 (defn nostrand [& _args]
   (println (str "compiling " (count nostrand-namespaces) " nostrand namespaces"))
   ;; nostrand's sources are outside magic-compiler's :paths
@@ -186,4 +198,6 @@
                          nostrand-namespaces
                          (Path/GetFullPath "target/refresh-nostrand")
                          "nostrand.*.clj.dll"
-                         [refs bin])))
+                         {refs           any?
+                          bin            any?
+                          unity-compiler nostrand-lib-dll?})))
