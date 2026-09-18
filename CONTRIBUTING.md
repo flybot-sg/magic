@@ -76,6 +76,8 @@ bb test
 
 Keep the order: `check-drift` byte-diffs the committed `.clj.dll` binaries against the rebuild, so the fresh `bb build` before it is what surfaces bootstrap drift. Use `bb build` rather than raw `dotnet build` after a fresh clone (it normalizes DLL timestamps first), and rebuild twice after compiler changes (self-hosting: the second pass is the fixpoint). The two C# runtime DLLs in the Unity package's `magic/` folder embed a git-derived SourceRevisionId and cannot be byte-verified; `check-drift` restores them from HEAD. Details in [docs/deterministic-compilation.md](./docs/deterministic-compilation.md).
 
+Touching `magic-unity/Editor/Reload/` or `magic-unity/Editor/NostrandHost/` adds a step the gate does not cover: run `bb reloader-probes` or `bb nostrand-probes` respectively, before and after. Unity compiling those files proves nothing about the debounce, the retry budget, or the warm-domain binding frame.
+
 See [Development](./README.md#development) for what each task does.
 
 ## Commits

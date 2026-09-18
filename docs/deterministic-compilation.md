@@ -183,6 +183,8 @@ A refresh that fails to compile anything deploys nothing and exits non-zero, so 
 
 `magic/Clojure.dll` and `magic/Magic.Runtime.dll` are built by csproj, and their csproj stamps a `SourceRevisionId` from `git describe` into the assembly. Their bytes change with every commit by design, and no rebuild reproduces the committed ones. `check-drift` restores those two from HEAD, and maintainers refresh them deliberately.
 
+`Editor/Compiler/Nostrand.dll` is the committed C# DLL the byte-diff does cover instead: its csproj turns off Source Link, the commit sha in `InformationalVersion` and the Release PDB, so two checkouts at different paths and different git state produce identical bytes ([DLL provenance](./dll-provenance.md)).
+
 ## Committing an assembly you compiled yourself
 
 The same property matters one level out. A library that ships a hand-written C# class commits the DLL `csc` produced ([a library's C# assembly](./native-assemblies.md)), and the same rule applies: if the command that built it is not reproducible, every rebuild moves the committed file and the team learns to ignore real changes.

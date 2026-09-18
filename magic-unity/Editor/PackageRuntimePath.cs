@@ -10,9 +10,15 @@ namespace Magic.Unity
     // Assets, Unity dedups Clojure.dll by file name and those anchors bind
     // to that copy. Resolve the package install path instead; resolvedPath
     // is the physical location for git, registry, local and embedded packages.
-    internal static class PackageRuntimePath
+    public static class PackageRuntimePath
     {
         static PackageInfo Package => PackageInfo.FindForAssembly(typeof(PackageRuntimePath).Assembly);
+
+        // Public, and the only public member here, for the Nostrand host in
+        // Magic.Unity.Editor.Nostrand.Unity: it needs Editor/Compiler as well
+        // as Runtime/magic, and it resolves them for the same reason this type
+        // exists rather than off typeof().Location.
+        public static string ResolvedPath => Package.resolvedPath;
 
         internal static string MagicRuntimeDirectory => Path.Combine(Package.resolvedPath, "Runtime", "magic");
 

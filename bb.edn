@@ -26,7 +26,7 @@
              (unity/write-metas!))}
 
   build-runtime
-  {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand, then recompile nostrand's own .clj into the committed nostrand.*.clj.dll.
+  {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand, then recompile nostrand's own .clj into the committed nostrand.*.clj.dll. Nostrand.csproj redeploys Nostrand.dll into magic-unity/Editor/Compiler as part of its build.
          No magic-compiler bootstrap.
          Fast."
    :task (do (shell "dotnet build" "nostrand/NostrandMain.csproj" "-c" "Release")
@@ -53,10 +53,8 @@
          Use after editing any magic-compiler/src/stdlib/**/*.clj.
          Owns every stdlib namespace outside the clojure.core family; the nostrand namespaces belong to `bb refresh-nostrand` and every other committed DLL to `bb bootstrap`.
          See docs/bootstrap.md."
-   :requires ([magic.unity :as unity])
    :depends [-check-nostrand]
-   :task (do (nos/refresh! "stdlib")
-             (unity/write-metas!))}
+   :task (nos/refresh! "stdlib")}
 
   ;; ============================================================
   ;; Generated outputs
@@ -86,7 +84,7 @@
              (unity/check-constraints!))}
 
   check-drift
-  {:doc "Regenerate everything generated (callsite .g.cs, stdlib and nostrand .clj.dll, dll-sources.edn, UPM version), verify the runtime-selection constraints, and fail if any checked path differs from HEAD.
+  {:doc "Regenerate everything generated (callsite .g.cs, stdlib and nostrand .clj.dll, dll-sources.edn, UPM version), verify the runtime-selection constraints, check that the shipped DLL sets partition nostrand/references, and fail if any checked path differs from HEAD.
          Committed DLLs are byte-diffed.
          Run after a fresh `bb build` so the bootstrap set is covered too, as CI does.
          See docs/deterministic-compilation.md."
@@ -95,6 +93,7 @@
    :depends [regen-callsites refresh-stdlib refresh-nostrand sync-upm-version]
    :task (do (unity/check-constraints!) ; run after refresh-stdlib has written the metas
              (drift/check-copies!)
+             (drift/check-partition!)
              (drift/check!))}
 
   ;; ============================================================
@@ -179,6 +178,11 @@
   {:doc "Out-of-Unity regression pack for the hot reloader in magic-unity/Editor/Reload: compiles the real sources with csc and runs them under mono against magic-unity/Runtime/clojure-clr. What each probe asserts is in magic-unity/Tests~/reloader/README.md.
          Needs csc (Roslyn) and mono. FileSystemWatcher behaviour is platform-specific (measured on macOS), so it runs by hand, not in CI."
    :task (shell "bash" "magic-unity/Tests~/reloader/run.sh")}
+
+  nostrand-probes
+  {:doc "Out-of-Unity regression pack for the in-process Editor host in magic-unity/Editor/NostrandHost: compiles the real NostrandHost.cs with csc and drives it under mono against the package's own shipped DLL set. What each probe asserts is in magic-unity/Tests~/nostrand/README.md.
+         Needs csc (Roslyn) and mono. Links the shipped Nostrand.dll rather than the Unity-facing half of the host, which references UnityEditor."
+   :task (shell "bash" "magic-unity/Tests~/nostrand/run.sh")}
 
   ;; ============================================================
   ;; Hygiene + release

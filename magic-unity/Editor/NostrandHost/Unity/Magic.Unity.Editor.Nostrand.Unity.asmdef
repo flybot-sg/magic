@@ -1,0 +1,21 @@
+{
+    "name": "Magic.Unity.Editor.Nostrand.Unity",
+    "rootNamespace": "",
+    "references": [
+        "Magic.Unity.Editor",
+        "Magic.Unity.Editor.Nostrand"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "MAGIC_RUNTIME_IN_EDITOR"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
