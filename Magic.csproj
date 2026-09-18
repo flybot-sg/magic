@@ -2,6 +2,8 @@
     <PropertyGroup>
         <NostrandExeNet4x>nostrand/bin/Release/net471/NostrandMain.exe</NostrandExeNet4x>
         <MagicUnityMagicRuntimeDir>magic-unity/Runtime/magic</MagicUnityMagicRuntimeDir>
+        <MagicUnityCompilerDir>magic-unity/Editor/Compiler</MagicUnityCompilerDir>
+        <NostrandProject>nostrand/NostrandMain.csproj</NostrandProject>
         <ClojureRuntimeDllNet471>clojure-runtime/bin/Release/net471/Clojure.dll</ClojureRuntimeDllNet471>
         <ClojureRuntimeDllNetStandard>clojure-runtime/bin/Release/netstandard2.0/Clojure.dll</ClojureRuntimeDllNetStandard>
         <MagicRuntimeDllNet471>magic-runtime/Magic.Runtime/bin/Release/net471/Magic.Runtime.dll</MagicRuntimeDllNet471>
@@ -9,8 +11,12 @@
         <MagicBootstrap>magic-compiler/bootstrap</MagicBootstrap>
     </PropertyGroup>
     <ItemGroup>
-        <MagicAllBinaries Include="magic-compiler/bootstrap/*.clj.dll"/>
-        <MagicRuntimeBinaries Include="magic-compiler/bootstrap/clojure*.clj.dll" Exclude="magic-compiler/bootstrap/clojure.tools.analyzer*.clj.dll" />
+        <!-- The bootstrap owns the partition: it writes each namespace into
+             stdlib/ or compiler/. -->
+        <MagicAllBinaries Include="$(MagicBootstrap)/*/*.clj.dll"/>
+        <MagicRuntimeBinaries Include="$(MagicBootstrap)/stdlib/*.clj.dll" />
+        <!-- Editor-only at run time: MSIL emission needs Reflection.Emit. -->
+        <MagicCompilerBinaries Include="$(MagicBootstrap)/compiler/*.clj.dll" />
     </ItemGroup>
 
     <Target Name="All">
@@ -23,19 +29,20 @@
     <!-- Do not guard on Exists(): dotnet build is incremental by timestamp, and an
          existence check keeps a stale host after a C# edit. -->
     <Target Name="Nostrand">
-        <Exec WorkingDirectory="nostrand" Command="dotnet build -c Release" />
+        <Exec Command="dotnet build $(NostrandProject) -c Release" />
     </Target>
     <Target Name="Magic" DependsOnTargets="Nostrand" Condition="!Exists('$(MagicBootstrap)')">
         <Exec WorkingDirectory="magic-compiler" Command="mono ../$(NostrandExeNet4x) build/bootstrap" />
     </Target>
     <Target Name="MagicUnity" DependsOnTargets="Magic">
         <Copy SourceFiles="@(MagicRuntimeBinaries)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
+        <Copy SourceFiles="@(MagicCompilerBinaries)" DestinationFolder="$(MagicUnityCompilerDir)" />
         <Copy SourceFiles="$(ClojureRuntimeDllNet471)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
         <Copy SourceFiles="$(MagicRuntimeDllNet471)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
     </Target>
     <Target Name="Bootstrap" DependsOnTargets="Magic">
         <Copy SourceFiles="@(MagicAllBinaries)" DestinationFolder="$(NostrandReferences)" />
-        <Exec WorkingDirectory="nostrand" Command="dotnet build -c Release" />
+        <Exec Command="dotnet build $(NostrandProject) -c Release" />
     </Target>
 
     <Target Name="Clean">

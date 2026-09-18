@@ -46,6 +46,7 @@ Working on MAGIC itself:
 - [Development](./docs/development.md): every `bb` task in depth, which rebuild your edit needs, and the tools for inspecting a form.
 - [The bootstrap](./docs/bootstrap.md): what is committed and why, which task owns which DLL, and how many passes a change needs.
 - [Deterministic compilation and the drift check](./docs/deterministic-compilation.md): why the committed DLLs are byte-diffed against a rebuild, and the contributor workflows that follow.
+- [Where every committed DLL comes from](./docs/dll-provenance.md): the source, the command and an example file for each set of committed binaries.
 
 Per-component reference lives in each component's own README, linked from [Components](#components) below. To contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
