@@ -75,4 +75,4 @@
  nostrand.deps.shell {:source "nostrand/nostrand/deps/shell.clj", :sha256 "623bd8876470a09fcbe652d7de51152e6ecf3b89df38b03bbd7c867137212271"}
  nostrand.deps.submodules {:source "nostrand/nostrand/deps/submodules.clj", :sha256 "adf03193ee08b2a44854f19e049fa0892f1cad1fabfb419ad88330c8ce6b7684"}
  nostrand.repl {:source "nostrand/nostrand/repl.clj", :sha256 "05755d291b897f6ffe62587d034d534c71f00b9c504e8081538a1e819aecb4de"}
- nostrand.tasks {:source "nostrand/nostrand/tasks.clj", :sha256 "1fec0b7038e4c57801747cd73a08553d3de01b71fc427d7cbd8766f5ce8a4616"}}
+ nostrand.tasks {:source "nostrand/nostrand/tasks.clj", :sha256 "f43adc099016e6d2f7e7fabbae0995c82cc0b857c7e530123ff030cf1e16950c"}}
