@@ -6,7 +6,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [magic.drift :as drift]
-            [magic.log :as log]))
+            [magic.log :as log]
+            [magic.unity :as unity]))
 
 (def exe "nostrand/bin/Release/net471/NostrandMain.exe")
 

@@ -97,7 +97,22 @@ Note that:
 
 - **API Compatibility Level must be `.NET Framework`** (`Project Settings > Player`) for ClojureCLR, as it needs assemblies the .NET Standard profile lacks.
 - In the default state, `Clojure.Require`/`GetVar` drive ClojureCLR, not MAGIC: the same C# calls, executed by whichever runtime the Editor loaded. ClojureCLR compiles from source, so Editor `Require` needs your Clojure sources on its load path (`CLOJURE_LOAD_PATH`); the DLLs that `nos build` wrote are MAGIC output and stay excluded from the Editor in this state.
-- **Hot reload is yours to wire up.** A saved Clojure source can be re-evaluated into the running Editor, but nothing in the package does it: construct a [`Magic.Unity.ClojureReloader`](../magic-unity/README.md#editor-api) over your source roots and poll it from your main-thread loop.
+- **Hot reload is yours to wire up.** A saved Clojure source can be re-evaluated into the running Editor, but nothing in the package does it. See [Hot reload](#hot-reload).
+
+## Hot reload
+
+Construct a [`Magic.Unity.ClojureReloader`](../magic-unity/README.md#editor-api) over your source roots, normally the directories you put on `CLOJURE_LOAD_PATH`, and call `Poll` from a main-thread tick. That is the whole wiring. It runs only in the default Editor state: under `MAGIC_RUNTIME_IN_EDITOR`, and in every player, the assembly holding the reloader is dropped by its define constraint, so nothing is constructed and nothing watches. Which forms actually hot-swap, and what happens when two files are saved together, are in the [package README](../magic-unity/README.md#editor-api).
+
+**Keep `nos build` output out of your source roots.** `RT.load` prefers a compiled `.clj.dll` that is no older than the source beside it, so a root holding both shadows the file you just saved: the reload does nothing visible and logs no failure. An `:out` under `Assets/Plugins/Magic/`, as [above](#the-two-plugin-folders), is already outside a normal source tree.
+
+**Save a dependency before its dependent**, wait for its reload line, then save the dependent, and save again anything that consumed a changed macro or type.
+
+When a reload appears to have done nothing, work in this order:
+
+- Check for the `Reloaded <path>` line your logger received. Absent means the file is not under a watched root, or the Editor is running MAGIC. Present means the file was evaluated, and the question is what that evaluation changed.
+- To prove the new body ran, independent of what the game renders, put a `(spit "/tmp/reload-probe.txt" "v2")` at the top of the reloaded function and watch the file change as you edit the string.
+- To see a live behaviour change with the least ambiguity, target a `defmethod`, which always hot-swaps.
+- If the line is present but the behaviour is old, and the file uses a macro or type from another file you also just edited, suspect save order and save this file again.
 
 ## Shipping your own compiled DLLs
 

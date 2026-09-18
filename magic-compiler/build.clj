@@ -78,15 +78,31 @@
                      [v true]))
                  spells)))
 
+(defn- stdlib-ns?
+  "Whether a namespace's source lives under src/stdlib. Same rule bb's drift
+   check uses to partition the committed DLLs; a namespace with no in-tree
+   source (the vendored clojure.tools.analyzer.*) is not stdlib."
+  [lib]
+  (let [rel (-> (str lib) (.Replace "-" "_") (.Replace "." "/"))]
+    (boolean (some #(File/Exists (str "src/stdlib/" rel %)) [".clj" ".cljc"]))))
+
+(defn- compile-path-for
+  "bootstrap/stdlib for a stdlib namespace, bootstrap/compiler for the rest.
+   The two directories are the partition Magic.csproj deploys from."
+  [lib]
+  (if (stdlib-ns? lib) "bootstrap/stdlib" "bootstrap/compiler"))
+
 (defn bootstrap [& {:keys [spells]}]
   (binding [clojure.core/*loaded-libs* (ref (sorted-set))
             *eval-form-fn*             magic.api/eval
             *compile-file-fn*          magic.api/runtime-compile-file
             *load-file-fn*             magic.api/runtime-load-file
-            *warn-on-reflection*       true
-            *compile-path*             "bootstrap"]
+            *warn-on-reflection*       true]
     (with-bindings* (spell-flag-bindings spells)
       (fn []
+        ;; Order is load-bearing for bootstrapping; only the output directory
+        ;; varies per namespace.
         (doseq [lib std-libs-to-compile]
           (println (str "building " lib))
-          (compile-namespace lib {:write-files true :suppress-print-forms true}))))))
+          (binding [*compile-path* (compile-path-for lib)]
+            (compile-namespace lib {:write-files true :suppress-print-forms true})))))))

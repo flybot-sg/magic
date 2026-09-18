@@ -7,12 +7,15 @@
    still hashes gets its DLL stamped newer, so the loader takes the committed
    bytes over recompiling.
    It also verifies the committed copies of one file that the repo keeps in
-   several trees."
+   several trees, and the partition of the reference DLLs across the package's
+   two shipped sets."
   (:require [babashka.fs :as fs]
+            [clojure.set]
             [babashka.tasks :refer [shell]]
             [clojure.edn]
             [clojure.string :as str]
-            [magic.log :as log])
+            [magic.log :as log]
+            [magic.unity :as unity])
   (:import [java.security MessageDigest]))
 
 (def manifest-path "magic-compiler/dll-sources.edn")
@@ -41,9 +44,14 @@
                   [".clj" ".cljc"]))
           source-roots)))
 
+(def ^:private stdlib-dir "magic-unity/Runtime/magic")
+
+(def ^:private compiler-dir "magic-unity/Editor/Compiler")
+
 (def ^:private dll-dirs
   [references-dir
-   "magic-unity/Runtime/magic"
+   stdlib-dir
+   compiler-dir
    "nostrand/bin/Release/net471"])
 
 (defn touch-dlls!
@@ -119,6 +127,54 @@
            (concat ["" "Rebuild wrote one copy and not the others:" ""] diverged)))
   (println "committed copies OK -" (count committed-copies) "file(s)"))
 
+(defn- clj-assemblies
+  "The Clojure assembly file names in a directory. Only the clj-extensions:
+   the same directories also hold hand-written C# assemblies (Clojure.dll,
+   Magic.Runtime.dll, Nostrand.dll), which are in no reference set."
+  [dir]
+  (into (sorted-set)
+        (comp (map #(str (fs/file-name %)))
+              (filter (fn [n] (some #(str/ends-with? n %) unity/clj-extensions))))
+        (fs/glob dir "*.dll")))
+
+(def ^:private editor-excluded
+  "Reference DLLs the package deliberately ships in neither set. Must agree
+   with editor-excluded in magic-compiler/refresh.clj, which does the deploy."
+  #{"nostrand.repl.clj.dll"})
+
+(defn check-partition!
+  "Fail unless Runtime/magic and Editor/Compiler partition nostrand/references,
+   less editor-excluded. A DLL missing from a set is an absence, which git
+   status cannot report. Blind to a stale leftover: both deploys are copies
+   that never delete, so a renamed namespace keeps its old DLL in every set
+   and stays a valid partition."
+  []
+  (let [refs     (clojure.set/difference (clj-assemblies references-dir) editor-excluded)
+        stdlib   (clj-assemblies stdlib-dir)
+        compiler (clj-assemblies compiler-dir)
+        both     (clojure.set/intersection stdlib compiler)
+        missing  (clojure.set/difference refs (clojure.set/union stdlib compiler))
+        extra    (clojure.set/difference (clojure.set/union stdlib compiler) refs)]
+    (when (or (seq both) (seq missing) (seq extra))
+      (apply log/fail! "reference DLLs are not partitioned"
+             (concat
+              [""
+               (str "Every DLL in " references-dir " (" (count refs) ", less "
+                    (str/join ", " (sort editor-excluded)) ") must ship in exactly"
+                    " one package set: " stdlib-dir " (" (count stdlib) ", players included)"
+                    " or " compiler-dir " (" (count compiler) ", Editor-only).")
+               ""]
+              (when (seq both)
+                (cons "In both package sets:" (map #(str "  " %) both)))
+              (when (seq missing)
+                (cons "In references but shipped by neither set:"
+                      (map #(str "  " %) missing)))
+              (when (seq extra)
+                (cons "Shipped by the package but not in references:"
+                      (map #(str "  " %) extra))))))
+    (println "reference DLL partition OK -" (count stdlib) "stdlib +"
+             (count compiler) "compiler =" (count refs))))
+
 (defn check!
   "After the regen tasks have run, fail if any checked path differs from HEAD.
    Committed DLLs are byte-diffed, except magic-unity's MAGIC Clojure.dll and
@@ -130,7 +186,8 @@
                        "magic-unity/package.json"
                        "magic-unity/Runtime/clojure-clr"
                        "nostrand/references"
-                       "magic-unity/Runtime/magic"]
+                       "magic-unity/Runtime/magic"
+                       "magic-unity/Editor/Compiler"]
         _ (shell "git" "checkout" "--"
                  "magic-unity/Runtime/magic/Clojure.dll"
                  "magic-unity/Runtime/magic/Magic.Runtime.dll")
