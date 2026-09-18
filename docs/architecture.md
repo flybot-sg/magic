@@ -164,7 +164,7 @@ Once the tree knows its types, each node needs instructions. `magic.core` holds 
 
 A CLR compiler normally emits by calling `ilg.Emit(OpCodes.Ldstr, "hi")`, and the instruction exists only as a side effect: you cannot hold it, inspect it, or change your mind about it. `mage` makes the same instruction a value. `(il/ldstr "hi")` returns a map, a tree of those maps describes an assembly, and `il/emit!` is the one function that walks the tree and produces bytes. Ramsey calls this symbolic bytecode. It is what lets the compilers return instructions instead of performing them, which is why one can be called in a REPL and read, and why `bb pipeline` can show the IL for a form without running it.
 
-`mage` is built on `System.Reflection.Emit`, the API IL2CPP does not implement. That is not a contradiction. `mage` runs on a developer's machine at build time, under Mono, and never ships in the Unity package. Only the `.clj.dll` it wrote travels to the device, and nothing in that file emits anything. The difference between MAGIC and ClojureCLR is not which API each uses, it is when each runs it.
+`mage` is built on `System.Reflection.Emit`, the API IL2CPP does not implement. That is not a contradiction. `mage` runs on a developer's machine at build time, under Mono, and never reaches a player. Only the `.clj.dll` it wrote travels to the device, and nothing in that file emits anything. The difference between MAGIC and ClojureCLR is not which API each uses, it is when each runs it.
 
 ## Nostrand
 
@@ -213,7 +213,7 @@ The compiler is a DLL out of necessity: it cannot compile itself into existence,
 
 Unity never compiles Clojure.
 
-You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic/`, and Unity loads them as ordinary .NET assemblies. So the package ships a runtime and no compiler.
+You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic/`, and Unity loads them as ordinary .NET assemblies. So players get a runtime and no compiler. A MAGIC Editor also loads the compiler from `Editor/Compiler/`, but nothing in the package invokes it yet.
 
 ```mermaid
 flowchart TD

@@ -6,7 +6,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [magic.drift :as drift]
-            [magic.log :as log]))
+            [magic.log :as log]
+            [magic.unity :as unity]))
 
 (def exe "nostrand/bin/Release/net471/NostrandMain.exe")
 
@@ -39,12 +40,14 @@
   (drift/record!))
 
 (defn refresh!
-  "Recompile the committed .clj.dll a refresh task owns and re-record the
-   manifest. Must run after a `dotnet build`: the host must match the current C#."
+  "Recompile the committed .clj.dll a refresh task owns, re-record the
+   manifest, and give any DLL new to the package its constraint meta. Must run
+   after a `dotnet build`: the host must match the current C#."
   [task]
   (drift/touch-dlls!)
   (nos! (str "refresh/" task))
-  (drift/record!))
+  (drift/record!)
+  (unity/write-metas!))
 
 (defn prepl-eval!
   "Send one form to a running prepl server and print the reply maps until :ret."

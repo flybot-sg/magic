@@ -2,6 +2,7 @@
     <PropertyGroup>
         <NostrandExeNet4x>nostrand/bin/Release/net471/NostrandMain.exe</NostrandExeNet4x>
         <MagicUnityMagicRuntimeDir>magic-unity/Runtime/magic</MagicUnityMagicRuntimeDir>
+        <MagicUnityCompilerDir>magic-unity/Editor/Compiler</MagicUnityCompilerDir>
         <ClojureRuntimeDllNet471>clojure-runtime/bin/Release/net471/Clojure.dll</ClojureRuntimeDllNet471>
         <ClojureRuntimeDllNetStandard>clojure-runtime/bin/Release/netstandard2.0/Clojure.dll</ClojureRuntimeDllNetStandard>
         <MagicRuntimeDllNet471>magic-runtime/Magic.Runtime/bin/Release/net471/Magic.Runtime.dll</MagicRuntimeDllNet471>
@@ -9,8 +10,10 @@
         <MagicBootstrap>magic-compiler/bootstrap</MagicBootstrap>
     </PropertyGroup>
     <ItemGroup>
-        <MagicAllBinaries Include="magic-compiler/bootstrap/*.clj.dll"/>
-        <MagicRuntimeBinaries Include="magic-compiler/bootstrap/clojure*.clj.dll" Exclude="magic-compiler/bootstrap/clojure.tools.analyzer*.clj.dll" />
+        <MagicAllBinaries Include="$(MagicBootstrap)/*/*.clj.dll"/>
+        <MagicRuntimeBinaries Include="$(MagicBootstrap)/stdlib/*.clj.dll" />
+        <!-- Editor-only: MSIL emission needs Reflection.Emit, which IL2CPP players lack. -->
+        <MagicCompilerBinaries Include="$(MagicBootstrap)/compiler/*.clj.dll" />
     </ItemGroup>
 
     <Target Name="All">
@@ -30,6 +33,7 @@
     </Target>
     <Target Name="MagicUnity" DependsOnTargets="Magic">
         <Copy SourceFiles="@(MagicRuntimeBinaries)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
+        <Copy SourceFiles="@(MagicCompilerBinaries)" DestinationFolder="$(MagicUnityCompilerDir)" />
         <Copy SourceFiles="$(ClojureRuntimeDllNet471)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
         <Copy SourceFiles="$(MagicRuntimeDllNet471)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
     </Target>

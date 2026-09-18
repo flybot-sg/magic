@@ -78,15 +78,22 @@
                      [v true]))
                  spells)))
 
+(defn- stdlib-ns?
+  "Whether lib's source is under src/stdlib; the vendored
+   clojure.tools.analyzer.* is not, despite its clojure.* name."
+  [lib]
+  (File/Exists (str "src/stdlib" (@#'clojure.core/root-resource lib) ".clj")))
+
 (defn bootstrap [& {:keys [spells]}]
   (binding [clojure.core/*loaded-libs* (ref (sorted-set))
             *eval-form-fn*             magic.api/eval
             *compile-file-fn*          magic.api/runtime-compile-file
             *load-file-fn*             magic.api/runtime-load-file
-            *warn-on-reflection*       true
-            *compile-path*             "bootstrap"]
+            *warn-on-reflection*       true]
     (with-bindings* (spell-flag-bindings spells)
       (fn []
         (doseq [lib std-libs-to-compile]
           (println (str "building " lib))
-          (compile-namespace lib {:write-files true :suppress-print-forms true}))))))
+          ;; Magic.csproj deploys bootstrap/stdlib to players, bootstrap/compiler to the Editor
+          (binding [*compile-path* (if (stdlib-ns? lib) "bootstrap/stdlib" "bootstrap/compiler")]
+            (compile-namespace lib {:write-files true :suppress-print-forms true})))))))

@@ -27,6 +27,7 @@
 
 ### Unity
 - A Clojure DLL already kept out of the ClojureCLR Editor, e.g. by `MAGIC_RUNTIME_IN_EDITOR`, is no longer restamped or falsely warned about - [#200](https://github.com/flybot-sg/magic/issues/200).
+- The package ships the MAGIC compiler and nostrand's Clojure namespaces under `Editor/Compiler/`, Editor-only and loaded under `MAGIC_RUNTIME_IN_EDITOR` - [#202](https://github.com/flybot-sg/magic/issues/202).
 
 ### Tooling
 - Every C# assembly carries the full commit SHA that the SDK's SourceLink stamps into `InformationalVersion`, so `nos version` reports `0.13.0+<sha>`. The csprojs no longer run `git describe` themselves, which ends the `+v0.11.0-0-g<hash>` form a tag checkout stamped since [#75](https://github.com/flybot-sg/magic/issues/75).

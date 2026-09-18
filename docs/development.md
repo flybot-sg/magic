@@ -37,7 +37,7 @@ bb bootstrap :spells '[magic.spells.sparse-case/sparse-case]'
 
 - **`bb regen-callsites`** writes the 97 `.g.cs` under `magic-runtime/Magic.Runtime/Generated/` from five `.mustache` templates. A template edit is only real once this has run.
 - **`bb sync-upm-version`** copies the version from `version.edn` into `magic-unity/package.json`.
-- **`bb write-metas`** creates a Unity `.meta` (with its runtime-selection define constraint) for every `magic-unity` DLL that lacks one; existing metas are never rewritten. The constraint blocks are verified by `bb check-drift`; what they say and why is beside `runtime-sets` in `bb/magic/unity.clj`.
+- **`bb write-metas`** creates a Unity `.meta` (with its runtime-selection define constraint) for every `magic-unity` DLL that lacks one; existing metas are never rewritten. The constraint blocks are verified by `bb check-drift`; what they say and why is beside `plugin-sets` in `bb/magic/unity.clj`.
 - **`bb check-drift`** runs all three plus `refresh-stdlib`, `refresh-nostrand` and the constraint verification, then fails if any checked path differs from HEAD. Run it after a fresh `bb build`, as CI does. What it byte-diffs and what it only restores are in [deterministic compilation](./deterministic-compilation.md).
 
 ## Testing

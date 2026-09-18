@@ -27,12 +27,19 @@
 
 (def magic-symbol "MAGIC_RUNTIME_IN_EDITOR")
 
-;; The polarity (default ClojureCLR, opt in to MAGIC) is forced by Unity's
-;; grammar: entries AND, and a `||` entry is satisfied iff every negated term
-;; is absent or any plain term is present.
-(def ^:private runtime-sets
-  {:magic       [(str "!UNITY_EDITOR || " magic-symbol)]
-   :clojure-clr ["UNITY_EDITOR" (str "!" magic-symbol)]})
+;; Each set's meta template, named by its key, carries its platform gating.
+;; The runtimes' polarity (default ClojureCLR, opt in to MAGIC) is forced by
+;; Unity's grammar: entries AND, and a `||` entry is satisfied iff every
+;; negated term is absent or any plain term is present.
+(def ^:private plugin-sets
+  {:magic       {:dir          (str default-pkg "/Runtime/magic")
+                 :constraints  [(str "!UNITY_EDITOR || " magic-symbol)]}
+   :clojure-clr {:dir          (str default-pkg "/Runtime/clojure-clr")
+                 :constraints  ["UNITY_EDITOR" (str "!" magic-symbol)]}
+   :compiler    {:dir          (str default-pkg "/Editor/Compiler")
+                 :constraints  [magic-symbol]}})
+
+(def ^:private magic-entry (first (get-in plugin-sets [:magic :constraints])))
 
 (def ^:private bare-symbol
   "An entry YAML reads plainly. Unity quotes the rest; a leading `!` is a tag."
@@ -56,13 +63,18 @@
        (mapv #(or (second (re-matches #"'(.*)'" (str/trim %)))
                   (str/trim %)))))
 
-(defn runtime-dir
-  "Where a runtime set's DLLs live in the package."
+(defn plugin-dir
+  "Where a plugin set's DLLs live in the package."
   [set-key]
-  (str default-pkg "/Runtime/" (name set-key)))
+  (get-in plugin-sets [set-key :dir]))
 
-(defn- runtime-dlls [set-key]
-  (sort (fs/glob (runtime-dir set-key) "*.dll")))
+(defn- plugin-dlls [set-key]
+  (sort (fs/glob (plugin-dir set-key) "*.dll")))
+
+(defn clj-dlls
+  "The Clojure-output assemblies in dir."
+  [dir]
+  (mapcat #(fs/glob dir (str "*" %)) clj-extensions))
 
 (def ^:private constrainer-path (str default-pkg "/Editor/CljPluginConstraints.cs"))
 
@@ -70,7 +82,7 @@
   "Whether the import-time constrainer's C# constant is the MAGIC entry."
   []
   (str/includes? (slurp constrainer-path)
-                 (str "\"" (first (runtime-sets :magic)) "\"")))
+                 (str "\"" magic-entry "\"")))
 
 ;;; The Clojure-output extension lists
 
@@ -111,16 +123,17 @@
        (apply str)))
 
 ;; Real Unity-written metas with the two authored fields punched out.
-;; Both sets are auto-referenced (isExplicitlyReferenced: 0): Magic.Unity.asmdef
-;; names no precompiled references, so it binds whichever Clojure.dll the
-;; constraints admit -- ClojureCLR in the default Editor, MAGIC otherwise.
+;; The runtime sets are auto-referenced (isExplicitlyReferenced: 0):
+;; Magic.Unity.asmdef names no precompiled references, so it binds whichever
+;; Clojure.dll the constraints admit. :compiler is explicitly referenced, as
+;; no C# code references its types.
 (def ^:private template-dir "bb/templates/plugin-meta")
 
 (defn- plugin-meta [set-key dll-name]
   (-> (slurp (str template-dir "/" (name set-key) ".meta.tmpl"))
       (str/replace "{{guid}}" (guid set-key dll-name))
       (str/replace "{{defineConstraints}}"
-                   (str/join "\n" (for [entry (runtime-sets set-key)]
+                   (str/join "\n" (for [entry (get-in plugin-sets [set-key :constraints])]
                                     (str "  - " (yaml-entry entry)))))))
 
 (defn- folder-meta [set-key]
@@ -145,13 +158,13 @@
   "Create a plugin .meta for every shipped DLL that lacks one, plus a folder meta
    per set."
   []
-  (let [sets     (keys runtime-sets)
+  (let [sets     (keys plugin-sets)
         folders  (for [set-key sets
-                       :let [dir (runtime-dir set-key)]
+                       :let [dir (plugin-dir set-key)]
                        :when (fs/exists? dir)]
                    [(str dir ".meta") (folder-meta set-key)])
         plugins  (for [set-key sets
-                       dll      (runtime-dlls set-key)]
+                       dll      (plugin-dlls set-key)]
                    [(str dll ".meta") (plugin-meta set-key (fs/file-name dll))])
         created  (into [] (keep #(apply write-missing-meta! %))
                        (concat folders plugins))]
@@ -166,11 +179,10 @@
   "Fail unless every shipped DLL's meta carries its set's constraint block and
    the constrainer agrees; a newly added DLL arrives with an unconstrained meta."
   []
-  (let [sets  (mapv (fn [[set-key expected]]
-                      [set-key expected (runtime-dlls set-key)])
-                    runtime-sets)
-        wrong (for [[_ expected dlls] sets
-                    dll dlls
+  (let [dlls  (into {} (for [set-key (keys plugin-sets)]
+                         [set-key (plugin-dlls set-key)]))
+        wrong (for [[set-key {expected :constraints}] plugin-sets
+                    dll (dlls set-key)
                     ;; nil = no meta; [] = meta declaring none. `expected` is not empty,
                     ;; so nil or empty metas are caught
                     :let [meta-file (str dll ".meta")
@@ -191,14 +203,14 @@
       (log/fail! "define constraints are wrong"
                  ""
                  (str "  " constrainer-path " does not constrain with the MAGIC entry")
-                 (str "  " (pr-str (first (runtime-sets :magic))) " onto consumer *.clj.dll.")))
+                 (str "  " (pr-str magic-entry) " onto consumer *.clj.dll.")))
     (when-let [mismatched (seq (extension-mismatches))]
       (apply log/fail! "the Clojure-output extension lists disagree"
              (concat ["" "These copies of the extension list have drifted apart" ""]
                      mismatched)))
     (println "define constraints OK -"
-             (str/join ", " (for [[set-key _ dlls] sets]
-                              (str (count dlls) " in " (name set-key) "/")))
+             (str/join ", " (for [[set-key ds] dlls]
+                              (str (count ds) " in " (name set-key) "/")))
              "+ the import-time constrainer + the extension lists")))
 
 (defn sync-upm-version!
