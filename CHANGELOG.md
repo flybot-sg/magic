@@ -5,6 +5,9 @@
 ### Compiler
 - A `loop` whose `recur` widens a binding whose init contains `fn`, `for` or `lazy-seq` now compiles to a DLL - [#179](https://github.com/flybot-sg/magic/issues/179).
 
+### Nostrand
+- `*load-paths*` holds each root once, and `set-load-path` drops roots it no longer names - [#182](https://github.com/flybot-sg/magic/issues/182).
+
 ## v0.13.0 - 2026-09-09
 
 **`nos build` copies a library's C# assemblies into the build output**, so shipping a compiled assembly to Unity takes no hand-written `File/Copy`, and Unity imports the plugin once instead of on every build. **Saving a `.clj`, `.cljc` or `.cljr` re-evaluates it in the ClojureCLR Editor**, on the one save rather than the third.

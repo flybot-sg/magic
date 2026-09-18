@@ -15,8 +15,13 @@
   (atom (string/split (or (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH") ".")
                       (re-pattern (str Path/PathSeparator)))))
 
+(defonce ^{:private true
+           :doc "*load-paths* as the runtime left it, set when this namespace is
+  first loaded, so a host must load nostrand.core before adding any project root."}
+  -base-load-paths (vec *load-paths*))
+
 (defn- absolute-load-path []
-  (mapv #(Path/GetFullPath %) @-load-path))
+  (into [] (comp (map #(Path/GetFullPath %)) (distinct)) @-load-path))
 
 (defn resolve-assembly-load [asm]
   (let [candidates (for [prefix @-assembly-path
@@ -36,10 +41,8 @@
       "CLOJURE_LOAD_PATH"
       (string/join Path/PathSeparator abs-paths))
     (alter-var-root #'*load-paths*
-                    (fn [load-paths]
-                      (mapv
-                       #(System.IO.Path/GetFullPath %)
-                       (concat @-load-path load-paths))))))
+                    (constantly
+                     (into abs-paths (remove (set abs-paths)) -base-load-paths)))))
 
 (defn set-load-path [val]
   (reset! -load-path val)
@@ -51,8 +54,6 @@
 
 (defn add-assembly-path [path]
   (swap! -assembly-path conj path))
-
-
 
 (defn load-path [& paths]
   (doseq [p paths]
