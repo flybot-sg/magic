@@ -26,6 +26,11 @@ public static class CoexistenceProbe
     // The unconstrained plugin, expected in both Editor states.
     const string CsharpName = "smoke_csharp";
 
+    // The compiler set ships editor-only under Editor/Compiler; the stdlib
+    // ships under Runtime/magic. Both are .clj.dll, so the probe separates
+    // them by the directory they were loaded or referenced from.
+    const string CompilerDir = "/Compiler/";
+
     static bool IsCljAssembly(string name, string suffix)
     {
         return Extensions.Any(e => name.EndsWith(e + suffix, StringComparison.OrdinalIgnoreCase));
@@ -37,12 +42,18 @@ public static class CoexistenceProbe
             .CurrentDomain.GetAssemblies()
             .Any(a => a.GetName().Name == CsharpName);
 
-        var preloaded = AppDomain
+        var loadedClj = AppDomain
             .CurrentDomain.GetAssemblies()
-            .Select(a => a.GetName().Name)
-            .Where(n => IsCljAssembly(n, ""))
-            .OrderBy(n => n)
+            .Where(a => IsCljAssembly(a.GetName().Name, ""))
             .ToArray();
+
+        var preloaded = loadedClj.Where(a => !FromCompilerDir(a)).ToArray();
+
+        // Unity loads every editor-eligible plugin in the set eagerly, whatever
+        // isExplicitlyReferenced says, so this is the whole compiler set in the
+        // MAGIC state and nothing in the ClojureCLR state, where the define
+        // constraint and the platform table both exclude it.
+        var compilerInDomain = loadedClj.Count(FromCompilerDir);
 
         bool coreLoadable;
         string loadDetail;
@@ -70,6 +81,9 @@ public static class CoexistenceProbe
         Debug.Log(
             $"[CoexistenceProbe] symbol={SymbolState} "
                 + $"preloaded-clj={preloaded.Length} "
+                + $"compiler-in-domain={compilerInDomain} "
+                + $"compiler-player-refs={CompilerReferences(AssembliesType.PlayerWithoutTestAssemblies)} "
+                + $"compiler-boots={CompilerBoots()} "
                 + $"core-clj-loadable={coreLoadable.ToString().ToLowerInvariant()} "
                 + $"core-clj-load={loadDetail} "
                 + $"clojure-versions=[{string.Join(",", clojureVersions)}] "
@@ -100,6 +114,53 @@ public static class CoexistenceProbe
 
     static int CljReferences(AssembliesType type)
     {
-        return ReferenceCount(type, r => IsCljAssembly(r, ".dll"));
+        return ReferenceCount(type, r => IsCljAssembly(r, ".dll") && !r.Contains(CompilerDir));
+    }
+
+    // The direct assertion for the bug that moving the compiler out of
+    // Runtime/magic fixed: the compiler must never reach a player build.
+    static int CompilerReferences(AssembliesType type)
+    {
+        return ReferenceCount(type, r => IsCljAssembly(r, ".dll") && r.Contains(CompilerDir));
+    }
+
+    static bool FromCompilerDir(Assembly a)
+    {
+        try
+        {
+            return !a.IsDynamic
+                && !string.IsNullOrEmpty(a.Location)
+                && a.Location.Replace('\\', '/').Contains(CompilerDir);
+        }
+        catch (NotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    // Whether the in-process host can actually boot the compiler it ships with.
+    // The host assembly is constrained to the MAGIC state, so in the other one
+    // there is nothing to call and the field reports "absent".
+    static string CompilerBoots()
+    {
+#if MAGIC_RUNTIME_IN_EDITOR
+        try
+        {
+            var nostrand = new Magic.Unity.NostrandEditor();
+            nostrand.Prewarm();
+            return nostrand.Host.IsPrewarmed ? "true" : "false";
+        }
+        catch (Exception e)
+        {
+            // The field stays a bare type name so it can be asserted, but a
+            // type name alone is not diagnosable: log the whole thing.
+            // Not the [CoexistenceProbe] tag: the harness takes the first line
+            // carrying it as the marker, and this one would shadow it.
+            Debug.Log("[CoexistenceProbe/detail] compiler-boots threw: " + e);
+            return e.GetType().Name;
+        }
+#else
+        return "absent";
+#endif
     }
 }

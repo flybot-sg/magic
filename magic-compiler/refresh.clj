@@ -5,7 +5,8 @@
 
    refresh/stdlib    clojure.*.clj.dll from magic-compiler/src/stdlib/**/*.clj,
                      also deployed to magic-unity/Runtime/magic/
-   refresh/nostrand  nostrand.*.clj.dll from nostrand/nostrand/**/*.clj
+   refresh/nostrand  nostrand.*.clj.dll from nostrand/nostrand/**/*.clj,
+                     all but nostrand.repl also deployed to magic-unity/Editor/Compiler/
 
    Why this exists: clojure.core/load-one picks between .clj source and .clj.dll
    by mtime comparison. git checkout sets arbitrary mtimes. If the DLL on disk
@@ -21,6 +22,7 @@
 (def ^:private refs "../nostrand/references")
 (def ^:private bin "../nostrand/bin/Release/net471")
 (def ^:private unity "../magic-unity/Runtime/magic")
+(def ^:private unity-compiler "../magic-unity/Editor/Compiler")
 (def ^:private stdlib-root "src/stdlib")
 (def ^:private nostrand-root "../nostrand")
 
@@ -98,7 +100,9 @@
             namespaces)))
 
 (defn- compile-and-deploy!
-  "Deploys only if every namespace compiles."
+  "Deploys only if every namespace compiles. dests maps each destination
+   directory to a predicate on the DLL file name, or is a plain sequence of
+   directories that take every DLL."
   [task namespaces tmp-dir glob dests]
   (when (Directory/Exists tmp-dir) (Directory/Delete tmp-dir true))
   (Directory/CreateDirectory tmp-dir)
@@ -119,7 +123,8 @@
     (println (str "compiled " (count produced) " DLLs to " tmp-dir))
     (doseq [f produced
             :let [src (Path/Combine tmp-dir f)]
-            dest dests]
+            [dest accept?] (if (map? dests) dests (zipmap dests (repeat any?)))
+            :when (accept? f)]
       (File/Copy src (Path/Combine dest f) true))
     (Directory/Delete tmp-dir true))
   (println "done."))
@@ -174,6 +179,12 @@
     nostrand.repl
     nostrand.tasks])
 
+(def ^:private editor-excluded
+  "nostrand.repl imports Mono.Terminal, which the package does not ship, and
+   Unity refuses to load a plugin with an unresolvable reference. tasks.clj
+   reaches it through requiring-resolve, so the Editor never needs it."
+  #{"nostrand.repl.clj.dll"})
+
 (defn nostrand [& _args]
   (println (str "compiling " (count nostrand-namespaces) " nostrand namespaces"))
   ;; nostrand's sources are outside magic-compiler's :paths
@@ -182,4 +193,6 @@
                          nostrand-namespaces
                          (Path/GetFullPath "target/refresh-nostrand")
                          "nostrand.*.clj.dll"
-                         [refs bin])))
+                         {refs           any?
+                          bin            any?
+                          unity-compiler (complement editor-excluded)})))

@@ -30,9 +30,20 @@
 ;; The polarity (default ClojureCLR, opt in to MAGIC) is forced by Unity's
 ;; grammar: entries AND, and a `||` entry is satisfied iff every negated term
 ;; is absent or any plain term is present.
+;; :any-platform is the `Any:` row's enabled value in the meta's platform table:
+;; 1 ships to players, 0 never does.
+;; :compiler is Editor-only by the Editor/ folder rule and explicitly
+;; referenced: it is reached through RT.load, never a C# type reference.
 (def ^:private runtime-sets
-  {:magic       [(str "!UNITY_EDITOR || " magic-symbol)]
-   :clojure-clr ["UNITY_EDITOR" (str "!" magic-symbol)]})
+  {:magic       {:dir          (str default-pkg "/Runtime/magic")
+                 :constraints  [(str "!UNITY_EDITOR || " magic-symbol)]
+                 :any-platform 1}
+   :clojure-clr {:dir          (str default-pkg "/Runtime/clojure-clr")
+                 :constraints  ["UNITY_EDITOR" (str "!" magic-symbol)]
+                 :any-platform 0}
+   :compiler    {:dir          (str default-pkg "/Editor/Compiler")
+                 :constraints  [magic-symbol]
+                 :any-platform 0}})
 
 (def ^:private bare-symbol
   "An entry YAML reads plainly. Unity quotes the rest; a leading `!` is a tag."
@@ -56,10 +67,19 @@
        (mapv #(or (second (re-matches #"'(.*)'" (str/trim %)))
                   (str/trim %)))))
 
+(defn- any-platform-enabled
+  "The `Any:` row's enabled value in a plugin meta's platform table, as a long.
+   nil when the row is absent."
+  [meta-yaml]
+  (some-> (->> (str/split-lines meta-yaml)
+               (drop-while #(not (re-matches #"\s*Any:\s*" %)))
+               (some #(second (re-matches #"\s*enabled:\s*(\d+)\s*" %))))
+          parse-long))
+
 (defn runtime-dir
   "Where a runtime set's DLLs live in the package."
   [set-key]
-  (str default-pkg "/Runtime/" (name set-key)))
+  (get-in runtime-sets [set-key :dir]))
 
 (defn- runtime-dlls [set-key]
   (sort (fs/glob (runtime-dir set-key) "*.dll")))
@@ -70,7 +90,7 @@
   "Whether the import-time constrainer's C# constant is the MAGIC entry."
   []
   (str/includes? (slurp constrainer-path)
-                 (str "\"" (first (runtime-sets :magic)) "\"")))
+                 (str "\"" (first (get-in runtime-sets [:magic :constraints])) "\"")))
 
 (defn- defeated-term?
   "Whether a term is false in a ClojureCLR Editor: UNITY_EDITOR is defined there
@@ -126,17 +146,20 @@
        (map #(format "%02x" (bit-and % 0xff)))
        (apply str)))
 
-;; Real Unity-written metas with the two authored fields punched out.
-;; Both sets are auto-referenced (isExplicitlyReferenced: 0): Magic.Unity.asmdef
-;; names no precompiled references, so it binds whichever Clojure.dll the
-;; constraints admit -- ClojureCLR in the default Editor, MAGIC otherwise.
+;; Real Unity-written metas with the two authored fields punched out; one
+;; template per set, named for the set key.
+;; The two runtime sets are auto-referenced (isExplicitlyReferenced: 0):
+;; Magic.Unity.asmdef names no precompiled references, so it binds whichever
+;; Clojure.dll the constraints admit -- ClojureCLR in the default Editor, MAGIC
+;; otherwise. :compiler is explicitly referenced instead, so its 37 DLLs are not
+;; pushed onto every auto-referencing assembly in the consumer's project.
 (def ^:private template-dir "bb/templates/plugin-meta")
 
 (defn- plugin-meta [set-key dll-name]
   (-> (slurp (str template-dir "/" (name set-key) ".meta.tmpl"))
       (str/replace "{{guid}}" (guid set-key dll-name))
       (str/replace "{{defineConstraints}}"
-                   (str/join "\n" (for [entry (runtime-sets set-key)]
+                   (str/join "\n" (for [entry (get-in runtime-sets [set-key :constraints])]
                                     (str "  - " (yaml-entry entry)))))))
 
 (defn- folder-meta [set-key]
@@ -182,10 +205,10 @@
   "Fail unless every shipped DLL's meta carries its set's constraint block and
    the constrainer agrees; a newly added DLL arrives with an unconstrained meta."
   []
-  (let [sets  (mapv (fn [[set-key expected]]
-                      [set-key expected (runtime-dlls set-key)])
+  (let [sets  (mapv (fn [[set-key {:keys [constraints any-platform]}]]
+                      [set-key constraints any-platform (runtime-dlls set-key)])
                     runtime-sets)
-        wrong (for [[_ expected dlls] sets
+        wrong (for [[_ expected _ dlls] sets
                     dll dlls
                     ;; nil = no meta; [] = meta declaring none. `expected` is not empty,
                     ;; so nil or empty metas are caught
@@ -203,9 +226,23 @@
       (apply log/fail! "define constraints are wrong"
              (concat ["" "These shipped DLLs do not carry the runtime-selection block" ""]
                      wrong)))
+    ;; The other half of "never reaches a player": the platform table's Any row.
+    (when-let [wrong-any (seq (for [[_ _ any-platform dlls] sets
+                                    dll  dlls
+                                    :let [meta-file (str dll ".meta")
+                                          found     (when (fs/exists? meta-file)
+                                                      (any-platform-enabled (slurp meta-file)))]
+                                    :when (and (fs/exists? meta-file)
+                                               (not= any-platform found))]
+                                (str "  " meta-file "\n"
+                                     "    expected Any: enabled " any-platform "\n"
+                                     "    found    " (pr-str found))))]
+      (apply log/fail! "define constraints are wrong"
+             (concat ["" "These shipped DLLs carry the wrong Any platform value" ""]
+                     wrong-any)))
     ;; The block a set authors must also pass the semantic gate the constrainer
     ;; applies to consumer DLLs; only sets that ship Clojure output are gated.
-    (when-let [ungated (seq (for [[_ expected dlls] sets
+    (when-let [ungated (seq (for [[_ expected _ dlls] sets
                                   dll  dlls
                                   :when (some #(str/ends-with? (str dll) %) clj-extensions)
                                   :when (not (gated-in-clojure-clr-editor? expected))]
@@ -219,13 +256,13 @@
       (log/fail! "define constraints are wrong"
                  ""
                  (str "  " constrainer-path " does not constrain with the MAGIC entry")
-                 (str "  " (pr-str (first (runtime-sets :magic))) " onto consumer *.clj.dll.")))
+                 (str "  " (pr-str (first (get-in runtime-sets [:magic :constraints]))) " onto consumer *.clj.dll.")))
     (when-let [mismatched (seq (extension-mismatches))]
       (apply log/fail! "the Clojure-output extension lists disagree"
              (concat ["" "These copies of the extension list have drifted apart" ""]
                      mismatched)))
     (println "define constraints OK -"
-             (str/join ", " (for [[set-key _ dlls] sets]
+             (str/join ", " (for [[set-key _ _ dlls] sets]
                               (str (count dlls) " in " (name set-key) "/")))
              "+ the import-time constrainer + the extension lists")))
 
