@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+**The Unity package can compile Clojure in the Editor's own process.** `Magic.Unity.NostrandEditor` runs `nos` tasks — `compile-project` and a consumer's own `dotnet.clj` tasks — without shelling out, so the nostrand boot is paid once per domain reload instead of once per build. The package ships nostrand's own namespaces as `.clj.dll` under `Editor/Compiler`, all but `nostrand.repl`, whose Mono.Terminal import Unity cannot resolve. Nothing in the package invokes it: the consumer drives it behind `#if UNITY_EDITOR && MAGIC_RUNTIME_IN_EDITOR`. It requires the MAGIC Editor runtime, which the hot reloader is constrained out of, so the two Editor workflows are mutually exclusive. See [Compiling inside the Editor](./docs/unity-integration.md#compiling-inside-the-editor).
+
+A warm domain is not a fresh `nos` process, and one of the host's per-call steps exists only because of that: it rebinds `*loaded-libs*`, without which a second compile never re-reads a dependency edited since the first, never rewrites its DLL, and reports success anyway. `bb nostrand-probes` is the regression pack for it, and pins that `*load-paths*` no longer grows across calls.
+
+`Nostrand.dll` is new: the engine behind `nos`, split out of the CLI so a host other than `nos` can boot the runtime, establish a project over several source roots and dispatch a task.
+
 ### Compiler
 - A `loop` whose `recur` widens a binding whose init contains `fn`, `for` or `lazy-seq` now compiles to a DLL - [#179](https://github.com/flybot-sg/magic/issues/179).
 

@@ -47,9 +47,9 @@ Three directories hold committed `.clj.dll`, and two of them hold a compiler.
 |---|---|---|
 | `nostrand/references/` | 81 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), the stdlib (37 `clojure.*`), and nostrand's own namespaces (8 `nostrand.*`) | `nos`, at every startup |
 | `magic-unity/Runtime/magic/` | the same 37 stdlib `.clj.dll`, plus `Clojure.dll` and `Magic.Runtime.dll` | Unity, at play time and in players |
-| `magic-unity/Editor/Compiler/` | the other 36: the compiler and its analyzer dependency, alongside `Nostrand.dll` | the Unity Editor only, never a player |
+| `magic-unity/Editor/Compiler/` | 43: the compiler, its analyzer dependency, and seven of nostrand's eight (`nostrand.repl` imports Mono.Terminal, which the package does not ship), alongside `Nostrand.dll` | the Unity Editor only, never a player |
 
-The compiler reaches the Editor, but nothing in the package invokes it yet. You still compile with `nos` first, and Unity loads the result as ordinary .NET assemblies ([Unity integration](./unity-integration.md)). It is kept out of players because MSIL emission needs `Reflection.Emit`, which IL2CPP does not ship; a player gets the stdlib and nothing else. How the 73 divide between the two package directories, and the one kind of staleness no check catches, is in [DLL provenance](./dll-provenance.md#how-the-73-split-across-the-package).
+The compiler reaches the Editor, and `Magic.Unity.NostrandEditor` can drive it there in the Editor's own process, though nothing in the package constructs one: the everyday path is still to compile with `nos` first and let Unity load the result as ordinary .NET assemblies ([Unity integration](./unity-integration.md)). It is kept out of players because MSIL emission needs `Reflection.Emit`, which IL2CPP does not ship; a player gets the stdlib and nothing else. How the 81 divide between the two package directories, and the one kind of staleness no check catches, is in [DLL provenance](./dll-provenance.md#how-the-81-split-across-the-package).
 
 A third copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 81 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
 
@@ -125,7 +125,7 @@ Use `bb build` after a fresh clone, when there is no host to run yet. Use `bb bo
 
 `bb refresh-stdlib` owns 28, every namespace under `magic-compiler/src/stdlib/**/*.clj` outside the `clojure.core` family, and is what to run after editing one. It recompiles them and copies each into `references/`, the host's `bin/Release/net471/`, and `magic/` in one go. When a namespace fails to compile it deploys nothing and exits non-zero, so a partial refresh cannot pass for a complete one.
 
-`bb refresh-nostrand` owns the last 8, under `nostrand/nostrand/**/*.clj`, and behaves the same. Prefer `bb build-runtime`, which rebuilds the host first.
+`bb refresh-nostrand` owns the last 8, under `nostrand/nostrand/**/*.clj`, and behaves the same, deploying seven of them to `magic-unity/Editor/Compiler/` as well. Prefer `bb build-runtime`, which rebuilds the host first.
 
 `bb check-drift` therefore runs `refresh-stdlib` and `refresh-nostrand` itself, and wants a fresh `bb build` in front of it. Between them, that is the only way to cover all 81.
 

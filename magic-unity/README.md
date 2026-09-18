@@ -2,7 +2,7 @@
 
 [Unity](https://unity.com/) integration for the MAGIC compiler.
 
-This UPM package lets a Unity game run Clojure, in the Editor and in a shipped player on every backend Unity supports, IL2CPP included (iOS, Android, consoles). It ships two Clojure runtimes (MAGIC and ClojureCLR), a small C# API for calling into Clojure, and the Editor build hooks that make MAGIC's IL survive AOT compilation. It also ships the MAGIC compiler itself, as Editor-only DLLs that never reach a player, but nothing in the package invokes it yet: namespaces are still compiled to plugin DLLs outside Unity with `nos build`, and Unity loads them as plain .NET assemblies.
+This UPM package lets a Unity game run Clojure, in the Editor and in a shipped player on every backend Unity supports, IL2CPP included (iOS, Android, consoles). It ships two Clojure runtimes (MAGIC and ClojureCLR), a small C# API for calling into Clojure, and the Editor build hooks that make MAGIC's IL survive AOT compilation. It also ships the MAGIC compiler itself, as Editor-only DLLs that never reach a player, and a host that can run nostrand's tasks against them inside the Editor's own process. Nothing in the package invokes that host: the everyday path is still to compile namespaces to plugin DLLs outside Unity with `nos build` and let Unity load them as plain .NET assemblies ([Editor API](#editor-api)).
 
 This file is the API reference. The workflow — project setup, `nos build`, choosing the Editor runtime, IL2CPP — is in the [Unity integration guide](https://github.com/flybot-sg/magic/blob/main/docs/unity-integration.md).
 
@@ -37,6 +37,16 @@ Add to `Packages/manifest.json`, pinned to a tag from the [releases page](https:
 - `void Dispose()` - stop watching.
 
 The XML doc comments on the class carry the per-method contract.
+
+`Magic.Unity.NostrandEditor` class, in the Editor-only assembly `Magic.Unity.Editor.Nostrand.Unity`, which exists only while the Editor runs MAGIC (`MAGIC_RUNTIME_IN_EDITOR` set) — the mirror of the reloader's constraint, so the two are mutually exclusive. Wrap code that uses it in `#if UNITY_EDITOR && MAGIC_RUNTIME_IN_EDITOR`.
+
+- `NostrandEditor(IEnumerable<string> sourceRoots = null, Action<string> logger = null)` - the roots holding your Clojure, relative to the project root or absolute; the project root is always one. The logger defaults to `Debug.Log` and receives the task's output a line at a time. Hold the instance in a static field: booting is about a second and the host expects one instance per domain.
+- `void Prewarm()` - boot the runtime and load nostrand without running anything, so the first real call does not. Takes no Editor lock, since it writes nothing.
+- `bool Run(string[] command, bool resolveAssemblies = false)` - one nostrand command, the argv you would type after `nos`. Assembly reloading is locked and asset importing batched for the duration, unwound whatever happens, then the asset database is refreshed. False means the name resolved to neither a function nor a file.
+- `object Eval(string source, bool resolveAssemblies = false)` - read and evaluate one form under the same project and bindings a task runs under, so a form containing `ns` or `in-ns` is legal.
+- `NostrandHost Host` - the Unity-free host underneath, for a caller that wants no Editor policy.
+
+Booting is per domain reload, so it is paid again after every script recompile. The [integration guide](https://github.com/flybot-sg/magic/blob/main/docs/unity-integration.md#compiling-inside-the-editor) has the wiring and the limitations worth knowing first.
 
 ### What `Poll` does
 

@@ -19,7 +19,7 @@ A compiler change needs two bootstrap passes, hence the convenience task `bb dev
 
 ## Building
 
-**`bb build-runtime`** builds `nostrand/NostrandMain.csproj` in Release. `clojure-runtime` and `magic-runtime` come along through `ProjectReference`, so it covers the C# the host and the compiled DLLs run on. It then recompiles nostrand's own eight namespaces with the host it just built.
+**`bb build-runtime`** builds `nostrand/NostrandMain.csproj` in Release. `clojure-runtime` and `magic-runtime` come along through `ProjectReference`, so it covers the C# the host and the compiled DLLs run on. It then recompiles nostrand's own eight namespaces with the host it just built. `Nostrand.csproj` copies its own `net471` Release output into `magic-unity/Editor/Compiler` on every build, so the committed `Nostrand.dll` follows the C# without a separate deploy step.
 
 **`bb bootstrap`** is one pass of the compiler's own rebuild: compile with the compiler currently in `references/`, deploy over it, re-record `dll-sources.edn`. Extra arguments reach `nos`, which is how a spell is enabled for a pass:
 

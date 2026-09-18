@@ -114,6 +114,66 @@ When a reload appears to have done nothing, work in this order:
 - To see a live behaviour change with the least ambiguity, target a `defmethod`, which always hot-swaps.
 - If the line is present but the behaviour is old, and the file uses a macro or type from another file you also just edited, suspect save order and save this file again.
 
+## Compiling inside the Editor
+
+`nos build` shells out to a fresh Mono process, which boots the MAGIC runtime
+and loads nostrand before it compiles anything. The package can run the same
+tasks in the Editor's process instead, paying that cost once per domain reload
+rather than once per build, and making the compile an Editor action rather than
+a subprocess.
+
+Nothing in the package invokes it. Drive it yourself, from a menu item or a
+build step:
+
+```csharp
+#if UNITY_EDITOR && MAGIC_RUNTIME_IN_EDITOR
+using Magic.Unity;
+using UnityEditor;
+
+static class CompileClojure
+{
+    // Static: booting is per domain reload, not per call, and the host expects
+    // one instance per domain.
+    static readonly NostrandEditor Nostrand = new NostrandEditor(new[] { "src" });
+
+    [MenuItem("MAGIC/Compile Clojure")]
+    static void Build() => Nostrand.Run(new[] { "dotnet/build" });
+
+    [MenuItem("MAGIC/Prewarm Clojure compiler")]
+    static void Prewarm() => Nostrand.Prewarm();
+}
+#endif
+```
+
+The constructor takes your load path roots; `Run` takes the command exactly as
+you would type it after `nos`. It locks assembly reloading and batches asset
+importing for the duration, unwinding both whatever happens, then refreshes the
+asset database. The task's output reaches `Debug.Log` a line at a time, or a
+logger you pass instead. `Eval` runs a single form under the same project and
+bindings, which is how you drive the runtime without a task file.
+
+Know these before you rely on it:
+
+- **It requires `MAGIC_RUNTIME_IN_EDITOR`.** The host assemblies carry that
+  define constraint, and the [hot reloader](#hot-reload) carries its inverse, so
+  in-Editor compilation and hot reload are mutually exclusive workflows. Switching
+  runtime and continuing without restarting Unity also leaves `CLOJURE_LOAD_PATH`
+  holding whatever the other side wrote.
+- **Pass `:clean? true`.** `compile-file` skips a DLL that already exists, so a
+  rebuild without it is a silent no-op that looks like a success.
+- **A rebuild overwrites assemblies the domain is holding** once play mode has
+  loaded them. macOS lets the delete and the rewrite through; the running
+  domain keeps the old bodies until the reload.
+- **What the compile leaves live in the domain is direct-linked**, because
+  `compile-project` runs under `production-flags`: redefining a fn updates its
+  var but not the call sites inside its own namespace. The DLLs on disk are what
+  matter, from the domain reload that the refresh triggers.
+- **A task that calls `Environment/Exit` kills the Editor.** Normal for a CLI,
+  fatal here, and the host cannot prevent it.
+- **The cwd is load-bearing.** Emitted assemblies are saved relative to the
+  process current directory, which Unity keeps at the project root. The host
+  asserts that rather than setting it, since another Editor tool can move it.
+
 ## Shipping your own compiled DLLs
 
 Your compiled `.clj.dll` / `.cljc.dll` / `.cljr.dll` need the same define constraint as the package's MAGIC DLLs; without it a DLL stays Editor-eligible even when the MAGIC runtime is excluded. You normally do nothing about this: for DLLs under `Assets/` and in embedded or local packages, the package applies the constraint itself, through two mechanisms. An **import** callback constrains each DLL as it arrives, and a **reconcile** pass sweeps every plugin after each domain reload. The pass is what covers DLLs that were already imported when this package version arrived: installing a package does not dirty `Assets/`, so the import callback never re-runs for them.
