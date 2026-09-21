@@ -1,10 +1,20 @@
 <!-- Deliberately outside nostrand/: NostrandMain.csproj globs **/*.cs, so a
-     library nested under it would have its sources compiled twice. -->
+     library nested under it would have its sources compiled twice.
+     No SetSourceRevisionId target, unlike NostrandMain.csproj: this DLL ships
+     in magic-unity/Editor/Compiler and bb check-drift byte-diffs it, so it must
+     not embed a git describe that changes on every commit. -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net471;net6.0</TargetFrameworks>
     <AssemblyName>Nostrand</AssemblyName>
     <RootNamespace>Nostrand</RootNamespace>
+    <!-- Byte stability, for the drift byte-diff. The SDK's Source Link is on by
+         default and stamps the commit sha into InformationalVersion, and a
+         Release PDB puts its own absolute path in the debug directory, so the
+         DLL would differ per commit and per checkout location. -->
+    <EnableSourceControlManagerQueries>false</EnableSourceControlManagerQueries>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,4 +25,12 @@
     <ProjectReference Include="../clojure-runtime/Clojure.csproj" />
     <ProjectReference Include="../magic-runtime/Magic.Runtime/Magic.Runtime.csproj" />
   </ItemGroup>
+
+  <!-- The producer deploys, as refresh.clj does for the .clj.dll sets: every
+       build that rewrites Nostrand.dll rewrites the committed copy too, so
+       `bb build-runtime` cannot leave it stale for bb check-drift to find. -->
+  <Target Name="DeployToMagicUnity" AfterTargets="Build"
+          Condition="'$(TargetFramework)' == 'net471' And '$(Configuration)' == 'Release'">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="../magic-unity/Editor/Compiler" />
+  </Target>
 </Project>

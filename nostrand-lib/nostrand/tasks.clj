@@ -9,8 +9,7 @@
    [System.Security.Cryptography MD5]
    [System.Threading Thread ThreadStart]
    [System.Reflection AssemblyInformationalVersionAttribute])
-  (:require [nostrand.repl :as repl]
-            [nostrand.core :as nos]
+  (:require [nostrand.core :as nos]
             [nostrand.deps.nuget :as nuget]
             [nostrand.deps.basis :as basis]
             [nostrand.deps.submodules :as submodules]
@@ -47,22 +46,29 @@
   ([file] (println (Path/Combine (-> (.Assembly clojure.lang.RT) .Location Path/GetDirectoryName)
                                  (str file)))))
 
+(defn- repl-fn
+  "Resolve a nostrand.repl var at call time. That namespace imports
+  [Mono.Terminal LineEditor] at load, and only the repl tasks need it, so
+  requiring it here keeps the assembly off every other task's load path. The
+  symbol is built rather than written, so magic.analyzer never resolves
+  Mono.Terminal at compile time either."
+  [var-name]
+  (requiring-resolve (symbol "nostrand.repl" var-name)))
+
 (defn cli-repl
   ([] (cli-repl nil))
   ([args]
-   (repl/cli args)))
+   ((repl-fn "cli") args)))
 
 (defn socket-repl [args]
-  (repl/socket args))
+  ((repl-fn "socket") args))
 
 (defn repl
   ([]
    (version)
-   #_(repl/repl 11217)
    (cli-repl))
   ([port]
    (version)
-   #_(repl/repl port)
    (cli-repl)))
 
 (defn tasks []
