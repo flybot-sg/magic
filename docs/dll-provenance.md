@@ -11,7 +11,7 @@ flowchart LR
         cs1["clojure-runtime/Clojure/**/*.cs<br/><i>Lib/ Readers/ Runtime/ api/</i>"]
         must["magic-runtime/**/*.mustache"]
         cs2["magic-runtime/Magic.Runtime/*.cs<br/><i>Binder Dispatch Emission Runtime</i>"]
-        cs3["nostrand/*.cs"]
+        cs3["nostrand-lib/*.cs<br/>nostrand/Program.cs"]
         mage["mage/src/mage/core.clj"]
         mgc["magic-compiler/src/magic/**.clj"]
         ta["~/.gitlibs .../tools.analyzer<br/><i>pinned sha 47f18915</i>"]
@@ -33,7 +33,7 @@ flowchart LR
         direction TB
         refs["nostrand/references/<br/><b>73 .clj.dll</b>"]
         umag["magic-unity/Runtime/magic/<br/><b>37 .clj.dll + 2 .dll</b><br/><i>stdlib, players too</i>"]
-        ucomp["magic-unity/Editor/Compiler/<br/><b>36 .clj.dll</b><br/><i>the compiler, Editor only</i>"]
+        ucomp["magic-unity/Editor/Compiler/<br/><b>36 .clj.dll + 1 .dll</b><br/><i>the compiler, Editor only</i>"]
         uclr["magic-unity/Runtime/clojure-clr/<br/><i>vendored, Editor only</i>"]
         unos["magic-unity/Editor/Nostrand~/<br/><b>9 .clj</b><br/><i>source, never compiled</i>"]
     end
@@ -46,6 +46,7 @@ flowchart LR
     cs3 --> brt
     brt --> bin
     brt -->|"Clojure.dll<br/>Magic.Runtime.dll"| umag
+    brt -->|"Nostrand.dll"| ucomp
 
     mage --> boot
     mgc --> boot
@@ -78,6 +79,7 @@ flowchart LR
 | stdlib leaves | 25 | `clojure.spec.alpha.clj.dll` | `magic-compiler/src/stdlib/clojure/spec/alpha.clj` | `bb refresh-stdlib` |
 | `Clojure.dll` | 1 | | `clojure-runtime/Clojure/**/*.cs` | `bb build-runtime` |
 | `Magic.Runtime.dll` | 1 | | `magic-runtime/Magic.Runtime/*.cs` plus `Generated/*.g.cs` | `bb build-runtime`, after `bb regen-callsites` |
+| `Nostrand.dll` | 1 | | `nostrand-lib/*.cs`. The `nos` engine without the CLI around it, so the Unity Editor can drive the same boot. It is the one committed DLL with no `SourceRevisionId`, which is what lets the drift byte-diff cover it instead of restoring it from HEAD | `bb build-runtime` |
 | nostrand's own Clojure | 0 DLLs, 9 `.clj` | | `nostrand/nostrand/**/*.clj` | `bb sync-nostrand-source`, which only copies: nothing compiles these, and MAGIC still builds them into memory at every startup. The copy exists so the Unity package can ship the source |
 
 48 + 28 - 3 shared = the 73 in `nostrand/references/`. Which task owns which slice, and why the overlap exists, is in [the bootstrap](./bootstrap.md#which-task-to-run).
@@ -91,13 +93,15 @@ flowchart LR
 | `Runtime/magic/` | 37 | stdlib the compiler calls 3 + the `clojure.core` family 9 + stdlib leaves 25 | the Editor and players |
 | `Editor/Compiler/` | 36 | the compiler 27 + analyzer dependency 9 | the Editor only |
 
+`Editor/Compiler/` also holds `Nostrand.dll`, which is C# rather than Clojure output and so counts in neither set. The partition check filters on the Clojure extensions for exactly that reason.
+
 The split is one predicate applied in two places that have to agree. `build.clj`'s `stdlib-ns?` asks whether a namespace has a source under `src/stdlib` and writes its DLL to `bootstrap/stdlib` or `bootstrap/compiler`; `Magic.csproj` then deploys those two directories to the two package directories, and their union to `references/`. `bb check-drift` asserts the result really is a partition: every reference DLL in exactly one set, never both, none missing.
 
 That check is blind to one thing, and so is every other check in the repo. Both deploys are MSBuild `<Copy>` with no delete, and `bb clean` removes only `bin/` and `magic-compiler/bootstrap/`, so a renamed or deleted namespace leaves its old DLL behind in every directory that held it. The result is still a valid partition; `git status` sees a committed file that did not change; and `dll-sources.edn` cannot tell the orphan from a vendored `clojure.tools.analyzer.*` DLL, which legitimately has no in-tree source either. Deleting or renaming a namespace means deleting its DLLs by hand.
 
 ## The two C# DLLs
 
-`Clojure.dll` is a fork of [ClojureCLR](https://github.com/clojure/clojure-clr) (EPL-1.0): 782 types, mostly `clojure.lang` (`RT`, `Var`, `Symbol`, the persistent collections, `LispReader`) plus 358 `clojure.lang.primifs` arity interfaces for unboxed primitive calls. What matters is what is missing. Upstream's `CljCompiler/Ast/` directory and its Expr codegen classes do not exist in the fork, `Compile` and `Analyze` are commented out of `Compiler.cs`, and `Compiler.eval` is a live stub that throws `NotSupportedException`. That is the cut that took the DLL from 5,967,360 bytes to 559,616 in `ecddba98`, and it is why `Nostrand.cs` rebinds `*eval-form-fn*` and `*compile-file-fn*` to `magic.api`: the slots are empty and MAGIC fills them.
+`Clojure.dll` is a fork of [ClojureCLR](https://github.com/clojure/clojure-clr) (EPL-1.0): 782 types, mostly `clojure.lang` (`RT`, `Var`, `Symbol`, the persistent collections, `LispReader`) plus 358 `clojure.lang.primifs` arity interfaces for unboxed primitive calls. What matters is what is missing. Upstream's `CljCompiler/Ast/` directory and its Expr codegen classes do not exist in the fork, `Compile` and `Analyze` are commented out of `Compiler.cs`, and `Compiler.eval` is a live stub that throws `NotSupportedException`. That is the cut that took the DLL from 5,967,360 bytes to 559,616 in `ecddba98`, and it is why `Runtime.Boot` rebinds `*eval-form-fn*` and `*compile-file-fn*` to `magic.api`: the slots are empty and MAGIC fills them.
 
 `Magic.Runtime.dll` is 331 types in a single `Magic` namespace, from about six hand-written files. Nearly all of the type count is arity fan-out (``CallsiteFunc`2..`21``, `CallSiteCache01..20`, one call-site class per arity), generated from the `.mustache` templates by `bb regen-callsites`. It references only `mscorlib` and `System.Core`, not even `Clojure.dll`.
 
