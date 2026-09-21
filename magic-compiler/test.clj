@@ -25,6 +25,7 @@
    magic.test.protocol
    magic.test.errors
    magic.test.load
+   magic.test.loop-widening
    magic.test.mage)
   (:use clojure.test))
 
@@ -65,6 +66,7 @@
     'magic.test.protocol
     'magic.test.errors
     'magic.test.load
+    'magic.test.loop-widening
     'magic.test.mage)))
 
 (defn run [& namespaces]

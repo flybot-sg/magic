@@ -465,9 +465,10 @@
       (binding [*recur-expr-types* (atom [])]
         (let [{:keys [bindings body]} ast
               {locals* :locals bindings* :bindings} (update-bindings bindings)
+              external-incomplete-types (loop-bindings/collect-incomplete-types)
+              init-incomplete-types (loop-bindings/declared-types bindings*)
               binding-type-hints (mapv #(-> % :form meta :tag types/resolve) bindings)
               binding-types (mapv ast-type bindings*)
-              external-incomplete-types (loop-bindings/collect-incomplete-types)
               ast* (binding [*typed-pass-locals* locals*]
                      (typed-pass*
                       (assoc ast
@@ -489,11 +490,23 @@
                   body-sexp (:form body)
                   body-env (:env body)
                   analyzefn (find-var 'magic.analyzer/analyze)
-                  locals* (reduce (fn [m b] (assoc m (:name b) b)) *typed-pass-locals* bindings**)]
+                  body-incomplete-types (set/difference (loop-bindings/collect-incomplete-types)
+                                                        external-incomplete-types)
+                  {bindings*** :bindings locals* :locals}
+                  (binding [gt/*reusable-types* (atom init-incomplete-types)]
+                    (reduce (fn [{:keys [bindings locals]} b]
+                              (let [init  (:init b)
+                                    init* (binding [*typed-pass-locals* locals]
+                                            (analyzefn (:form init) (:env init)))
+                                    b*    (assoc b :init init*)]
+                                {:bindings (conj bindings b*)
+                                 :locals (assoc locals (:name b*) b*)}))
+                            {:bindings [] :locals *typed-pass-locals*}
+                            bindings**))]
               (binding [*typed-pass-locals* locals*
-                        gt/*reusable-types* (atom (set/difference (loop-bindings/collect-incomplete-types) external-incomplete-types))]
+                        gt/*reusable-types* (atom body-incomplete-types)]
                 (assoc ast
-                       :bindings bindings**
+                       :bindings bindings***
                        :body (analyzefn body-sexp body-env)))))))
       :recur
       (let [ast* (update-children ast typed-passes)]

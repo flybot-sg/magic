@@ -66,6 +66,19 @@
        (remove #(.IsCreated %))
        (into #{})))
 
+(def ^:private generated-type-keys
+  [:fn-type :reify-type :deftype-type :proxy-type :gen-interface-type])
+
+(defn declared-types
+  "Every TypeBuilder these ASTs declared and have not created yet."
+  [asts]
+  (->> asts
+       (mapcat #(ast/nodes %))
+       (mapcat (apply juxt generated-type-keys))
+       (filter #(instance? System.Reflection.Emit.TypeBuilder %))
+       (remove #(.IsCreated %))
+       (into #{})))
+
 (defn infer-binding-types
   "Collect the best types for loop bindings
 
