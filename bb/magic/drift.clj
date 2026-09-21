@@ -22,7 +22,7 @@
 ;; The vendored clojure.tools.analyzer.* DLLs resolve in none of these: they
 ;; are the only committed DLLs with no in-tree source.
 (def ^:private source-roots
-  ["magic-compiler/src/stdlib" "magic-compiler/src" "mage/src" "nostrand"])
+  ["magic-compiler/src/stdlib" "magic-compiler/src" "mage/src" "nostrand-lib" "nostrand"])
 
 (defn- sha256 [file]
   (let [md (MessageDigest/getInstance "SHA-256")]

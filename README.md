@@ -123,7 +123,7 @@ This repo mixes C# (runtimes + host) and Clojure (compiler + stdlib), and the tw
 |---|---|---|
 | any C# in `clojure-runtime/`, `magic-runtime/` or `nostrand/` | `bb build-runtime` | a C# build |
 | a callsite `.mustache` template | `bb dev-callsites` | regen, then a C# build |
-| `nostrand/nostrand/**/*.clj` | `bb refresh-nostrand` | one compile pass over nostrand's eight namespaces |
+| `nostrand-lib/nostrand/**/*.clj`, `nostrand/nostrand/repl.clj` | `bb refresh-nostrand` | one compile pass over nostrand's eight namespaces |
 | `magic-compiler/src/stdlib/`, outside the `clojure.core` family | `bb refresh-stdlib` | one compile pass over the stdlib |
 | `magic-compiler/src/magic/`, `mage/src/`, or the `clojure.core` family | `bb dev-compiler` | two bootstrap passes |
 

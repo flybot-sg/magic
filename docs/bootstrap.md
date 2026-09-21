@@ -124,7 +124,7 @@ Use `bb build` after a fresh clone, when there is no host to run yet. Use `bb bo
 
 `bb refresh-stdlib` owns 28, every namespace under `magic-compiler/src/stdlib/**/*.clj` outside the `clojure.core` family, and is what to run after editing one. It recompiles them and copies each into `references/`, the host's `bin/Release/net471/`, and `magic/` in one go. When a namespace fails to compile it deploys nothing and exits non-zero, so a partial refresh cannot pass for a complete one.
 
-`bb refresh-nostrand` owns the last 8, under `nostrand/nostrand/**/*.clj`, and behaves the same. Prefer `bb build-runtime`, which rebuilds the host first.
+`bb refresh-nostrand` owns the last 8, under `nostrand-lib/nostrand/**/*.clj` plus `nostrand/nostrand/repl.clj`, and behaves the same. Prefer `bb build-runtime`, which rebuilds the host first.
 
 `bb check-drift` therefore runs `refresh-stdlib` and `refresh-nostrand` itself, and wants a fresh `bb build` in front of it. Between them, that is the only way to cover all 81.
 

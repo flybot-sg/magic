@@ -1,0 +1,18 @@
+<!-- Deliberately outside nostrand/: NostrandMain.csproj globs **/*.cs, so a
+     library nested under it would have its sources compiled twice. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net471;net6.0</TargetFrameworks>
+    <AssemblyName>Nostrand</AssemblyName>
+    <RootNamespace>Nostrand</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../clojure-runtime/Clojure.csproj" />
+    <ProjectReference Include="../magic-runtime/Magic.Runtime/Magic.Runtime.csproj" />
+  </ItemGroup>
+</Project>

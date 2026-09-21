@@ -194,7 +194,7 @@ flowchart TD
 
 The C# half is `Nostrand.cs`. It loads every `.clj.dll` sitting next to `Clojure.dll`, starts the runtime, initialises `clojure.core` and `magic.api`, then fills the compiler slots. Four of them, `*compile-file-fn*`, `*load-file-fn*`, `*eval-form-fn*` and `*macroexpand-1-fn*`, are pointed at `magic.api`. The fifth, `*load-fn*`, is pointed back into `clojure.core`. After those five lines `compile`, `eval` and `load-file` work, and nothing that calls them knows which compiler answered.
 
-The Clojure half is under `nostrand/`. It puts source paths on the load path, reads `deps-clr.edn`/`deps.edn` and fetches git dependencies, defines the tasks, and hosts the REPLs. None of it could have run a moment earlier. [CLR dependency resolution](./clr-dependency-files.md) and [the nos CLI](./nos-cli.md) cover what it does.
+The Clojure half is under `nostrand-lib/nostrand/`, except `repl.clj`, which needs Mono.Terminal and stays under `nostrand/`. It puts source paths on the load path, reads `deps-clr.edn`/`deps.edn` and fetches git dependencies, defines the tasks, and hosts the REPLs. None of it could have run a moment earlier. [CLR dependency resolution](./clr-dependency-files.md) and [the nos CLI](./nos-cli.md) cover what it does.
 
 The output directory makes this concrete. `nostrand/bin/Release/net471/` holds `NostrandMain.exe`, `Clojure.dll`, `Magic.Runtime.dll` and 81 compiled `.clj.dll`. No Clojure source at all: nostrand's own (`core.clj`, `tasks.clj`, `repl.clj`, the deps code) ships as the eight `nostrand.*.clj.dll` compiled from it.
 

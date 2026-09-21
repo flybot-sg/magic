@@ -5,7 +5,8 @@
 
    refresh/stdlib    clojure.*.clj.dll from magic-compiler/src/stdlib/**/*.clj,
                      also deployed to magic-unity/Runtime/magic/
-   refresh/nostrand  nostrand.*.clj.dll from nostrand/nostrand/**/*.clj
+   refresh/nostrand  nostrand.*.clj.dll from nostrand-lib/nostrand/**/*.clj and
+                     nostrand/nostrand/repl.clj
 
    Why this exists: clojure.core/load-one picks between .clj source and .clj.dll
    by mtime comparison. git checkout sets arbitrary mtimes. If the DLL on disk
@@ -22,7 +23,10 @@
 (def ^:private bin "../nostrand/bin/Release/net471")
 (def ^:private unity "../magic-unity/Runtime/magic")
 (def ^:private stdlib-root "src/stdlib")
-(def ^:private nostrand-root "../nostrand")
+(def ^:private nostrand-roots
+  "The engine's Clojure ships in the library; nostrand.repl imports Mono.Terminal
+   and stays with the CLI."
+  ["../nostrand-lib" "../nostrand"])
 
 (def ^:private bootstrap-namespaces
   "Namespaces this task must not recompile: clojure.core plus the eight units
@@ -177,7 +181,7 @@
 (defn nostrand [& _args]
   (println (str "compiling " (count nostrand-namespaces) " nostrand namespaces"))
   ;; nostrand's sources are outside magic-compiler's :paths
-  (binding [clojure.core/*load-paths* (conj (vec clojure.core/*load-paths*) nostrand-root)]
+  (binding [clojure.core/*load-paths* (into (vec clojure.core/*load-paths*) nostrand-roots)]
     (compile-and-deploy! "nostrand"
                          nostrand-namespaces
                          (Path/GetFullPath "target/refresh-nostrand")
