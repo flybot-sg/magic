@@ -183,10 +183,11 @@
     (str (Environment/GetEnvironmentVariable "HOME") "/.nostrand/gitlibs")))
 
 (defn project-deps-file
-  "deps-clr.edn if present, else deps.edn. Matches cljr, which reads
-  deps-clr.edn in place of deps.edn."
-  []
-  (if (File/Exists "deps-clr.edn") "deps-clr.edn" "deps.edn"))
+  "Absolute path of the deps file in dir: deps-clr.edn if present, else
+  deps.edn, as cljr prefers."
+  [dir]
+  (let [clr (Path/Combine dir "deps-clr.edn")]
+    (if (File/Exists clr) clr (Path/Combine dir "deps.edn"))))
 
 (defn read-project-deps
   "Parse the project deps file, naming it in the error when it is missing
@@ -203,13 +204,12 @@
 (defn create-basis
   "Read deps-file, fold in the selected aliases, resolve transitively,
   and return {:paths :libs :classpath-paths}."
-  ([] (create-basis (project-deps-file) []))
-  ([deps-file aliases]
-   (let [base  (Path/GetDirectoryName (Path/GetFullPath deps-file))
-         {:keys [paths deps overrides]} (merge-aliases (read-project-deps deps-file) aliases)
-         ;; :local/root resolves against base too, in resolve-deps.
-         paths (mapv #(resolve-root base %) paths)
-         libs  (resolve-deps (cache-root) base deps overrides)]
-     {:paths paths
-      :libs  libs
-      :classpath-paths (concat paths (mapcat :paths (vals libs)))})))
+  [deps-file aliases]
+  (let [base  (Path/GetDirectoryName (Path/GetFullPath deps-file))
+        {:keys [paths deps overrides]} (merge-aliases (read-project-deps deps-file) aliases)
+        ;; :local/root resolves against base too, in resolve-deps.
+        paths (mapv #(resolve-root base %) paths)
+        libs  (resolve-deps (cache-root) base deps overrides)]
+    {:paths paths
+     :libs  libs
+     :classpath-paths (concat paths (mapcat :paths (vals libs)))}))

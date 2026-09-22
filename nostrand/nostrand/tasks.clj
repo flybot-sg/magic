@@ -99,7 +99,7 @@
   Usage: nos print-basis            ; base :deps only
          nos print-basis :clr :test ; with aliases"
   [& aliases]
-  (let [{:keys [paths libs classpath-paths]} (basis/create-basis (basis/project-deps-file) (vec aliases))]
+  (let [{:keys [paths libs classpath-paths]} (basis/create-basis (nos/project-deps-file) (vec aliases))]
     (pprint/pprint
      {:aliases         (vec aliases)
       :paths           paths
@@ -189,7 +189,7 @@
   compile or test instead of hand-listing it. Read-only; does not touch the
   load path.
       (tasks/project-namespaces [:test])"
-  ([aliases] (project-namespaces (basis/project-deps-file) aliases))
+  ([aliases] (project-namespaces (nos/project-deps-file) aliases))
   ([deps-file aliases]
    (paths-namespaces (:paths (basis/create-basis deps-file (vec aliases))))))
 
@@ -200,7 +200,7 @@
   namespaces from either source (e.g. test-dir tooling that must not load)."
   [namespaces aliases exclude basis]
   (->> (or namespaces
-           (paths-namespaces (:paths (or basis (basis/create-basis (basis/project-deps-file) (vec aliases))))))
+           (paths-namespaces (:paths (or basis (basis/create-basis (nos/project-deps-file) (vec aliases))))))
        (remove (set exclude))))
 
 (def ^:private clj-assembly-suffixes [".clj.dll" ".cljc.dll" ".cljr.dll"])
@@ -275,7 +275,7 @@
       (defn build [] (tasks/compile-project :aliases [:clr]))"
   [& {:keys [namespaces exclude aliases out csharp-out clean? flags]
       :or   {out "build" clean? false flags production-flags}}]
-  (let [basis (when (seq aliases) (nos/establish-deps-edn (basis/project-deps-file) aliases))
+  (let [basis (when (seq aliases) (nos/establish-deps-edn (nos/project-deps-file) aliases))
         nses  (task-namespaces namespaces aliases exclude basis)]
     (with-bindings (assoc flags #'*compile-path* out)
       (println "Compiling into DLL dir:" *compile-path*)
@@ -315,7 +315,7 @@
       (defn run-tests [] (tasks/run-clojure-tests :aliases [:clr :test]))"
   [& {:keys [namespaces exclude re aliases flags exit? exclude-vars]
       :or   {flags production-flags exit? true}}]
-  (let [basis (when (seq aliases) (nos/establish-deps-edn (basis/project-deps-file) aliases))
+  (let [basis (when (seq aliases) (nos/establish-deps-edn (nos/project-deps-file) aliases))
         nses  (task-namespaces namespaces aliases exclude basis)]
     (with-bindings flags
       (doseq [ns nses]
