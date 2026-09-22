@@ -68,11 +68,11 @@
  magic.spells.lift_keywords {:source "magic-compiler/src/magic/spells/lift_keywords.clj", :sha256 "907dc9a166b32a95d237440b5875a186de05e7786390a8fba095382611eaf75e"}
  magic.spells.lift_vars {:source "magic-compiler/src/magic/spells/lift_vars.clj", :sha256 "1dafcdadb721c083f867e6935b9cb9ea3bdc2e2e7a8f07cd3c0daae9f4293ead"}
  magic.util {:source "magic-compiler/src/magic/util.clj", :sha256 "62d16cbc45160f486776f6c0c240bf6762846bbcbb59cf1cd45d409defe9c7d7"}
- nostrand.core {:source "nostrand/nostrand/core.clj", :sha256 "908042526658ea1a8a20684d1e2b8c9a72336522273973ac7b3eab71142f4c1b"}
- nostrand.deps.basis {:source "nostrand/nostrand/deps/basis.clj", :sha256 "0c66338b1923de0298a19e5d7202d450653949f22983a80b9bfa62199b143e4e"}
+ nostrand.core {:source "nostrand/nostrand/core.clj", :sha256 "457214655318fb5f8eede402ffe5828ae4fa8da0214b5fedb2296d271c96b971"}
+ nostrand.deps.basis {:source "nostrand/nostrand/deps/basis.clj", :sha256 "5e7181e2ddae6edde623e51aa3fa68d60e17dae7285929448b06a02c7eedccd8"}
  nostrand.deps.git {:source "nostrand/nostrand/deps/git.clj", :sha256 "f10234b211298a2c5b79b9e067ecb54227b3a1df11938e7e264a979d5326f5e7"}
  nostrand.deps.nuget {:source "nostrand/nostrand/deps/nuget.clj", :sha256 "589591b8b9fde3af2a7d9e6f0f5e3195a6249833d4f992f80dba90f4507959a0"}
  nostrand.deps.shell {:source "nostrand/nostrand/deps/shell.clj", :sha256 "623bd8876470a09fcbe652d7de51152e6ecf3b89df38b03bbd7c867137212271"}
  nostrand.deps.submodules {:source "nostrand/nostrand/deps/submodules.clj", :sha256 "adf03193ee08b2a44854f19e049fa0892f1cad1fabfb419ad88330c8ce6b7684"}
  nostrand.repl {:source "nostrand/nostrand/repl.clj", :sha256 "05755d291b897f6ffe62587d034d534c71f00b9c504e8081538a1e819aecb4de"}
- nostrand.tasks {:source "nostrand/nostrand/tasks.clj", :sha256 "1fec0b7038e4c57801747cd73a08553d3de01b71fc427d7cbd8766f5ce8a4616"}}
+ nostrand.tasks {:source "nostrand/nostrand/tasks.clj", :sha256 "b8348ef34e5b16bbb823a66108ff8b321b56d36656cba37650a1e77062a5f7f8"}}
