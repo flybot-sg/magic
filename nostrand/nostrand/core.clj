@@ -1,27 +1,45 @@
 (ns
-    ^{:author "Ramsey Nasser"
-      :doc "Core nostrand API containing load path, assemblies, and dependency functions."}
-    nostrand.core
+ ^{:author "Ramsey Nasser"
+   :doc "Core nostrand API containing load path, assemblies, and dependency functions."}
+ nostrand.core
   (:require [clojure.string :as string]
             [nostrand.deps.basis :as basis]
             [nostrand.deps.submodules :as submodules])
   (:import [System.IO Directory Path File]))
+
+(defn- absolute-path
+  "path as an absolute path with no trailing separator, resolved against the
+  cwd of this call, so a later cwd change cannot move a root already added."
+  [path]
+  (when (string/blank? (str path))
+    (throw (ex-info "Load path entry is blank" {:path path})))
+  (let [full (Path/GetFullPath (str path))]
+    (if (and (> (count full) 1)
+             (string/ends-with? full (str Path/DirectorySeparatorChar)))
+      (subs full 0 (dec (count full)))
+      full)))
+
+(defn- path-list
+  "Absolute entries of a PathSeparator-joined list. Blank entries are dropped
+  rather than rejected: they come from a stray separator, not a named path."
+  [s]
+  (into [] (comp (remove string/blank?) (map absolute-path))
+        (string/split (or s "") (re-pattern (str Path/PathSeparator)))))
 
 (def -assembly-path
   (atom (string/split (or (Environment/GetEnvironmentVariable "MONO_PATH") ".")
                       (re-pattern (str Path/PathSeparator)))))
 
 (def -load-path
-  (atom (string/split (or (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH") ".")
-                      (re-pattern (str Path/PathSeparator)))))
+  (atom (path-list (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH"))))
 
 (defonce ^{:private true
            :doc "*load-paths* as the runtime left it, set when this namespace is
   first loaded, so a host must load nostrand.core before adding any project root."}
   -base-load-paths (vec *load-paths*))
 
-(defn- absolute-load-path []
-  (into [] (comp (map #(Path/GetFullPath %)) (distinct)) @-load-path))
+(defn- load-path-roots []
+  (into [] (distinct) @-load-path))
 
 (defn resolve-assembly-load [asm]
   (let [candidates (for [prefix @-assembly-path
@@ -34,22 +52,23 @@
       (assembly-load-from full-asm-path))))
 
 (defn update-load-path []
-  (let [abs-paths (absolute-load-path)]
+  (let [roots (load-path-roots)]
     ;; CLOJURE_LOAD_PATH gets absolute roots (like *load-paths*), so a loader
-    ;; scanning it finds files from any cwd, matching ClojureCLR.
+    ;; scanning it finds files from any cwd, matching ClojureCLR. Prefer nil
+    ;; over "", to unset the variable when there are no paths.
     (Environment/SetEnvironmentVariable
-      "CLOJURE_LOAD_PATH"
-      (string/join Path/PathSeparator abs-paths))
+     "CLOJURE_LOAD_PATH"
+     (when (seq roots) (string/join Path/PathSeparator roots)))
     (alter-var-root #'*load-paths*
                     (constantly
-                     (into abs-paths (remove (set abs-paths)) -base-load-paths)))))
+                     (into roots (remove (set roots)) -base-load-paths)))))
 
 (defn set-load-path [val]
-  (reset! -load-path val)
+  (reset! -load-path (mapv absolute-path val))
   (update-load-path))
 
 (defn add-load-path [path]
-  (swap! -load-path conj path)
+  (swap! -load-path conj (absolute-path path))
   (update-load-path))
 
 (defn add-assembly-path [path]
@@ -84,7 +103,7 @@
   source path, so matching it would take in every assembly beneath it."
   []
   (let [cwd      (dir-prefix (Path/GetFullPath "."))
-        prefixes (->> (absolute-load-path)
+        prefixes (->> (load-path-roots)
                       distinct
                       (filter #(Directory/Exists %))
                       (map dir-prefix)
