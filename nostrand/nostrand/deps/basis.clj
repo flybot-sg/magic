@@ -129,10 +129,10 @@
   full sha it abbreviates are treated as equal). A coord's :exclusions prune
   those libs from its subtree, and an entry in overrides replaces a lib's coord
   wherever it is encountered (a JVM->CLR fork swap), without seeding a root
-  dependency for libs absent from the tree. Returns
-  lib -> {:coord :resolved-sha :paths}."
-  [cache deps overrides]
-  (loop [queue   (vec (for [[lib coord] deps] [lib coord "." #{}]))
+  dependency for libs absent from the tree. Relative coords resolve against base,
+  a dependency's against its checkout. Returns lib -> {:coord :resolved-sha :paths}."
+  [cache base deps overrides]
+  (loop [queue   (vec (for [[lib coord] deps] [lib coord base #{}]))
          out     {}
          skipped []]
     (if-let [[lib coord0 base excluded] (first queue)]
@@ -205,8 +205,11 @@
   and return {:paths :libs :classpath-paths}."
   ([] (create-basis (project-deps-file) []))
   ([deps-file aliases]
-   (let [{:keys [paths deps overrides]} (merge-aliases (read-project-deps deps-file) aliases)
-         libs (resolve-deps (cache-root) deps overrides)]
+   (let [base  (Path/GetDirectoryName (Path/GetFullPath deps-file))
+         {:keys [paths deps overrides]} (merge-aliases (read-project-deps deps-file) aliases)
+         ;; :local/root resolves against base too, in resolve-deps.
+         paths (mapv #(resolve-root base %) paths)
+         libs  (resolve-deps (cache-root) base deps overrides)]
      {:paths paths
       :libs  libs
       :classpath-paths (concat paths (mapcat :paths (vals libs)))})))
