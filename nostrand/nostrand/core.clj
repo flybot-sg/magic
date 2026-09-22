@@ -8,14 +8,13 @@
   (:import [System.IO Directory Path File]))
 
 (defn- absolute-path
-  "path as an absolute path with no trailing separator, resolved against the
-  cwd of this call, so a later cwd change cannot move a root already added."
+  "Resolve the absolute path against the current cwd, in case the cwd changes later."
   [path]
   (when (string/blank? (str path))
     (throw (ex-info "Load path entry is blank" {:path path})))
   (let [full (Path/GetFullPath (str path))]
     (if (and (> (count full) 1)
-             (string/ends-with? full (str Path/DirectorySeparatorChar)))
+             (string/ends-with? full (str Path/DirectorySeparatorChar))) ; remove trailing separator
       (subs full 0 (dec (count full)))
       full)))
 
@@ -26,9 +25,9 @@
   (into [] (comp (remove string/blank?) (map absolute-path))
         (string/split (or s "") (re-pattern (str Path/PathSeparator)))))
 
+;; The host seeds the real project root at boot: a cwd here would be the host's.
 (def -assembly-path
-  (atom (string/split (or (Environment/GetEnvironmentVariable "MONO_PATH") ".")
-                      (re-pattern (str Path/PathSeparator)))))
+  (atom (path-list (Environment/GetEnvironmentVariable "MONO_PATH"))))
 
 (def -load-path
   (atom (path-list (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH"))))
@@ -72,7 +71,11 @@
   (update-load-path))
 
 (defn add-assembly-path [path]
-  (swap! -assembly-path conj path))
+  (swap! -assembly-path conj (absolute-path path)))
+
+(defn set-assembly-path
+  [val]
+  (reset! -assembly-path (mapv absolute-path val)))
 
 (defn load-path [& paths]
   (doseq [p paths]

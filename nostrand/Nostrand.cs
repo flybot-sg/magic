@@ -168,8 +168,11 @@ namespace Nostrand
 			{
 				AppDomain.CurrentDomain.AssemblyResolve += AssemblyResolver.Resolve;
 
-				RT.var("nostrand.core", "load-path").invoke(Directory.GetCurrentDirectory());
-				
+				var projectRoot = Directory.GetCurrentDirectory();
+
+				RT.var("nostrand.core", "load-path").invoke(projectRoot);
+				RT.var("nostrand.core", "assembly-path").invoke(projectRoot);
+
 				if (File.Exists("deps.edn") || File.Exists("deps-clr.edn"))
 				{
 					RT.var("nostrand.core", "establish-deps-edn").invoke();
