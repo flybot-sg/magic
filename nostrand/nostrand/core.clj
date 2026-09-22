@@ -25,17 +25,34 @@
   (into [] (comp (remove string/blank?) (map absolute-path))
         (string/split (or s "") (re-pattern (str Path/PathSeparator)))))
 
-;; The host seeds the real project root at boot: a cwd here would be the host's.
-(def -assembly-path
-  (atom (path-list (Environment/GetEnvironmentVariable "MONO_PATH"))))
+;; No cwd default: the cwd here is the host's; establish-project seeds the root.
+(def ^:private -env-assembly-path
+  (path-list (Environment/GetEnvironmentVariable "MONO_PATH")))
 
-(def -load-path
-  (atom (path-list (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH"))))
+(def ^:private -env-load-path
+  (path-list (Environment/GetEnvironmentVariable "CLOJURE_LOAD_PATH")))
+
+(def -assembly-path (atom -env-assembly-path))
+
+(def -load-path (atom -env-load-path))
 
 (defonce ^{:private true
            :doc "*load-paths* as the runtime left it, set when this namespace is
   first loaded, so a host must load nostrand.core before adding any project root."}
   -base-load-paths (vec *load-paths*))
+
+(def ^:private -project-root
+  (atom nil))
+
+(defn project-root
+  "Directory the project deps file and its relative :paths resolve against."
+  []
+  (or @-project-root
+      (throw (ex-info "No project root: establish-project has not run" {}))))
+
+(defn project-deps-file
+  []
+  (basis/project-deps-file (project-root)))
 
 (defn- load-path-roots []
   (into [] (distinct) @-load-path))
@@ -102,15 +119,14 @@
 
 (defn loaded-assembly-files
   "The files of the assemblies this process loaded from under a source path.
-  The current directory sits on the load path to resolve task files, not as a
+  The project root sits on the load path to resolve task files, not as a
   source path, so matching it would take in every assembly beneath it."
   []
-  (let [cwd      (dir-prefix (Path/GetFullPath "."))
+  (let [root     (dir-prefix (project-root))
         prefixes (->> (load-path-roots)
-                      distinct
                       (filter #(Directory/Exists %))
                       (map dir-prefix)
-                      (remove #(= cwd %)))]
+                      (remove #(= root %)))]
     (for [asm   (.GetAssemblies AppDomain/CurrentDomain)
           :let  [file (assembly-file asm)]
           :when (and file (under-any? prefixes file))]
@@ -125,23 +141,37 @@
   `(reference* ~(mapv str asms)))
 
 (defn establish-deps-edn
-  "Resolve a deps.edn (with the given aliases) and put every resolved
-  source path on the load path. Returns the basis. The 0-arity is the
-  boot entry point: it activates the aliases under the :nos/aliases key,
-  and when :nos/submodule-paths is present also adds the source paths of
-  the vendored git submodules (its value is a path prefix to restrict to,
-  or true for every submodule)."
-  ([]
-   (let [deps-file (basis/project-deps-file)
-         deps-edn  (basis/read-project-deps deps-file)
-         b         (establish-deps-edn deps-file (:nos/aliases deps-edn []))]
-     (when-let [root (:nos/submodule-paths deps-edn)]
-       (when (File/Exists ".gitmodules")
-         (apply load-path
-                (submodules/submodule-paths (slurp ".gitmodules")
-                                            (when (string? root) root)))))
-     b))
-  ([deps-file aliases]
-   (let [{:keys [classpath-paths] :as b} (basis/create-basis deps-file aliases)]
-     (apply load-path classpath-paths)
-     b)))
+  "Resolve deps-file (with the given aliases) and put every resolved source
+  path on the load path. Returns the basis."
+  [deps-file aliases]
+  (let [{:keys [classpath-paths] :as b} (basis/create-basis deps-file aliases)]
+    (apply load-path classpath-paths)
+    b))
+
+(defn establish-project
+  "Make root the project root and reset both searches to the env-var roots
+  plus root, replacing any previous project, then add the source paths from
+  root's deps file.
+  extra-roots are source roots searched after root; they do not join the
+  assembly search. Returns the basis, or nil when root has no deps file."
+  ([root] (establish-project root nil))
+  ([root extra-roots]
+   (let [root (absolute-path root)]
+     (when-not (Directory/Exists root)
+       (throw (ex-info (str "Project root is not a directory: " root) {:root root})))
+     (reset! -project-root root)
+     (set-load-path (into (conj -env-load-path root) extra-roots))
+     (set-assembly-path (conj -env-assembly-path root))
+     (let [deps-file (basis/project-deps-file root)]
+       (when (File/Exists deps-file)
+         (let [deps-edn (basis/read-project-deps deps-file)
+               b        (establish-deps-edn deps-file (:nos/aliases deps-edn []))
+               ;; A path prefix to restrict the submodules to, or true for all.
+               sub      (:nos/submodule-paths deps-edn)
+               modules  (Path/Combine root ".gitmodules")]
+           (when (and sub (File/Exists modules))
+             (apply load-path
+                    (map #(Path/Combine root %)
+                         (submodules/submodule-paths (slurp modules)
+                                                     (when (string? sub) sub)))))
+           b))))))
