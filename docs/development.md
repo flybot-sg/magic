@@ -8,10 +8,10 @@ Find the file you touched, run the task on its row, then `bb test`.
 
 | You changed | Run | Runs |
 |---|---|---|
-| any C# in `clojure-runtime/`, `magic-runtime/` or `nostrand/` | `bb build-runtime` | a `dotnet build`, then one compile pass over nostrand |
+| any C# in `clojure-runtime/`, `magic-runtime/`, `nostrand-lib/` or `nostrand/` | `bb build-runtime` | a `dotnet build`, then one compile pass over nostrand |
 | a callsite `.mustache` template | `bb dev-callsites` | `regen-callsites` → `build-runtime` |
 | `magic-compiler/src/stdlib/**/*.clj`, outside the `clojure.core` family | `bb refresh-stdlib` | one compile pass over the stdlib |
-| `nostrand/nostrand/**/*.clj` | `bb build-runtime` | a `dotnet build`, then one compile pass over nostrand |
+| `nostrand-lib/nostrand/**/*.clj`, `nostrand/nostrand/cli.clj` | `bb build-runtime` | a `dotnet build`, then one compile pass over nostrand |
 | `magic-compiler/src/magic/**/*.clj`, `mage/src/`, or the `clojure.core` family | `bb dev-compiler` | `bootstrap` → `bootstrap` |
 | a fresh clone | `bb build` | clean, then all of the above |
 
@@ -19,7 +19,7 @@ A compiler change needs two bootstrap passes, hence the convenience task `bb dev
 
 ## Building
 
-**`bb build-runtime`** builds `nostrand/NostrandMain.csproj` in Release. `clojure-runtime` and `magic-runtime` come along through `ProjectReference`, so it covers the C# the host and the compiled DLLs run on. It then recompiles nostrand's own eight namespaces with the host it just built.
+**`bb build-runtime`** builds `nostrand/NostrandMain.csproj` in Release. `clojure-runtime`, `magic-runtime` and `nostrand-lib` come along through `ProjectReference`, so it covers the C# the host and the compiled DLLs run on. It then recompiles nostrand's own nine namespaces with the host it just built.
 
 **`bb bootstrap`** is one pass of the compiler's own rebuild: compile with the compiler currently in `references/`, deploy over it, re-record `dll-sources.edn`. Extra arguments reach `nos`, which is how a spell is enabled for a pass:
 

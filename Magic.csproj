@@ -39,6 +39,6 @@
     </Target>
 
     <Target Name="Clean">
-        <RemoveDir Directories="clojure-runtime/bin;nostrand/bin;magic-runtime/Magic.Runtime/bin;magic-runtime/Magic.Runtime.Callsites/bin;magic-compiler/bootstrap" />
+        <RemoveDir Directories="clojure-runtime/bin;nostrand/bin;nostrand-lib/bin;magic-runtime/Magic.Runtime/bin;magic-runtime/Magic.Runtime.Callsites/bin;magic-compiler/bootstrap" />
     </Target>
 </Project>

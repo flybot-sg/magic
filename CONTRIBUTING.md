@@ -74,7 +74,7 @@ bb check-drift   # fails on codegen, committed-DLL, define-constraint, or versio
 bb test
 ```
 
-Keep the order: `check-drift` byte-diffs the committed `.clj.dll` binaries against the rebuild, so the fresh `bb build` before it is what surfaces bootstrap drift. Use `bb build` rather than raw `dotnet build` after a fresh clone (it normalizes DLL timestamps first), and rebuild twice after compiler changes (self-hosting: the second pass is the fixpoint). The two C# runtime DLLs in the Unity package's `magic/` folder embed a git-derived SourceRevisionId and cannot be byte-verified; `check-drift` restores them from HEAD. Details in [docs/deterministic-compilation.md](./docs/deterministic-compilation.md).
+Keep the order: `check-drift` byte-diffs the committed `.clj.dll` binaries against the rebuild, so the fresh `bb build` before it is what surfaces bootstrap drift. Use `bb build` rather than raw `dotnet build` after a fresh clone (it normalizes DLL timestamps first), and rebuild twice after compiler changes (self-hosting: the second pass is the fixpoint). The two C# runtime DLLs in the Unity package's `magic/` folder embed the commit SHA and cannot be byte-verified; `check-drift` restores them from HEAD. Details in [docs/deterministic-compilation.md](./docs/deterministic-compilation.md).
 
 See [Development](./README.md#development) for what each task does.
 
@@ -92,7 +92,7 @@ Reference the related GitHub issue in the title or body, e.g. `(#42)` or `Closes
 
 ### Paired bootstrap refresh
 
-When a change affects the committed `.clj.dll`s under `nostrand/references/` and `magic-unity/Runtime/magic/` (a stdlib, compiler or `nostrand/nostrand/**/*.clj` edit, or a C# runtime change that alters what the compiler emits), refresh them and commit the new binaries in a paired commit:
+When a change affects the committed `.clj.dll`s under `nostrand/references/` and `magic-unity/Runtime/magic/` (a stdlib, compiler or `nostrand-lib/nostrand/**/*.clj` edit, or a C# runtime change that alters what the compiler emits), refresh them and commit the new binaries in a paired commit:
 
     chore(bootstrap): refresh <name> DLL for <short reason> (#<issue>)
 
