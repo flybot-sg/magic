@@ -13,7 +13,7 @@ flowchart TD
     arg["nos &lt;name&gt; [args...]"] --> slash{"does the name<br/>contain a slash?"}
     slash -->|"yes: dotnet/build"| load["load the namespace from<br/>the load path (dotnet.clj)"]
     load --> v1["call that namespace's var"]
-    slash -->|"no: build"| bi{"a var in<br/>nostrand.tasks?"}
+    slash -->|"no: build"| bi{"a var in nostrand.tasks,<br/>then nostrand.cli?"}
     bi -->|yes| v2["call the built-in"]
     bi -->|no| core{"a var in<br/>clojure.core?"}
     core -->|yes| v3["call that"]

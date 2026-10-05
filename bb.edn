@@ -33,7 +33,7 @@
              (nos/refresh! "nostrand"))}
 
   refresh-nostrand
-  {:doc "Recompile the committed nostrand.*.clj.dll from nostrand/nostrand/**/*.clj."
+  {:doc "Recompile the committed nostrand.*.clj.dll from nostrand-lib/nostrand/**/*.clj and nostrand/nostrand/cli.clj."
    :depends [-check-nostrand]
    :task (nos/refresh! "nostrand")}
 

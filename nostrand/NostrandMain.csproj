@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="../clojure-runtime/Clojure.csproj" />
     <ProjectReference Include="../magic-runtime/Magic.Runtime/Magic.Runtime.csproj" />
+    <ProjectReference Include="../nostrand-lib/Nostrand.csproj" />
   </ItemGroup>
 
   <ItemGroup>

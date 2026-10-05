@@ -1,5 +1,5 @@
 # Nostrand
-Standalone runtime environment and REPL for Clojure on the CLR. Bundled in the [flybot-sg/magic](https://github.com/flybot-sg/magic) monorepo as the host that boots the runtime, loads the MAGIC compiler, and runs your tasks.
+Standalone runtime environment and REPL for Clojure on the CLR. Bundled in the [flybot-sg/magic](https://github.com/flybot-sg/magic) monorepo as the `nos` CLI: `NostrandMain.exe`, the terminal tasks and the interactive REPL. Booting the runtime, loading the MAGIC compiler, reading a command line into arguments and running a task belong to the engine, [`nostrand-lib`](../nostrand-lib), which any host can boot.
 
 This page is the reference for the parts specific to nostrand: how it runs a function, and how it resolves dependencies. For the task surface a project actually uses, `nos build`, `nos test` and `magic.edn`, see [the `nos` CLI](../docs/nos-cli.md).
 
@@ -29,7 +29,7 @@ nos FUNCTION [ARG...]
 
 Nostrand does one thing: it runs a function.
 
-Functions are Clojure functions. Without a namespace, they resolve to the `nostrand.tasks` namespace which is built in.
+Functions are Clojure functions. Without a namespace, they are searched for in `nostrand.tasks`, then in the CLI's own `nostrand.cli`, where `version`, `repl` and `where` live, then in `clojure.core`.
 
 ```
 $ nos version
@@ -49,7 +49,7 @@ $ nos where Clojure.dll
 /Users/me/.local/nostrand/net471/Clojure.dll
 ```
 
-With a namespace they are searched for using Clojure's normal namespace resolution machinery. The current directory is on the load path by default.
+With a namespace they are searched for using Clojure's normal namespace resolution machinery. The project root is on the load path, and `nos` takes the directory you ran it from as that root.
 
 ```clojure
 $ cat tasks.clj
@@ -97,7 +97,7 @@ $ nos tasks/build true
 ```
 
 ### The deps file
-Nostrand reads `deps-clr.edn` from the current directory when it is there, and `deps.edn` otherwise, matching what `cljr` does. Whichever it reads is resolved at startup: every dependency is fetched and its source paths, plus the project's own `:paths`, are pushed onto the load path. Which of the two to write is [Declaring CLR dependencies](../docs/clr-dependency-files.md).
+Nostrand reads `deps-clr.edn` from the project root when it is there, and `deps.edn` otherwise, matching what `cljr` does. Whichever it reads is resolved at startup: every dependency is fetched and its source paths, plus the project's own `:paths`, are pushed onto the load path. Which of the two to write is [Declaring CLR dependencies](../docs/clr-dependency-files.md).
 
 The recognized keys are a subset of [tools.deps](https://github.com/clojure/tools.deps):
 

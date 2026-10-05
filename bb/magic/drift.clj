@@ -22,7 +22,7 @@
 ;; The vendored clojure.tools.analyzer.* DLLs resolve in none of these: they
 ;; are the only committed DLLs with no in-tree source.
 (def ^:private source-roots
-  ["magic-compiler/src/stdlib" "magic-compiler/src" "mage/src" "nostrand"])
+  ["magic-compiler/src/stdlib" "magic-compiler/src" "mage/src" "nostrand-lib" "nostrand"])
 
 (defn- sha256 [file]
   (let [md (MessageDigest/getInstance "SHA-256")]
@@ -122,8 +122,8 @@
 (defn check!
   "After the regen tasks have run, fail if any checked path differs from HEAD.
    Committed DLLs are byte-diffed, except magic-unity's MAGIC Clojure.dll and
-   Magic.Runtime.dll: they embed a git-describe SourceRevisionId, so they are
-   restored from HEAD instead."
+   Magic.Runtime.dll: they embed the commit SHA, so they are restored from
+   HEAD instead."
   []
   (let [checked-paths ["magic-runtime/Magic.Runtime/Generated"
                        manifest-path

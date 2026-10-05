@@ -91,6 +91,8 @@ Several assemblies fold into one loader with a `doseq` over the filenames. The l
 
 MAGIC also has a `*load-paths*` var, but it is MAGIC's own, so a loader reading it breaks under `cljr`. Scan the environment variable.
 
+`nos` sets it to absolute paths, or leaves it unset when there are none, so the scan does not depend on the directory the process happens to be in and `Path/Combine` on an entry always lands where you meant. Entries are pinned when they are added, so a task that changes directory does not move them.
+
 Note that in Unity, `CLOJURE_LOAD_PATH` is unset in the Editor and in players, so the loader scans nothing and returns, and it has nothing to do there anyway: Unity loads every managed plugin under `Assets/` before any Clojure runs.
 
 ### Two rules for the DLL

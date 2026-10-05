@@ -7,8 +7,12 @@
 
 ### Nostrand
 - `nos` ships its own eight namespaces as committed `nostrand.*.clj.dll` instead of compiling them in memory at every startup, so a short invocation starts roughly twice as fast. `bb build-runtime` recompiles them - [#183](https://github.com/flybot-sg/magic/issues/183).
+- The engine ships as its own `Nostrand.dll`, so a host that is not a console process can boot MAGIC and run a nostrand task. The terminal tasks such as `repl` move from `nostrand.tasks` to a new `nostrand.cli`; unqualified names such as `nos repl` resolve as before - [#185](https://github.com/flybot-sg/magic/issues/185).
 - `*load-paths*` holds each root once, and `set-load-path` drops roots it no longer names - [#182](https://github.com/flybot-sg/magic/issues/182).
 - Load-path and assembly roots pin to the directory they were added from, and `establish-project` takes the project root explicitly instead of reading the process directory; it owns both searches, so a second call switches projects rather than searching the first one first - [#187](https://github.com/flybot-sg/magic/issues/187).
+
+### Tooling
+- Every C# assembly carries the full commit SHA that the SDK's SourceLink stamps into `InformationalVersion`, so `nos version` reports `0.13.0+<sha>`. The csprojs no longer run `git describe` themselves, which ends the `+v0.11.0-0-g<hash>` form a tag checkout stamped since [#75](https://github.com/flybot-sg/magic/issues/75).
 
 ## v0.13.0 - 2026-09-09
 

@@ -4,13 +4,11 @@
  nostrand.tasks
   (:refer-clojure :exclude [test])
   (:import
-   [Nostrand Nostrand]
    [System.IO Directory File Path]
    [System.Security.Cryptography MD5]
    [System.Threading Thread ThreadStart]
    [System.Reflection AssemblyInformationalVersionAttribute])
-  (:require [nostrand.repl :as repl]
-            [nostrand.core :as nos]
+  (:require [nostrand.core :as nos]
             [nostrand.deps.nuget :as nuget]
             [nostrand.deps.basis :as basis]
             [nostrand.deps.submodules :as submodules]
@@ -19,78 +17,7 @@
             [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clojure.pprint :as pprint]
-            [clojure.core.server :as clj-server]
-            [clojure.test :as ct]
-            clojure.repl))
-
-(defn- msg
-  ([header body]
-   (Nostrand.Terminal/Message header body))
-  ([header body color]
-   (Nostrand.Terminal/Message header body color)))
-
-(defn version []
-  (msg "Nostrand" (Nostrand/Version) ConsoleColor/Cyan)
-  (msg "Clojure.Runtime" (Nostrand/ClojureRuntimeVersion) ConsoleColor/Cyan)
-  (msg "Magic.Runtime" (Nostrand/MagicRuntimeVersion) ConsoleColor/Cyan)
-  (msg "Clojure" (clojure-version) ConsoleColor/Cyan)
-  (msg "Runtime" (str (Environment/get_Version)
-                      " (" (Environment/get_OSVersion) ")")
-       ConsoleColor/DarkGray))
-
-(defn where
-  "Print the directory the running host loaded Clojure.dll from, as bare
-  stdout for shell capture. With a file name, print that file's full path.
-  Usage: nos where                  ; the runtime assemblies dir
-         nos where Clojure.dll      ; full path of one assembly"
-  ([] (println (-> (.Assembly clojure.lang.RT) .Location Path/GetDirectoryName)))
-  ([file] (println (Path/Combine (-> (.Assembly clojure.lang.RT) .Location Path/GetDirectoryName)
-                                 (str file)))))
-
-(defn cli-repl
-  ([] (cli-repl nil))
-  ([args]
-   (repl/cli args)))
-
-(defn socket-repl [args]
-  (repl/socket args))
-
-(defn repl
-  ([]
-   (version)
-   #_(repl/repl 11217)
-   (cli-repl))
-  ([port]
-   (version)
-   #_(repl/repl port)
-   (cli-repl)))
-
-(defn tasks []
-  (let [ns-syms
-        (->> (Directory/GetFiles "." "*.clj")
-             (map #(-> %
-                       (string/replace "./" "")
-                       (string/replace ".clj" "")
-                       symbol)))]
-    (doseq [s ns-syms]
-      (require s)
-      (let [fns (->> s
-                     find-ns
-                     ns-publics
-                     vals)]
-        (doseq [f fns]
-          ((var clojure.repl/print-doc) (meta f)))))))
-
-(defn clojure-socket-repl [args]
-  (print "Starting Clojure socket repl...")
-  (let [opts (merge
-              {:accept `clj-server/repl
-               :name "Clojure socket repl"}
-              args)]
-    (clj-server/start-server opts)
-    (println "done ")
-    (println "Started socket repl with Options: " opts)
-    (repl)))
+            [clojure.test :as ct]))
 
 (defn print-basis
   "Resolve ./deps.edn with the given alias keywords and pretty-print the
