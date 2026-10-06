@@ -24,17 +24,6 @@
     <Reference Include="references/*.dll" />
   </ItemGroup>
 
-  <Target Name="SetSourceRevisionId" BeforeTargets="InitializeSourceControlInformation">
-    <Exec 
-      Command="git describe --tags --long --always --match='v*' --abbrev=8"
-      StandardOutputImportance="low"
-      ConsoleToMSBuild="True"
-      IgnoreExitCode="False"
-      >
-      <Output PropertyName="SourceRevisionId" TaskParameter="ConsoleOutput"/>
-    </Exec>
-  </Target>
-
   <!-- <Target Name="PreBuild">
     <Exec Command="sh Scripts/patch-assembly-info.sh" />
   </Target>

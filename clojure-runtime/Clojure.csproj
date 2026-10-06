@@ -5,15 +5,4 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
   </ItemGroup>
-
-    <Target Name="SetSourceRevisionId" BeforeTargets="InitializeSourceControlInformation">
-    <Exec 
-      Command="git describe --tags --long --always --dirty --match='v*' --abbrev=8"
-      StandardOutputImportance="low"
-      ConsoleToMSBuild="True"
-      IgnoreExitCode="False"
-      >
-      <Output PropertyName="SourceRevisionId" TaskParameter="ConsoleOutput"/>
-    </Exec>
-  </Target>
 </Project>

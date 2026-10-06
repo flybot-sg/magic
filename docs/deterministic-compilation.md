@@ -181,7 +181,7 @@ A refresh that fails to compile anything deploys nothing and exits non-zero, so 
 
 ## The one exception: the two C# DLLs in `magic/`
 
-`magic/Clojure.dll` and `magic/Magic.Runtime.dll` are built by csproj, and their csproj stamps a `SourceRevisionId` from `git describe` into the assembly. Their bytes change with every commit by design, and no rebuild reproduces the committed ones. `check-drift` restores those two from HEAD, and maintainers refresh them deliberately.
+`magic/Clojure.dll` and `magic/Magic.Runtime.dll` are built by csproj, and the SDK's SourceLink stamps the commit SHA into the assembly. Their bytes change with every commit by design, and no rebuild reproduces the committed ones. `check-drift` restores those two from HEAD, and maintainers refresh them deliberately.
 
 ## Committing an assembly you compiled yourself
 
