@@ -12,15 +12,4 @@
         <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
       </PackageReference>
   </ItemGroup>
-
-  <Target Name="SetSourceRevisionId" BeforeTargets="InitializeSourceControlInformation">
-    <Exec 
-      Command="git describe --tags --long --always --match='v*' --abbrev=8"
-      StandardOutputImportance="low"
-      ConsoleToMSBuild="True"
-      IgnoreExitCode="False"
-      >
-      <Output PropertyName="SourceRevisionId" TaskParameter="ConsoleOutput"/>
-    </Exec>
-  </Target>
 </Project>

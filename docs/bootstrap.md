@@ -295,7 +295,7 @@ The pre-build hook hands each assembly to Mono.Cecil ([Unity integration](./unit
 
 To get back to a clean state, restore the directory from HEAD (`git checkout -- magic-unity/Runtime/magic/`) or regenerate it with `bb refresh-stdlib` or `bb build`.
 
-**The rule:** never commit `magic/` straight after a player build. And when a C# runtime fix means `magic/Clojure.dll` genuinely has to be committed, mind the order. `bb check-drift` restores `Clojure.dll` and `Magic.Runtime.dll` from HEAD, because both embed a `git describe` `SourceRevisionId` no rebuild can reproduce. So run `bb check-drift` **first**, then `dotnet build -t:MagicUnity`, then commit. The other order looks clean and ships the old DLL.
+**The rule:** never commit `magic/` straight after a player build. And when a C# runtime fix means `magic/Clojure.dll` genuinely has to be committed, mind the order. `bb check-drift` restores `Clojure.dll` and `Magic.Runtime.dll` from HEAD, because both embed a commit SHA no rebuild can reproduce. So run `bb check-drift` **first**, then `dotnet build -t:MagicUnity`, then commit. The other order looks clean and ships the old DLL.
 
 ### A mono crash during assembly save
 
