@@ -26,15 +26,15 @@ namespace Nostrand
 
         public static void LoadNostrand()
         {
-            // var loadFunction = RT.var("clojure.core", "*load-fn*");
-            // loadFunction.invoke("nostrand/core");
-            RT.var("clojure.core", "*load-fn*").invoke("nostrand/core");
-            // loadFunction.invoke("nostrand/tasks");
-            RT.var("clojure.core", "*load-fn*").invoke("nostrand/tasks");
+            Require("nostrand.core");
+            Require("nostrand.tasks");
         }
 
         public static void Require(string ns)
         {
+            if (string.IsNullOrEmpty(ns))
+                throw new ArgumentException("must be a namespace name", nameof(ns));
+
             RT.var("clojure.core", "require").invoke(Symbol.intern(ns));
         }
 
@@ -57,15 +57,16 @@ namespace Nostrand
         {
             try
             {
-                if (name.Contains("/"))
+                // A qualified name carries exactly one slash, as a symbol does.
+                // A path like sub/dir/thing.clj is not one, and falls through to
+                // the unqualified branch to miss there rather than load "sub".
+                var slash = name.IndexOf('/');
+                if (slash > 0 && slash == name.LastIndexOf('/') && slash < name.Length - 1)
                 {
-                    var taskName = name;
-                    var taskParts = taskName.Split('/');
-                    var taskNS = taskParts[0];
-                    var taskVarName = taskParts[1];
-                    RT.load(taskNS.Replace('.', '/'));
-                    var v = Namespace.find(Symbol.intern(taskNS)).FindInternedVar(Symbol.intern(taskVarName));
-                    return v;
+                    var taskNS = name.Substring(0, slash);
+                    var taskVarName = name.Substring(slash + 1);
+                    Require(taskNS);
+                    return Namespace.find(Symbol.intern(taskNS))?.FindInternedVar(Symbol.intern(taskVarName));
                 }
                 else
                 {
@@ -86,6 +87,12 @@ namespace Nostrand
             {
 
             }
+            // A name that does not resolve to a loadable namespace is a miss,
+            // not a crash; the caller decides what to say about it.
+            catch (FileNotFoundException)
+            {
+
+            }
 
             return null;
         }
@@ -102,24 +109,17 @@ namespace Nostrand
                 var fn = FindFunction(inputString);
                 if (fn != null)
                 {
-                    //referAll.invoke(fn.Namespace, nostrandCore);
                     fn.applyTo(input.next());
                     return true;
                 }
 
                 if (File.Exists(inputString))
                 {
-                    try
+                    IFn mainFn = FindFunction(Nostrand.FileToNamespace(inputString) + "/-main");
+                    if (mainFn != null)
                     {
-                        IFn mainFn = FindFunction(Nostrand.FileToRelativePath(inputString) + "/-main");
-                        if (mainFn != null)
-                        {
-                            mainFn.applyTo(input.next());
-                        }
+                        mainFn.applyTo(input.next());
                         return true;
-                    }
-                    catch (FileNotFoundException)
-                    {
                     }
                 }
 
