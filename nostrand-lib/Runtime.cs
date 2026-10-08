@@ -32,6 +32,9 @@ namespace Nostrand
 
         public static void Require(string ns)
         {
+            if (string.IsNullOrEmpty(ns))
+                throw new ArgumentException("must be a namespace name", nameof(ns));
+
             RT.var("clojure.core", "require").invoke(Symbol.intern(ns));
         }
 
