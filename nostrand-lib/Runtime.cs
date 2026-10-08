@@ -54,12 +54,14 @@ namespace Nostrand
         {
             try
             {
-                if (name.Contains("/"))
+                // A qualified name carries exactly one slash, as a symbol does.
+                // A path like sub/dir/thing.clj is not one, and falls through to
+                // the unqualified branch to miss there rather than load "sub".
+                var slash = name.IndexOf('/');
+                if (slash > 0 && slash == name.LastIndexOf('/') && slash < name.Length - 1)
                 {
-                    var taskName = name;
-                    var taskParts = taskName.Split('/');
-                    var taskNS = taskParts[0];
-                    var taskVarName = taskParts[1];
+                    var taskNS = name.Substring(0, slash);
+                    var taskVarName = name.Substring(slash + 1);
                     Require(taskNS);
                     return Namespace.find(Symbol.intern(taskNS))?.FindInternedVar(Symbol.intern(taskVarName));
                 }
@@ -110,17 +112,11 @@ namespace Nostrand
 
                 if (File.Exists(inputString))
                 {
-                    try
+                    IFn mainFn = FindFunction(Nostrand.FileToNamespace(inputString) + "/-main");
+                    if (mainFn != null)
                     {
-                        IFn mainFn = FindFunction(Nostrand.FileToRelativePath(inputString) + "/-main");
-                        if (mainFn != null)
-                        {
-                            mainFn.applyTo(input.next());
-                            return true;
-                        }
-                    }
-                    catch (FileNotFoundException)
-                    {
+                        mainFn.applyTo(input.next());
+                        return true;
                     }
                 }
 

@@ -91,6 +91,15 @@ namespace Nostrand
                     return file.Substring(0, file.Length - ext.Length);
             return file;
         }
+
+        /// <summary>
+        /// The namespace a source file declares, by convention: separators become
+        /// dots and the name is demunged, so sub/dir/cool_ns.clj is sub.dir.cool-ns.
+        /// </summary>
+        public static string FileToNamespace(string file)
+        {
+            return FileToRelativePath(file).Replace('/', '.').Replace('_', '-');
+        }
     }
 }
 
