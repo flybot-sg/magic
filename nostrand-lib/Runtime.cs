@@ -26,11 +26,8 @@ namespace Nostrand
 
         public static void LoadNostrand()
         {
-            // var loadFunction = RT.var("clojure.core", "*load-fn*");
-            // loadFunction.invoke("nostrand/core");
-            RT.var("clojure.core", "*load-fn*").invoke("nostrand/core");
-            // loadFunction.invoke("nostrand/tasks");
-            RT.var("clojure.core", "*load-fn*").invoke("nostrand/tasks");
+            Require("nostrand.core");
+            Require("nostrand.tasks");
         }
 
         public static void Require(string ns)
@@ -63,9 +60,8 @@ namespace Nostrand
                     var taskParts = taskName.Split('/');
                     var taskNS = taskParts[0];
                     var taskVarName = taskParts[1];
-                    RT.load(taskNS.Replace('.', '/'));
-                    var v = Namespace.find(Symbol.intern(taskNS)).FindInternedVar(Symbol.intern(taskVarName));
-                    return v;
+                    Require(taskNS);
+                    return Namespace.find(Symbol.intern(taskNS))?.FindInternedVar(Symbol.intern(taskVarName));
                 }
                 else
                 {
@@ -86,6 +82,12 @@ namespace Nostrand
             {
 
             }
+            // A name that does not resolve to a loadable namespace is a miss,
+            // not a crash; the caller decides what to say about it.
+            catch (FileNotFoundException)
+            {
+
+            }
 
             return null;
         }
@@ -102,7 +104,6 @@ namespace Nostrand
                 var fn = FindFunction(inputString);
                 if (fn != null)
                 {
-                    //referAll.invoke(fn.Namespace, nostrandCore);
                     fn.applyTo(input.next());
                     return true;
                 }
@@ -115,8 +116,8 @@ namespace Nostrand
                         if (mainFn != null)
                         {
                             mainFn.applyTo(input.next());
+                            return true;
                         }
-                        return true;
                     }
                     catch (FileNotFoundException)
                     {
