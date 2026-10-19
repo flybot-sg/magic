@@ -16,7 +16,9 @@ namespace Nostrand
             // unstamped so bb check-drift can byte-diff it.
             Nostrand.VersionSource = typeof(Program).Assembly;
 
-            Runtime.Boot(Path.GetDirectoryName(Assembly.Load("Clojure").Location));
+            // The CLI is free to anchor on the loaded Clojure.dll; a Unity
+            // package is not, which is why Runtime.Boot takes the directories.
+            Runtime.Boot(new[] { Path.GetDirectoryName(Assembly.Load("Clojure").Location) });
             Runtime.LoadNostrand();
 
             Runtime.RegisterTasks("nostrand.cli");
