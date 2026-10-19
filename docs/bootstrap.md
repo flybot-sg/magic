@@ -47,13 +47,13 @@ Three directories hold committed `.clj.dll`, and two of them hold a compiler.
 |---|---|---|
 | `nostrand/references/` | 82 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), the stdlib (37 `clojure.*`), and nostrand's own namespaces (9 `nostrand.*`) | `nos`, at every startup |
 | `magic-unity/Runtime/magic/` | the same 37 stdlib `.clj.dll`, plus `Clojure.dll` and `Magic.Runtime.dll` | Unity, at play time and in players |
-| `magic-unity/Editor/Compiler/` | the other 36: the compiler and its analyzer dependency | the Unity Editor only, never a player |
+| `magic-unity/Editor/Compiler/` | the other 36: the compiler and its analyzer dependency, alongside `Nostrand.dll` | the Unity Editor only, never a player |
 
 The compiler reaches the Editor, but nothing in the package invokes it yet. You still compile with `nos` first, and Unity loads the result as ordinary .NET assemblies ([Unity integration](./unity-integration.md)). It is kept out of players because MSIL emission needs `Reflection.Emit`, which IL2CPP does not ship; a player gets the stdlib and nothing else. How the 73 divide between the two package directories, and the one kind of staleness no check catches, is in [DLL provenance](./dll-provenance.md#how-the-73-split-across-the-package).
 
 A third copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 82 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
 
-`Nostrand.Runtime.Boot` loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and binds `clojure.core`'s empty compiler slots to `magic.api` ([Nostrand](./architecture.md#nostrand)).
+`Nostrand.Runtime.Boot`, in the `nostrand-lib/` library, loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and binds `clojure.core`'s empty compiler slots to `magic.api` ([Nostrand](./architecture.md#nostrand)). The caller decides where those DLLs live: `nostrand/Program.cs` passes the directory next to `Clojure.dll`, a Unity Editor host passes its own package directories.
 
 These 82 binaries are versioned like source, because for this compiler they are source: they are the only form of MAGIC that another MAGIC can be built from.
 

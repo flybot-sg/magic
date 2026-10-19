@@ -33,7 +33,8 @@
 ;; :any-platform is the `Any:` row's enabled value in the meta's platform table:
 ;; 1 ships to players, 0 never does.
 ;; :compiler is Editor-only by the Editor/ folder rule and explicitly
-;; referenced: it is reached through RT.load, never a C# type reference.
+;; referenced: its .clj.dll are reached through RT.load, and Nostrand.dll only
+;; by an asmdef that names it.
 (def ^:private runtime-sets
   {:magic       {:dir          (str default-pkg "/Runtime/magic")
                  :constraints  [(str "!UNITY_EDITOR || " magic-symbol)]
@@ -151,7 +152,7 @@
 ;; The two runtime sets are auto-referenced (isExplicitlyReferenced: 0):
 ;; Magic.Unity.asmdef names no precompiled references, so it binds whichever
 ;; Clojure.dll the constraints admit -- ClojureCLR in the default Editor, MAGIC
-;; otherwise. :compiler is explicitly referenced instead, so its 37 DLLs are not
+;; otherwise. :compiler is explicitly referenced instead, so its DLLs are not
 ;; pushed onto every auto-referencing assembly in the consumer's project.
 (def ^:private template-dir "bb/templates/plugin-meta")
 

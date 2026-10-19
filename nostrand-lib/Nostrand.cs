@@ -64,9 +64,15 @@ namespace Nostrand
             return ((AssemblyInformationalVersionAttribute)(asm.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)[0])).InformationalVersion;
         }
 
+        /// <summary>
+        /// The assembly Version() reports. Nostrand.dll carries no SourceLink
+        /// commit SHA, so the CLI points this at its own exe, which does.
+        /// </summary>
+        public static Assembly VersionSource = typeof(Nostrand).Assembly;
+
         public static string Version()
         {
-            var asm = typeof(Nostrand).Assembly;
+            var asm = VersionSource;
             if (Assembly.Load("System").GetName().Version.Major == 2)
                 return asm.GetName().Version.ToString();
             return GetVersionString(asm);

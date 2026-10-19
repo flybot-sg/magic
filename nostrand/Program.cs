@@ -12,6 +12,10 @@ namespace Nostrand
         {
             new Mono.Terminal.LineEditor("#force-mono.terminal-assembly-load#");
 
+            // Only the exe carries the SourceLink commit SHA; Nostrand.dll is
+            // unstamped so bb check-drift can byte-diff it.
+            Nostrand.VersionSource = typeof(Program).Assembly;
+
             Runtime.Boot(Path.GetDirectoryName(Assembly.Load("Clojure").Location));
             Runtime.LoadNostrand();
 
