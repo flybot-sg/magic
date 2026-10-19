@@ -33,7 +33,7 @@ flowchart LR
 
     subgraph out["Build output"]
         rt["the runtime:<br/>Clojure.dll<br/>Magic.Runtime.dll"]
-        cdll["36 compiler .clj.dll"]
+        cdll["45 compiler + nostrand .clj.dll"]
         sdll["37 stdlib .clj.dll"]
     end
 
@@ -211,9 +211,9 @@ The compiler is a DLL out of necessity: it cannot compile itself into existence,
 
 ## The Unity package
 
-Unity never compiles Clojure.
+Unity does not compile Clojure on the everyday path.
 
-You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic/`, and Unity loads them as ordinary .NET assemblies. So players get a runtime and no compiler. A MAGIC Editor also loads the compiler from `Editor/Compiler/`, but nothing in the package invokes it yet.
+You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic/`, and Unity loads them as ordinary .NET assemblies. So players get a runtime and no compiler. A MAGIC Editor also loads the compiler from `Editor/Compiler/`, and `magic-unity/Editor/NostrandHost/` can run the same nostrand tasks in the Editor's own process against it. Nothing in the package constructs that host; a consumer that wants in-Editor compilation opts in.
 
 ```mermaid
 flowchart TD

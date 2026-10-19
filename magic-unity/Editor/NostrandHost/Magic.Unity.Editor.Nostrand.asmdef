@@ -1,0 +1,21 @@
+{
+    "name": "Magic.Unity.Editor.Nostrand",
+    "rootNamespace": "",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "Clojure.dll",
+        "Nostrand.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "MAGIC_RUNTIME_IN_EDITOR"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

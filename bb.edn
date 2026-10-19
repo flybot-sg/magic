@@ -26,7 +26,7 @@
              (unity/write-metas!))}
 
   build-runtime
-  {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand, then recompile nostrand's own .clj into the committed nostrand.*.clj.dll.
+  {:doc "Rebuild C# runtimes (clojure-runtime + magic-runtime) and nostrand, then recompile nostrand's own .clj into the committed nostrand.*.clj.dll. Nostrand.csproj redeploys Nostrand.dll into magic-unity/Editor/Compiler as part of its build.
          No magic-compiler bootstrap.
          Fast."
    :task (do (shell "dotnet build" "nostrand/NostrandMain.csproj" "-c" "Release")
