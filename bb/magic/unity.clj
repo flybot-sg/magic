@@ -139,8 +139,9 @@
 ;; Real Unity-written metas with the two authored fields punched out.
 ;; The runtime sets are auto-referenced (isExplicitlyReferenced: 0):
 ;; Magic.Unity.asmdef names no precompiled references, so it binds whichever
-;; Clojure.dll the constraints admit. :compiler is explicitly referenced, as
-;; no C# code references its types.
+;; Clojure.dll the constraints admit. :compiler is explicitly referenced: its
+;; .clj.dll are reached through RT.load, and Nostrand.dll only by an asmdef that
+;; names it.
 (def ^:private template-dir "bb/templates/plugin-meta")
 
 (defn- plugin-meta [set-key dll-name]

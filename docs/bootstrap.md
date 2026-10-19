@@ -47,11 +47,11 @@ Three directories hold committed `.clj.dll`, and two of them hold a compiler.
 |---|---|---|
 | `nostrand/references/` | 84 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), the stdlib (37 `clojure.*`), and nostrand's own namespaces (11 `nostrand.*`) | `nos`, at every startup |
 | `magic-unity/Runtime/magic/` | the same 37 stdlib `.clj.dll`, plus `Clojure.dll` and `Magic.Runtime.dll` | Unity, at play time and in players |
-| `magic-unity/Editor/Compiler/` | the compiler and its analyzer dependency (36), and 9 of the 11 `nostrand.*`, all but `nostrand.cli` and `nostrand.main` | a MAGIC Editor only, never a player |
+| `magic-unity/Editor/Compiler/` | the compiler and its analyzer dependency (36), 9 of the 11 `nostrand.*` (all but `nostrand.cli` and `nostrand.main`), and `Nostrand.dll` | a MAGIC Editor only, never a player |
 
 A fourth copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 84 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
 
-`Nostrand.Runtime.Boot` loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and binds `clojure.core`'s empty compiler slots to `magic.api` ([Nostrand](./architecture.md#nostrand)).
+`Nostrand.Runtime.Boot`, in the `nostrand-lib/` library, loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and binds `clojure.core`'s empty compiler slots to `magic.api` ([Nostrand](./architecture.md#nostrand)). The caller decides where those DLLs live: `nostrand/Program.cs` passes the directory next to `Clojure.dll`, a Unity Editor host passes its own package directories.
 
 These 84 binaries are versioned like source, because for this compiler they are source: they are the only form of MAGIC that another MAGIC can be built from.
 
