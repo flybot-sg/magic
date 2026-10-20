@@ -1810,16 +1810,16 @@ namespace clojure.lang
             return true;
         }
 
-//         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "load")]
-//         public static object loadFile(string fileName)
-//         {
-//             FileInfo finfo = new FileInfo(fileName);
-//             if (!finfo.Exists)
-//                 throw new FileNotFoundException("Cannot find file to load", fileName);
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "load")]
+        public static object loadFile(string fileName)
+        {
+            FileInfo finfo = new FileInfo(fileName);
+            if (!finfo.Exists)
+                throw new FileNotFoundException("Cannot find file to load: " + fileName, fileName);
 
-//             using (TextReader rdr = finfo.OpenText())
-//                 return load(rdr, finfo.FullName, finfo.Name, fileName);
-//         }
+            using (TextReader rdr = finfo.OpenText())
+                return load(rdr, finfo.FullName, finfo.Name, fileName);
+        }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "load")]
         public static object load(TextReader rdr)
@@ -1835,98 +1835,81 @@ namespace clojure.lang
 
 //         public delegate object ReplDelegate();
 
-//         static void ConsumeWhitespaces(LineNumberingTextReader lnReader)
-//         {
-//             int ch = lnReader.Read();
-//             while (LispReader.isWhitespace(ch))
-//                 ch = lnReader.Read();
-//             LispReader.Unread(lnReader, ch);
-//         }
-
-//         static readonly Object OPTS_COND_ALLOWED = RT.mapUniqueKeys(LispReader.OPT_READ_COND, LispReader.COND_ALLOW);
-
-//         static Object ReaderOpts(string sourceName)
-//         {
-//             if (sourceName != null && sourceName.EndsWith(".cljc"))
-//                 return OPTS_COND_ALLOWED;
-//             else
-//                 return null;
-//         }
-
-        public static object load(TextReader rdr, string sourcePath, string sourceName, string relativePath)
+        static void ConsumeWhitespaces(LineNumberingTextReader lnReader)
         {
-            throw new NotSupportedException("clojure.lang.Compiler::load disabled in this runtime");
+            int ch = lnReader.Read();
+            while (LispReader.isWhitespace(ch))
+                ch = lnReader.Read();
+            LispReader.Unread(lnReader, ch);
         }
 
+        static readonly Object OPTS_COND_ALLOWED = RT.mapUniqueKeys(LispReader.OPT_READ_COND, LispReader.COND_ALLOW);
 
-//         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA1801:ReviewUnusedParameters", MessageId = "relativePath"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "load")]
-//         public static object load(TextReader rdr, string sourcePath, string sourceName, string relativePath)
-//         {
-//             object ret = null;
-//             object eofVal = new object();
-//             object form;
+        static Object ReaderOpts(string sourceName)
+        {
+            if (sourceName != null && sourceName.EndsWith(".cljc"))
+                return OPTS_COND_ALLOWED;
+            else
+                return null;
+        }
 
-//             LineNumberingTextReader lntr = rdr as LineNumberingTextReader ?? new LineNumberingTextReader(rdr);
+        // Upstream's body, but each form is evaluated by clojure.core/eval, which
+        // *eval-form-fn* hands to MAGIC, as this fork has no compiler of its own.
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "load")]
+        public static object load(TextReader rdr, string sourcePath, string sourceName, string relativePath)
+        {
+            object ret = null;
+            object eofVal = new object();
+            object form;
+            Var evalVar = RT.var("clojure.core", "eval");
 
-//             ConsumeWhitespaces(lntr);
+            LineNumberingTextReader lntr = rdr as LineNumberingTextReader ?? new LineNumberingTextReader(rdr);
 
-//             Var.pushThreadBindings(RT.mapUniqueKeys(
-//                 //LOADER, RT.makeClassLoader(),
-//                 SourcePathVar, sourcePath,
-//                 SourceVar, sourceName,
-//                 RT.ReadEvalVar, true /* RT.T */,
-//                 RT.CurrentNSVar, RT.CurrentNSVar.deref(),
-//                 RT.UncheckedMathVar, RT.UncheckedMathVar.deref(),
-//                 RT.WarnOnReflectionVar, RT.WarnOnReflectionVar.deref(),
-//                 RT.DataReadersVar, RT.DataReadersVar.deref(),
-//                 CompilerContextVar, EvalContext
-//                 //LINE_BEFORE, lntr.LineNumber,
-//                 //LINE_AFTER, lntr.LineNumber,
-//                 //COLUMN_BEFORE, lntr.ColumnNumber,
-//                 //COLUMN_AFTER, lntr.ColumnNumber
-//                 ));
+            ConsumeWhitespaces(lntr);
 
-//             Object readerOpts = ReaderOpts(sourceName);
+            Var.pushThreadBindings(RT.mapUniqueKeys(
+                //LOADER, RT.makeClassLoader(),
+                SourcePathVar, relativePath,
+                RT.ReadEvalVar, true /* RT.T */,
+                RT.CurrentNSVar, RT.CurrentNSVar.deref(),
+                RT.UncheckedMathVar, RT.UncheckedMathVar.deref(),
+                RT.WarnOnReflectionVar, RT.WarnOnReflectionVar.deref(),
+                RT.DataReadersVar, RT.DataReadersVar.deref()
+                ));
 
-//             int lineBefore = lntr.LineNumber;
-//             int columnBefore = lntr.ColumnNumber;
-//             //int lineAfter = lntr.LineNumber;
-//             //int columnAfter = lntr.ColumnNumber;
-//             try
-//             {
-//                 while ((form = LispReader.read(lntr, false, eofVal, false, readerOpts)) != eofVal)
-//                 {
-//                     ConsumeWhitespaces(lntr);
-//                     //LINE_AFTER.set(lntr.LineNumber);
-//                     //COLUMN_AFTER.set(lntr.ColumnNumber);
-//                     //lineAfter = lntr.LineNumber;
-//                     //columnAfter = lntr.ColumnNumber;
-//                     ret = eval(form);
-//                     //LINE_BEFORE.set(lntr.LineNumber);
-//                     //COLUMN_BEFORE.set(lntr.ColumnNumber);
-//                     lineBefore = lntr.LineNumber;
-//                     columnBefore = lntr.ColumnNumber;
-//                 }
-//             }
-//             catch (LispReader.ReaderException e)
-//             {
-//                 throw new CompilerException(sourcePath, e.Line, e.Column, e.InnerException);
-//             }
-//             catch (CompilerException)
-//             {
-//                 throw;
-//             }
-//             catch (Exception e)
-//             {
-//                 throw new CompilerException(sourcePath, lineBefore, columnBefore, e);
-//             }
-//             finally
-//             {
-//                 Var.popThreadBindings();
-//             }
+            Object readerOpts = ReaderOpts(sourceName);
 
-//             return ret;
-//         }
+            int lineBefore = lntr.LineNumber;
+            int columnBefore = lntr.ColumnNumber;
+            try
+            {
+                while ((form = LispReader.read(lntr, false, eofVal, false, readerOpts)) != eofVal)
+                {
+                    ConsumeWhitespaces(lntr);
+                    ret = evalVar.invoke(form);
+                    lineBefore = lntr.LineNumber;
+                    columnBefore = lntr.ColumnNumber;
+                }
+            }
+            catch (LispReader.ReaderException e)
+            {
+                throw new CompilerException(sourcePath, e.Line, e.Column, null, CompilerException.PhaseReadKeyword, e.InnerException);
+            }
+            catch (CompilerException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                throw new CompilerException(sourcePath, lineBefore, columnBefore, null, CompilerException.PhaseExecutionKeyword, e);
+            }
+            finally
+            {
+                Var.popThreadBindings();
+            }
+
+            return ret;
+        }
 
         #endregion
 

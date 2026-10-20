@@ -8,6 +8,8 @@
 
 ### Runtime
 - `CompilerException` carries its phase and location in `ex-data`, so `ex-triage` reports a syntax error there instead of an execution error, and its message no longer embeds the cause's stack trace - [#197](https://github.com/flybot-sg/magic/issues/197).
+- `load-file`, `load-string`, `load-reader` and `clojure.main` scripts now run - [#192](https://github.com/flybot-sg/magic/issues/192).
+- `*file*` in a loaded file holds its path instead of `#eval#` - [#192](https://github.com/flybot-sg/magic/issues/192).
 
 ### Stdlib
 - `root-cause`, and so `(pst)`, skips a `CompilerException` from `NO_SOURCE_FILE`, as on the JVM - [#197](https://github.com/flybot-sg/magic/issues/197).
