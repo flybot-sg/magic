@@ -1,7 +1,8 @@
 (ns magic.test.stdlib
   (:require [clojure.test :refer [deftest testing]]
             [clojure.main :as main]
-            [clojure.core.server :as server])
+            [clojure.core.server :as server]
+            [clojure.clr.shell :as shell])
   (:use magic.test.common))
 
 ;;; symbol (1.10): arity-1 works on strings, keywords, and vars
@@ -111,8 +112,7 @@
           (symbol? (first frame))
           (not= 'System.Diagnostics.StackFrame (first frame))))))
 
-;;; ex-triage / ex-str (1.10). err->msg and :clojure.error/path are post-1.10
-;;; and intentionally not ported. These mirror clojure.test-clojure.main from
+;;; ex-triage / ex-str (1.10). These mirror clojure.test-clojure.main from
 ;;; ClojureCLR: an unthrown exception already has an empty stack trace, which
 ;;; makes the whole triage deterministic (no flaky :symbol/:source/:line).
 
@@ -147,6 +147,59 @@
     "(let [x 1] x)"                                       100 100
     "^{:line 20 :clojure.core/eval-file \"a/b.clj\"} (let [x 1] x)" 100 20
     "^{:line 20} (let [x 1] x)"                           100 20))
+
+;;; report-error and --report (1.10.1). clojure.main/main reports an uncaught
+;;; exception and exits 1, so the exit is checked in a child nos.
+
+(deftest test-report-error-targets
+  (let [e      (ArgumentException. "xyz")
+        report #(let [w (System.IO.StringWriter.)]
+                  (binding [*err* w] (main/report-error e :target %))
+                  (str w))]
+    (clojure.test/is (= "" (report "none")))
+    (clojure.test/is
+     (.EndsWith (report "stderr")
+                (str "Execution error (ArgumentException) at (REPL:1).\nxyz\n"
+                     Environment/NewLine)))))
+
+(defn- temp-dir []
+  (let [dir (System.IO.Path/Combine (System.IO.Path/GetTempPath)
+                                    (str "magic-test-main-" (gensym)))]
+    (System.IO.Directory/CreateDirectory dir)
+    dir))
+
+(defn- nos
+  "Run the nos running this suite with args in dir: {:exit :out :err}."
+  [dir & args]
+  (apply shell/sh
+         (.. System.Diagnostics.Process GetCurrentProcess MainModule FileName)
+         (.Location (System.Reflection.Assembly/GetEntryAssembly))
+         (concat args [:dir dir])))
+
+(deftest test-main-reports-uncaught-exception
+  (let [dir (temp-dir)]
+    (try
+      (let [{:keys [exit err]} (nos dir "--report" "stderr" "-m" "magic.test.tmp.missing")]
+        (clojure.test/is (= 1 exit))
+        (clojure.test/is (.StartsWith err "{:clojure.main/message"))
+        (clojure.test/is (.Contains err "Execution error (FileNotFoundException)"))
+        (clojure.test/is (not (.Contains err "Unhandled Exception"))))
+      (finally (System.IO.Directory/Delete dir true)))))
+
+;;; load-script: a path starting with @ or @/ is found on the load path
+
+(deftest test-load-script-resource
+  (let [dir (temp-dir)]
+    (try
+      (doseq [prefix ["@" "@/"]
+              :let   [sym  (symbol (str "magic.test.tmp.script" (gensym)))
+                      file (str "script" (gensym) ".clj")]]
+        (System.IO.File/WriteAllText (System.IO.Path/Combine dir file)
+                                     (str "(ns " sym ")(def loaded :yes)"))
+        (binding [*load-paths* [dir]]
+          (main/load-script (str prefix file)))
+        (clojure.test/is (= :yes @(ns-resolve (find-ns sym) 'loaded)) prefix))
+      (finally (System.IO.Directory/Delete dir true)))))
 
 ;;; prepl / io-prepl (1.10). Neither Clojure nor ClojureCLR unit-tests these,
 ;;; so we drive prepl in-process over a string reader and assert the out-fn

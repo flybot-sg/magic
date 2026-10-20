@@ -9,6 +9,7 @@
 ### Runtime
 - `load-file`, `load-string`, `load-reader` and `clojure.main` scripts now run - [#192](https://github.com/flybot-sg/magic/issues/192).
 - `*file*` in a loaded file holds its path instead of `#eval#` - [#192](https://github.com/flybot-sg/magic/issues/192).
+- `clojure.main` reports an uncaught error and exits 1, instead of crashing Mono - [#192](https://github.com/flybot-sg/magic/issues/192).
 
 ### Nostrand
 - `nos` ships its own eight namespaces as committed `nostrand.*.clj.dll` instead of compiling them in memory at every startup, so a short invocation starts roughly twice as fast. `bb build-runtime` recompiles them - [#183](https://github.com/flybot-sg/magic/issues/183).
