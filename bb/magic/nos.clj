@@ -20,7 +20,9 @@
 (defn nos!
   "Run a Nostrand task from magic-compiler/ with the repo-built binary."
   [task & args]
-  (apply shell {:dir "magic-compiler"} "mono" (str "../" exe) task args))
+  (apply shell {:dir "magic-compiler"
+                :extra-env {"clojure.main.report" "stderr"}}
+         "mono" (str "../" exe) task args))
 
 (defn bootstrap!
   "One bootstrap pass: compile the compiler with whatever compiler is currently

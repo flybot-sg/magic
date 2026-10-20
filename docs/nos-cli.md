@@ -2,31 +2,46 @@
 
 `nos` is for MAGIC what `clj` is for JVM Clojure and `cljr` is for ClojureCLR: the command that resolves your dependencies and runs your code. MAGIC needs one because it is a compiler and nothing more: it turns Clojure forms into MSIL and has no idea what a dependency or a test suite is.
 
-`nos` is a C# executable that loads the committed compiler, resolves a `deps-clr.edn` or `deps.edn`, puts the resolved source paths on the load path, and then calls a Clojure function you name. Everything else it does is a function running inside that.
+`nos` loads the committed compiler, resolves [the deps file](../nostrand/README.md#the-deps-file) onto the load path, and hands its command line to `clojure.main`. It has no build DSL and no lifecycle: a task is a plain Clojure `defn`, and `nos build` is a `defn` that happens to ship with the host. Installing `nos` is in [its README](../nostrand/README.md#install).
 
-That last part is the shape worth holding on to. `nos` has no build DSL and no lifecycle. A task is a plain Clojure `defn`, and `nos build` is a `defn` that happens to ship with the host.
+## Running a command
 
-## Finding a task
+`nos` hands its command line to `clojure.main`, as `clj` and `cljr` do. A task name goes through `clojure.main -m nostrand.exec`, the way `clojure -X` goes through `clojure.main -m clojure.run.exec`.
 
 ```mermaid
 flowchart TD
-    arg["nos &lt;name&gt; [args...]"] --> slash{"does the name<br/>contain a slash?"}
-    slash -->|"yes: dotnet/build"| load["load the namespace from<br/>the load path (dotnet.clj)"]
+    arg["nos &lt;arg&gt; [args...]"] --> opt{"an option (-m, -e, -i, -r, -), an @path,<br/>or a .clj, .cljc or .cljr file?"}
+    opt -->|"yes: -m my.app, script.clj"| main["clojure.main runs it"]
+    opt -->|"no: a task name"| slash{"does the name<br/>contain a slash?"}
+    slash -->|"yes: dotnet/build"| load["require the namespace from<br/>the load path (dotnet.clj)"]
     load --> v1["call that namespace's var"]
     slash -->|"no: build"| bi{"a var in nostrand.tasks,<br/>then nostrand.cli?"}
     bi -->|yes| v2["call the built-in"]
-    bi -->|no| core{"a var in<br/>clojure.core?"}
-    core -->|yes| v3["call that"]
-    core -->|no| file{"a source file in<br/>the current directory?"}
-    file -->|"yes: script.clj"| v4["load it, call its -main"]
-    file -->|no| fail["not found"]
+    bi -->|no| fail["error, exit 1"]
 ```
 
-So `nos dotnet/build` loads `dotnet.clj` from the current directory and calls `build` in it. The file name carries no meaning: `nos release/publish` loads `release.clj` just as happily. `dotnet.clj` is a convention inherited from the projects that came first, not a name the host knows.
+`nos dotnet/build` requires `dotnet` from the load path, which includes the directory you ran `nos` from, and calls `build` in it. The file name carries no meaning: `nos release/publish` loads `release.clj` just as happily. `dotnet.clj` is a convention inherited from the projects that came first, not a name the host knows.
 
-Arguments are read as EDN, the whole command line at once. When that fails to read, `nos` retries argument by argument and passes any that still will not read through as a symbol, which is what lets an absolute path work: `/Users/me/f.clj` is not readable EDN, so it arrives as a symbol of that name.
+A file runs as `clojure.main` runs a script: its top-level forms are evaluated, `*command-line-args*` holds the arguments after it, and nothing calls its `-main`. To call a namespace's `-main`, use `nos -m my.app`, which passes the arguments as strings.
 
-`nos tasks` prints the docstring of every public var in every `.clj` file in the current directory. It documents your task files, not the built-ins.
+Arguments to a task are read as EDN, the whole command line at once, so a form may span several shell words. When that fails to read, `nos` retries argument by argument and passes any that still will not read through as a symbol, which is what lets an absolute path work.
+
+```bash
+nos tasks/build true            # (tasks/build true)
+nos tasks/build {:utils? true}  # (tasks/build {:utils? true})
+```
+
+Everything runs in the `user` namespace.
+
+## Errors
+
+An uncaught error prints a summary, writes the full report to a temporary file and exits 1. A task that cannot be found is one too: a namespace missing from the load path fails with the loader's message, a var missing from its namespace with "Namespace … loaded but function not found", and an unknown unqualified name with "No task named …".
+
+`--report stderr` or `--report none` redirects the report for `-m`, `-e` and scripts only: in `nos --report stderr build`, `build` is taken for a script path. For a task, set the `clojure.main.report` environment variable through `env`, since a shell assignment rejects the dots:
+
+```bash
+env clojure.main.report=stderr nos dotnet/build
+```
 
 ## `nos build` and `nos test`
 
@@ -119,6 +134,15 @@ A task file is a namespace with public functions. It exists for work the built-i
 
 `nostrand.tasks` holds the pieces the built-ins are made of, so a custom task composes them instead of restating them. `compile-project` and `run-clojure-tests` take the same options as the `magic.edn` keys above, `production-flags` and `test-flags` are the two flag maps, and `project-namespaces` returns the derived set without touching the load path.
 
+A task file can load an assembly before its `ns` form, so the `ns` can import from it:
+
+```clojure
+;; publish.clj
+(assembly-load-from "assemblies/SomeLib.dll")
+(ns publish
+  (:import [SomeLib SomeType]))
+```
+
 Older projects wrote a `dotnet.clj` defining `build` and `run-tests` by hand, before the built-ins existed. Those still work unchanged, and `nos dotnet/build` and `nos build` coexist in the same project.
 
 ```clojure
@@ -139,6 +163,7 @@ One difference to know if you keep one: `compile-project` defaults `:clean?` to 
 | `nos where` | the directory the running host loaded `Clojure.dll` from |
 | `nos where Clojure.dll` | that one assembly's full path, as bare stdout for `$(...)` capture |
 | `nos print-basis [:alias ...]` | the resolved paths and libs, without compiling |
+| `nos tasks` | the docstring of every public var in each `.clj` file in the current directory: your task files, not the built-ins |
 | `nos repl` | a REPL on a warm runtime |
 
 `nos where` is what a build script uses to compile C# against the same runtime the host will load, instead of guessing at install paths ([C# assemblies](./native-assemblies.md)). `nos print-basis` is the one to reach for when a namespace is missing and you cannot tell whether the dependency resolved ([declaring CLR dependencies](./clr-dependency-files.md)).
