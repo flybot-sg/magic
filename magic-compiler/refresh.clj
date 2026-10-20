@@ -174,7 +174,9 @@
     nostrand.core
     nostrand.repl
     nostrand.cli
-    nostrand.tasks])
+    nostrand.tasks
+    nostrand.exec
+    nostrand.main])
 
 (defn nostrand [& _args]
   (println (str "compiling " (count nostrand-namespaces) " nostrand namespaces"))

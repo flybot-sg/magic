@@ -26,7 +26,7 @@
         <Exec WorkingDirectory="nostrand" Command="dotnet build -c Release" />
     </Target>
     <Target Name="Magic" DependsOnTargets="Nostrand" Condition="!Exists('$(MagicBootstrap)')">
-        <Exec WorkingDirectory="magic-compiler" Command="mono ../$(NostrandExeNet4x) build/bootstrap" />
+        <Exec WorkingDirectory="magic-compiler" Command="mono ../$(NostrandExeNet4x) build/bootstrap" EnvironmentVariables="clojure.main.report=stderr" />
     </Target>
     <Target Name="MagicUnity" DependsOnTargets="Magic">
         <Copy SourceFiles="@(MagicRuntimeBinaries)" DestinationFolder="$(MagicUnityMagicRuntimeDir)" />
