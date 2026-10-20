@@ -6,6 +6,10 @@
 - A `loop` whose `recur` widens a binding whose init contains `fn`, `for` or `lazy-seq` now compiles to a DLL - [#179](https://github.com/flybot-sg/magic/issues/179).
 - `eval` of a form that can only throw, such as `(throw ...)`, throws its exception instead of failing with `DefineMethod` - [#195](https://github.com/flybot-sg/magic/issues/195).
 
+### Runtime
+- `load-file`, `load-string`, `load-reader` and `clojure.main` scripts now run - [#192](https://github.com/flybot-sg/magic/issues/192).
+- `*file*` in a loaded file holds its path instead of `#eval#` - [#192](https://github.com/flybot-sg/magic/issues/192).
+
 ### Nostrand
 - `nos` ships its own eight namespaces as committed `nostrand.*.clj.dll` instead of compiling them in memory at every startup, so a short invocation starts roughly twice as fast. `bb build-runtime` recompiles them - [#183](https://github.com/flybot-sg/magic/issues/183).
 - The engine ships as its own `Nostrand.dll`, so a host that is not a console process can boot MAGIC and run a nostrand task. The terminal tasks such as `repl` move from `nostrand.tasks` to a new `nostrand.cli`; unqualified names such as `nos repl` resolve as before - [#185](https://github.com/flybot-sg/magic/issues/185).
