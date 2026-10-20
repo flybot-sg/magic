@@ -25,9 +25,8 @@ namespace Nostrand
 
                 RT.PostBootstrapInit();
 
-                var input = Nostrand.ReadArguments(args);
-                if (!Runtime.Run(input))
-                    Terminal.Message("Quiting", "could not find function or file named `" + args[0] + "'", ConsoleColor.Yellow);
+                Runtime.Require("nostrand.main");
+                RT.var("nostrand.main", "main").applyTo(RT.seq(args));
             }
 
             else

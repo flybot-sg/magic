@@ -25,16 +25,16 @@
    magic.test.protocol
    magic.test.errors
    magic.test.load
+   magic.test.nostrand
    magic.test.mage)
   (:use clojure.test))
 
 (defn- check-summary!
-  "Throw when the run had failures or errors. clojure.test/run-tests only
-   reports them in its return value, and nostrand ignores what a task returns,
-   so throwing is the only way a red suite reaches the process exit code."
-  [{:keys [fail error] :as summary}]
-  (when (pos? (+ fail error))
-    (throw (ex-info "test suite failed" (dissoc summary :type))))
+  "Exit -1 on any failure or error, since a task's return value does not
+   set the exit code."
+  [summary]
+  (when-not (successful? summary)
+    (Environment/Exit -1))
   summary)
 
 (defn all []
@@ -65,6 +65,7 @@
     'magic.test.protocol
     'magic.test.errors
     'magic.test.load
+    'magic.test.nostrand
     'magic.test.mage)))
 
 (defn run [& namespaces]
