@@ -211,3 +211,61 @@
                                    (catch InvalidOperationException _ :caught))))))
   (testing "a void call still returns nil"
     (is (nil? (api/eval '(System.Console/Write ""))))))
+
+(deftest load-string-evaluates-every-form
+  (is (= 3 (load-string "(def magic-test-load-string 1) (+ 1 2)")))
+  (is (= 1 @(resolve 'magic-test-load-string)))
+  (testing "an in-ns inside the string does not leak"
+    (let [before *ns*]
+      (load-string "(in-ns 'magic.test.tmp.load-string)")
+      (is (= before *ns*)))))
+
+(deftest load-file-binds-file-to-the-path-as-given
+  (let [dir  (temp-dir)
+        path (str dir "/./loaded.clj")]
+    (try
+      (File/WriteAllText path "(def ignored 1)\n*file*")
+      (testing "not the normalised full path, nor #eval#"
+        (is (= path (load-file path))))
+      (finally (Directory/Delete dir true)))))
+
+(deftest load-file-names-a-missing-file
+  (is (thrown-with-msg? System.IO.FileNotFoundException
+                        #"Cannot find file to load: magic-test-absent\.clj"
+                        (load-file "magic-test-absent.clj"))))
+
+(deftest load-file-reader-conditionals-only-in-cljc
+  (let [dir (temp-dir)]
+    (try
+      (doseq [ext [".cljc" ".clj"]]
+        (File/WriteAllText (Path/Combine dir (str "cond" ext)) "#?(:cljr :a :clj :b)"))
+      (is (= :a (load-file (Path/Combine dir "cond.cljc"))))
+      (is (string/includes? (try (load-file (Path/Combine dir "cond.clj")) nil
+                                 (catch Exception e (root-message e)))
+                            "Conditional read not allowed"))
+      (finally (Directory/Delete dir true)))))
+
+(deftest load-file-reports-the-failing-line
+  (let [dir  (temp-dir)
+        path (Path/Combine dir "fails.clj")]
+    (try
+      (File/WriteAllText path "(def a 1)\n\n(throw (Exception. \"boom\"))")
+      (let [e (try (load-file path) nil
+                   (catch clojure.lang.Compiler+CompilerException e e))]
+        (is (= [path 3 "boom"] [(.FileSource e) (.Line e) (root-message e)]))
+        (is (= {:clojure.error/phase :execution :clojure.error/source path
+                :clojure.error/line 3 :clojure.error/column 1}
+               (ex-data e))))
+      (finally (Directory/Delete dir true)))))
+
+(deftest load-file-reports-a-read-error-as-read-source
+  (let [dir  (temp-dir)
+        path (Path/Combine dir "unreadable.clj")]
+    (try
+      (File/WriteAllText path "(def a 1)\n(def b")
+      (let [e (try (load-file path) nil
+                   (catch clojure.lang.Compiler+CompilerException e e))]
+        (is (= {:clojure.error/phase :read-source :clojure.error/source path
+                :clojure.error/line 2 :clojure.error/column 7}
+               (ex-data e))))
+      (finally (Directory/Delete dir true)))))

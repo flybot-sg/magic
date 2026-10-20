@@ -271,8 +271,7 @@
 
 (defn eval [expr]
   (try
-    (binding [*module* (fresh-module "eval")
-              *file* "#eval#"]
+    (binding [*module* (fresh-module "eval")]
       (let [ctx {::il/module-builder *module*}]
         (compile-expression-top-level
          expr ctx
