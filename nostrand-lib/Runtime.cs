@@ -26,15 +26,15 @@ namespace Nostrand
 
         public static void LoadNostrand()
         {
-            // var loadFunction = RT.var("clojure.core", "*load-fn*");
-            // loadFunction.invoke("nostrand/core");
-            RT.var("clojure.core", "*load-fn*").invoke("nostrand/core");
-            // loadFunction.invoke("nostrand/tasks");
-            RT.var("clojure.core", "*load-fn*").invoke("nostrand/tasks");
+            Require("nostrand.core");
+            Require("nostrand.tasks");
         }
 
         public static void Require(string ns)
         {
+            if (string.IsNullOrEmpty(ns))
+                throw new ArgumentException("must be a namespace name", nameof(ns));
+
             RT.var("clojure.core", "require").invoke(Symbol.intern(ns));
         }
 
