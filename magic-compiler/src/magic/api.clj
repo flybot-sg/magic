@@ -41,7 +41,9 @@
     (println "[compile-expression]" (-> expr (trim 30)) (str *ns*) (ns-aliases *ns*)))
   (let [ast (ana/analyze expr)
         il (magic/compile ast)
-        expr-name (u/gensym (str "<magic>_" (-> *ns* str munge) "_expr"))
+        ;; named after the file's unit, not *ns*: an ns form's (in-ns ...)
+        ;; compiles while *ns* is still the caller's
+        expr-name (u/gensym (str "<magic>_" (or (::unit opts) (-> *ns* str munge)) "_expr"))
         expr-type (.DefineType magic.emission/*module* expr-name abstract-sealed)
         expr-method (if (:compiled-for-eval opts)
                       (.DefineMethod expr-type "eval" public-static
@@ -64,17 +66,28 @@
     (.CreateType expr-type)
     (.Invoke (.GetMethod expr-type "eval") nil empty-args)))
 
+(defn- macroexpand-top-level
+  "Expands macro calls, not inline functions, until the form stops changing."
+  [form]
+  (if (and (seq? form)
+           (symbol? (first form))
+           (-> (first form) resolve meta :macro))
+    (let [form' (ana/macroexpand-1 form)]
+      (if (= form' form)
+        form
+        (recur form')))
+    form))
+
 (defn compile-expression-top-level [expr ctx opts]
   (when-not (:suppress-print-forms opts)
     (println "[compile-expression-top-level]" expr))
-  (cond
-    (and (seq? expr)
-         (= 'do (first expr)))
-    (reduce (fn [_ expr'] (compile-expression-top-level expr' ctx opts))
-            nil
-            (rest expr))
-    :else
-    (compile-expression expr ctx opts)))
+  (let [expr (macroexpand-top-level expr)]
+    (if (and (seq? expr)
+             (= 'do (first expr)))
+      (reduce (fn [_ expr'] (compile-expression-top-level expr' ctx opts))
+              nil
+              (rest expr))
+      (compile-expression expr ctx opts))))
 
 (defn clojure-clr-init-class-name
   "Port of clojure.lang.Compiler/InitClassName"
@@ -195,7 +208,11 @@
      (binding [*print-meta*            false
                *ns*                    *ns*
                *file*                  source-path
-               magic.emission/*module* (magic.emission/fresh-module module-name)]
+               magic.emission/*module* (magic.emission/fresh-module module-name)
+               ;; a fresh type-name counter per unit, not a reset of the shared
+               ;; one: a require in the ns form compiles a dependency mid-unit,
+               ;; and a reset would restart this unit's names
+               u/*gensym-map*          (if (:write-files opts) (atom {}) u/*gensym-map*)]
        (let [type-name        (clojure-clr-init-class-name module)
              ns-type          (.DefineType magic.emission/*module* type-name abstract-sealed)
              init-method      (.DefineMethod ns-type "Initialize" public-static)
@@ -208,9 +225,6 @@
              module-file-name (str module-name ".dll")]
          (when (:write-files opts)
            (reset-global-gensym-counter!)
-           ;; likewise the type-name counter, else it carries state from files
-           ;; compiled earlier under the build driver's *ns*
-           (u/reset-gensym-map!)
            (type-lookup-cache-clear!))
          (try
            (let [rdr    (LineNumberingTextReader. file)
@@ -221,7 +235,7 @@
                  read-1 (fn [] (read read-opts rdr))]
              (loop [expr (read-1) i 0]
                (when-not (= ::eof expr)
-                 (compile-expression-top-level expr ctx opts)
+                 (compile-expression-top-level expr ctx (assoc opts ::unit (str module)))
                  (recur (read-1) (inc i))))
              (.Close rdr))
            (finally
