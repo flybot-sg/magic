@@ -217,7 +217,7 @@ str-or-pattern."
   [ ^Exception t]                     ;;; ^Throwable
   (loop [cause t]
     (if (and (instance? clojure.lang.Compiler+CompilerException cause)
-	         (not= (.Source ^clojure.lang.Compiler+CompilerException cause) "NO_SOURCE_FILE"))  ;;; .source
+	         (not= (.FileSource ^clojure.lang.Compiler+CompilerException cause) "NO_SOURCE_FILE"))  ;;; .source
       cause
 	  (if-let [cause (.InnerException cause)]    ;;; .getCause
         (recur cause)

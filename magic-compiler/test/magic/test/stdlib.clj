@@ -1,8 +1,10 @@
 (ns magic.test.stdlib
   (:require [clojure.test :refer [deftest testing]]
             [clojure.main :as main]
+            [clojure.repl :as repl]
             [clojure.core.server :as server])
-  (:use magic.test.common))
+  (:use magic.test.common)
+  (:import [clojure.lang Compiler+CompilerException]))
 
 ;;; symbol (1.10): arity-1 works on strings, keywords, and vars
 
@@ -127,6 +129,56 @@
     (clojure.test/is
      (= "Execution error (ArgumentException) at (REPL:1).\nxyz\n"
         (main/ex-str tr-data)))))
+
+;;; CompilerException through MAGIC's own clojure.main and stdlib; the class itself is upstream's to test.
+
+(deftest test-compiler-exception-triage
+  (let [tr-data (main/ex-triage
+                 (Throwable->map (Compiler+CompilerException. "a.clj" 1 2 (ArgumentException. "xyz"))))]
+    (clojure.test/is
+     (= {:clojure.error/phase  :compile-syntax-check
+         :clojure.error/source "a.clj"
+         :clojure.error/line   1
+         :clojure.error/column 2
+         :clojure.error/class  'System.ArgumentException
+         :clojure.error/cause  "xyz"}
+        tr-data))
+    (clojure.test/is
+     (= "Syntax error (ArgumentException) compiling at (a.clj:1:2).\nxyz\n"
+        (main/ex-str tr-data)))))
+
+(defn- thrown-message-data-cause [thunk]
+  (when-let [e (try (thunk) nil (catch Exception e e))]
+    [(.Message e) (ex-data e) (some-> e .InnerException .Message)]))
+
+(deftest test-stdlib-throws-compiler-exception
+  (with-bindings {#'*file*                        "a.clj"
+                  #'*ns*                          (the-ns 'magic.test.stdlib)
+                  clojure.lang.Compiler/LineVar   (int 3)
+                  clojure.lang.Compiler/ColumnVar (int 4)}
+    (clojure.test/are [thunk cause-msg]
+      (= ["Syntax error compiling at (a.clj:3:4)."
+          {:clojure.error/phase :compile-syntax-check :clojure.error/source "a.clj"
+           :clojure.error/line 3 :clojure.error/column 4}
+          cause-msg]
+         (thrown-message-data-cause thunk))
+      #(require)
+      "Nothing specified to load"
+
+      ;; MAGIC analyzes deftype as a special form, so call its field check
+      #(#'clojure.core/validate-fields ["a"] 'T)
+      "defrecord and deftype fields must be symbols, magic.test.stdlib.T had: a")))
+
+(deftest test-root-cause-compiler-exception-source
+  (let [cause   (Exception. "cause")
+        no-file (Compiler+CompilerException. "NO_SOURCE_FILE" 1 2 cause)
+        file    (Compiler+CompilerException. "a.clj" 1 2 cause)]
+    (testing "skips CompilerException with NO_SOURCE_FILE"
+      (clojure.test/is (identical? cause (main/root-cause no-file)))
+      (clojure.test/is (identical? cause (repl/root-cause no-file))))
+    (testing "stops at CompilerException with a source file"
+      (clojure.test/is (identical? file (main/root-cause file)))
+      (clojure.test/is (identical? file (repl/root-cause file))))))
 
 (deftest test-java-loc->source
   (clojure.test/are [c m out]
