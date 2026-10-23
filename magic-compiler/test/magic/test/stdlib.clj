@@ -1,8 +1,10 @@
 (ns magic.test.stdlib
   (:require [clojure.test :refer [deftest testing]]
             [clojure.main :as main]
+            [clojure.repl :as repl]
             [clojure.core.server :as server])
-  (:use magic.test.common))
+  (:use magic.test.common)
+  (:import [clojure.lang Compiler+CompilerException]))
 
 ;;; symbol (1.10): arity-1 works on strings, keywords, and vars
 
@@ -127,6 +129,122 @@
     (clojure.test/is
      (= "Execution error (ArgumentException) at (REPL:1).\nxyz\n"
         (main/ex-str tr-data)))))
+
+;;; CompilerException (1.10): the location and phase live in ex-data, and the
+;;; message is the location alone. These mirror clojure.test-clojure.errors.
+
+(deftest test-compiler-exception-data
+  (let [cause (Exception. "cause")]
+    (clojure.test/are [e data] (= data (ex-data e))
+      (Compiler+CompilerException. "a.clj" 1 2 cause)
+      {:clojure.error/phase :compile-syntax-check :clojure.error/source "a.clj"
+       :clojure.error/line 1 :clojure.error/column 2}
+
+      (Compiler+CompilerException. "a.clj" 1 2 'foo cause)
+      {:clojure.error/phase :compile-syntax-check :clojure.error/source "a.clj"
+       :clojure.error/line 1 :clojure.error/column 2 :clojure.error/symbol 'foo}
+
+      (Compiler+CompilerException. "a.clj" 1 2 nil :execution cause)
+      {:clojure.error/phase :execution :clojure.error/source "a.clj"
+       :clojure.error/line 1 :clojure.error/column 2}
+
+      (Compiler+CompilerException. nil 1 2 nil :execution cause)
+      {:clojure.error/phase :execution :clojure.error/line 1 :clojure.error/column 2})
+    (clojure.test/is
+     (identical? cause (.InnerException (Compiler+CompilerException. "a.clj" 1 2 cause))))))
+
+(deftest test-compiler-exception-message
+  (clojure.test/are [phase msg]
+    (= msg (.Message (Compiler+CompilerException. "a.clj" 1 2 nil phase nil)))
+    :read-source          "Syntax error reading source at (a.clj:1:2)."
+    :compile-syntax-check "Syntax error compiling at (a.clj:1:2)."
+    :compilation          "Syntax error compiling at (a.clj:1:2)."
+    :execution            "Syntax error executing at (a.clj:1:2)."
+    :macro-syntax-check   "Syntax error macroexpanding at (a.clj:1:2)."
+    :macroexpansion       "Unexpected error macroexpanding at (a.clj:1:2).")
+  (clojure.test/are [e msg] (= msg (.Message e))
+    (Compiler+CompilerException. "a.clj" 1 2 (Exception. "cause"))
+    "Syntax error compiling at (a.clj:1:2)."
+
+    (Compiler+CompilerException. "a.clj" 1 2 'foo (Exception. "cause"))
+    "Syntax error compiling foo at (a.clj:1:2)."
+
+    (Compiler+CompilerException. "NO_SOURCE_PATH" 1 2 (Exception. "cause"))
+    "Syntax error compiling at (1:2)."
+
+    (Compiler+CompilerException. nil 1 2 (Exception. "cause"))
+    "Syntax error compiling at (1:2)."))
+
+(deftest test-compiler-exception-to-string
+  (let [msg "Syntax error compiling at (a.clj:1:2)."
+        ce  #(Compiler+CompilerException. "a.clj" 1 2 nil :compile-syntax-check %)]
+    (testing "without cause, message only"
+      (clojure.test/is (= msg (str (ce nil)))))
+    (testing "ex-info cause appends cause message"
+      (clojure.test/is (= (str msg Environment/NewLine "cause") (str (ce (ex-info "cause" {}))))))
+    (testing "ex-info cause with spec problems omits cause message"
+      (clojure.test/is (= msg (str (ce (ex-info "cause" {:clojure.error/phase :macro-syntax-check
+                                                         :clojure.spec.alpha/problems []}))))))
+    (testing "non-ex-info cause appends cause message"
+      (clojure.test/is (= (str msg Environment/NewLine "cause") (str (ce (Exception. "cause"))))))))
+
+(deftest test-compiler-exception-message-ctors-have-data
+  (clojure.test/are [ce] (= {} (ex-data ce))
+    (Compiler+CompilerException.)
+    (Compiler+CompilerException. "msg")
+    (Compiler+CompilerException. "msg" (Exception. "cause")))
+  (testing "as a cause, outer ToString appends its message"
+    (clojure.test/is
+     (= (str "Syntax error compiling at (a.clj:1:2)." Environment/NewLine "msg")
+        (str (Compiler+CompilerException. "a.clj" 1 2 (Compiler+CompilerException. "msg")))))))
+
+(deftest test-compiler-exception-triage
+  (let [tr-data (main/ex-triage
+                 (Throwable->map (Compiler+CompilerException. "a.clj" 1 2 (ArgumentException. "xyz"))))]
+    (clojure.test/is
+     (= {:clojure.error/phase  :compile-syntax-check
+         :clojure.error/source "a.clj"
+         :clojure.error/line   1
+         :clojure.error/column 2
+         :clojure.error/class  'System.ArgumentException
+         :clojure.error/cause  "xyz"}
+        tr-data))
+    (clojure.test/is
+     (= "Syntax error (ArgumentException) compiling at (a.clj:1:2).\nxyz\n"
+        (main/ex-str tr-data)))))
+
+(defn- thrown-message-data-cause [thunk]
+  (when-let [e (try (thunk) nil (catch Exception e e))]
+    [(.Message e) (ex-data e) (some-> e .InnerException .Message)]))
+
+(deftest test-stdlib-throws-compiler-exception
+  (with-bindings {#'*file*                        "a.clj"
+                  #'*ns*                          (the-ns 'magic.test.stdlib)
+                  clojure.lang.Compiler/LineVar   (int 3)
+                  clojure.lang.Compiler/ColumnVar (int 4)}
+    (clojure.test/are [thunk cause-msg]
+      (= ["Syntax error compiling at (a.clj:3:4)."
+          {:clojure.error/phase :compile-syntax-check :clojure.error/source "a.clj"
+           :clojure.error/line 3 :clojure.error/column 4}
+          cause-msg]
+         (thrown-message-data-cause thunk))
+      #(require)
+      "Nothing specified to load"
+
+      ;; MAGIC analyzes deftype as a special form, so call its field check
+      #(#'clojure.core/validate-fields ["a"] 'T)
+      "defrecord and deftype fields must be symbols, magic.test.stdlib.T had: a")))
+
+(deftest test-root-cause-compiler-exception-source
+  (let [cause   (Exception. "cause")
+        no-file (Compiler+CompilerException. "NO_SOURCE_FILE" 1 2 cause)
+        file    (Compiler+CompilerException. "a.clj" 1 2 cause)]
+    (testing "skips CompilerException with NO_SOURCE_FILE"
+      (clojure.test/is (identical? cause (main/root-cause no-file)))
+      (clojure.test/is (identical? cause (repl/root-cause no-file))))
+    (testing "stops at CompilerException with a source file"
+      (clojure.test/is (identical? file (main/root-cause file)))
+      (clojure.test/is (identical? file (repl/root-cause file))))))
 
 (deftest test-java-loc->source
   (clojure.test/are [c m out]

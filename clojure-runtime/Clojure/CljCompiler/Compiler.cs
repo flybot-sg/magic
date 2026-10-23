@@ -2123,13 +2123,36 @@ namespace clojure.lang
         #region CompilerException
 
         [Serializable]
-        public sealed class CompilerException : Exception
+        public sealed class CompilerException : Exception, IExceptionInfo
         {
-            #region Data
-            
+            #region static constants
+
+            // Error keys
+            public static readonly String ErrorNamespaceStr = "clojure.error";
+            public static readonly Keyword ErrorSourceKeyword = Keyword.intern(ErrorNamespaceStr, "source");
+            public static readonly Keyword ErrorLineKeyword = Keyword.intern(ErrorNamespaceStr, "line");
+            public static readonly Keyword ErrorColumnKeyword = Keyword.intern(ErrorNamespaceStr, "column");
+            public static readonly Keyword ErrorPhaseKeyword = Keyword.intern(ErrorNamespaceStr, "phase");
+            public static readonly Keyword ErrorSymbolKeyword = Keyword.intern(ErrorNamespaceStr, "symbol");
+
+            // Compile error phases
+            public static readonly Keyword PhaseReadKeyword = Keyword.intern(null, "read-source");
+            public static readonly Keyword PhaseMacroSyntaxCheckKeyword = Keyword.intern(null, "macro-syntax-check");
+            public static readonly Keyword PhaseMacroExpansionKeyword = Keyword.intern(null, "macroexpansion");
+            public static readonly Keyword PhaseCompileSyntaxCheckKeyword = Keyword.intern(null, "compile-syntax-check");
+            public static readonly Keyword PhaseCompilationKeyword = Keyword.intern(null, "compilation");
+            public static readonly Keyword PhaseExecutionKeyword = Keyword.intern(null, "execution");
+
+            public static readonly Keyword SpecProblemsKeyword = Keyword.intern("clojure.spec.alpha", "problems");
+
+            #endregion
+
+            #region data
+
             public string FileSource { get; private set; }
             public int Line { get; private set; }
-            
+            public IPersistentMap MyData { get; private set; }
+
             #endregion
 
             #region C-tors
@@ -2137,49 +2160,102 @@ namespace clojure.lang
             public CompilerException()
             {
                 FileSource = "<unknown>";
+                MyData = PersistentArrayMap.EMPTY;
             }
 
             public CompilerException(string message)
                 : base(message)
             {
                 FileSource = "<unknown>";
+                MyData = PersistentArrayMap.EMPTY;
             }
 
             public CompilerException(string message, Exception innerException)
-                :base(message,innerException)
+                : base(message, innerException)
             {
                 FileSource = "<unknown>";
+                MyData = PersistentArrayMap.EMPTY;
             }
 
             public CompilerException(string source, int line, int column, Exception cause)
-                : base(ErrorMsg(source, line, column, cause.ToString()), cause)
+                : this(source, line, column, null, cause)
+            {
+            }
+
+            public CompilerException(string source, int line, int column, Symbol sym, Exception cause)
+                : this(source, line, column, sym, PhaseCompileSyntaxCheckKeyword, cause)
+            {
+            }
+
+            public CompilerException(String source, int line, int column, Symbol sym, Keyword phase, Exception cause)
+                : base(MakeMsg(source, line, column, sym, phase, cause), cause)
             {
                 FileSource = source;
                 Line = line;
+                Associative m = RT.map(ErrorPhaseKeyword, phase, ErrorLineKeyword, line, ErrorColumnKeyword, column);
+                if (source != null) m = RT.assoc(m, ErrorSourceKeyword, source);
+                if (sym != null) m = RT.assoc(m, ErrorSymbolKeyword, sym);
+                MyData = (IPersistentMap)m;
             }
 
             private CompilerException(SerializationInfo info, StreamingContext context)
                 : base(info, context)
             {
                 if (info == null)
-                    throw new ArgumentNullException("info");
+                    throw new ArgumentNullException(nameof(info));
 
                 FileSource = info.GetString("FileSource");
+                Line = info.GetInt32("Line");
+                MyData = (IPersistentMap)info.GetValue("MyData", typeof(IPersistentMap));
             }
 
             #endregion
 
             #region Support
 
+            private static String Verb(Keyword phase)
+            {
+                if (PhaseReadKeyword.Equals(phase))
+                    return "reading source";
+                else if (PhaseCompileSyntaxCheckKeyword.Equals(phase) || PhaseCompilationKeyword.Equals(phase))
+                    return "compiling";
+                else if (PhaseExecutionKeyword.Equals(phase))
+                    return "executing";
+                else
+                    return "macroexpanding";
+            }
+
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Style", "IDE0060:Remove unused parameter", Justification = "Standard API")]
+            public static String MakeMsg(String source, int line, int column, Symbol sym, Keyword phase, Exception cause)
+            {
+                return (PhaseMacroExpansionKeyword.Equals(phase) ? "Unexpected error " : "Syntax error ") +
+                        Verb(phase) + " " + (sym != null ? sym + " " : "") +
+                        "at (" + (source != null && !source.Equals("NO_SOURCE_PATH") ? (source + ":") : "") +
+                        line + ":" + column + ").";
+            }
+
             public override string ToString()
             {
+                Exception cause = InnerException;
+                if (cause != null)
+                {
+                    if (cause is IExceptionInfo eInfo)
+                    {
+                        IPersistentMap data = (IPersistentMap)eInfo.getData();
+                        if (PhaseMacroSyntaxCheckKeyword.Equals(data.valAt(ErrorPhaseKeyword)) && data.valAt(SpecProblemsKeyword) != null)
+                            return String.Format("{0}", Message);
+                    }
+                    // JVM appends the cause only for IExceptionInfo causes and relies on printStackTrace for the rest; .NET loggers rely on ToString.
+                    return String.Format("{0}{1}{2}", Message, Environment.NewLine, cause.Message);
+                }
                 return Message;
             }
 
-            static string ErrorMsg(string source, int line, int column, string s)
-            {
-                return string.Format("{0}, compiling: ({1}:{2}:{3})", s, source, line,column);
-            }
+            // JVM has this deprecated
+            //static string ErrorMsg(string source, int line, int column, string s)
+            //{
+            //    return string.Format("{0}, compiling: ({1}:{2}:{3})", s, source, line,column);
+            //}
 
             public override void GetObjectData(SerializationInfo info, StreamingContext context)
             {
@@ -2187,9 +2263,16 @@ namespace clojure.lang
                     throw new System.ArgumentNullException("info");
                 base.GetObjectData(info, context);
                 info.AddValue("FileSource", FileSource);
+                info.AddValue("Line", Line);
+                info.AddValue("MyData", MyData, typeof(IPersistentMap));
             }
 
             #endregion
+
+            public IPersistentMap getData()
+            {
+                return MyData;
+            }
         }
 
         #endregion
