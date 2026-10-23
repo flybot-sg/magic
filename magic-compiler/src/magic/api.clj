@@ -1,7 +1,7 @@
 (ns magic.api
   (:refer-clojure :exclude [compile load-file eval])
   (:require [magic.analyzer :as ana]
-            [magic.analyzer.types :refer [tag ast-type type-lookup-cache-clear!]]
+            [magic.analyzer.types :as types :refer [tag ast-type type-lookup-cache-clear!]]
             [magic.core :as magic]
             [magic.util :as u]
             [mage.core :as il]
@@ -44,7 +44,10 @@
         expr-name (u/gensym (str "<magic>_" (-> *ns* str munge) "_expr"))
         expr-type (.DefineType magic.emission/*module* expr-name abstract-sealed)
         expr-method (if (:compiled-for-eval opts)
-                      (.DefineMethod expr-type "eval" public-static (ast-type ast) Type/EmptyTypes)
+                      (.DefineMethod expr-type "eval" public-static
+                                     ;; a form that only throws or recurs has no type
+                                     (if (types/disregard-type? ast) System.Void (ast-type ast))
+                                     Type/EmptyTypes)
                       (.DefineMethod expr-type "eval" public-static))
         expr-ilg (.GetILGenerator expr-method)
         ctx' (assoc ctx
@@ -248,7 +251,7 @@
   ([namespace opts]
    (when-not (:suppress-print-forms opts)
      (println "[compile-namespace]" namespace))
-   (let [relative-path (-> namespace str munge (.Replace "." "/" ))]
+   (let [relative-path (-> namespace str munge (.Replace "." "/"))]
      (if-let [file (some #(find-file (str relative-path %)) source-extensions)]
        (compile-file (.FullName file) (munge (str namespace)) opts)
        (throw (Exception. (str "could not find source file for namespace " namespace)))))))

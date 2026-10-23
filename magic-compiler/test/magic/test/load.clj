@@ -29,10 +29,13 @@
   (binding [*load-paths* [dir]]
     (-load (-> (str sym) (.Replace "-" "_") (.Replace "." "/")))))
 
-(defn- root-message [^Exception e]
+(defn- root-cause [^Exception e]
   (if-let [inner (.InnerException e)]
     (recur inner)
-    (.Message e)))
+    e))
+
+(defn- root-message [^Exception e]
+  (.Message (root-cause e)))
 
 (deftest loads-cljr-source
   (let [dir (temp-dir)
@@ -182,3 +185,29 @@
         (is (= 1 @(ns-resolve (find-ns sym) 'a)))
         (is (= 2 @(ns-resolve (find-ns sym) 'b)))
         (finally (Directory/Delete dir true))))))
+
+(defn- eval-root-cause [form]
+  (try (api/eval form) nil
+       (catch Exception e (root-cause e))))
+
+(deftest eval-of-a-form-that-only-throws
+  (doseq [form '[(throw (InvalidOperationException. "boom"))
+                 (let [] (throw (InvalidOperationException. "boom")))
+                 (when true (throw (InvalidOperationException. "boom")))
+                 (if (string? (str))
+                   (throw (InvalidOperationException. "boom"))
+                   (throw (InvalidOperationException. "boom")))
+                 (loop [] (throw (InvalidOperationException. "boom")))
+                 (letfn [(f [] 1)] (throw (InvalidOperationException. "boom")))
+                 (try (throw (InvalidOperationException. "boom")) (finally nil))
+                 (if (string? (str)) (throw (InvalidOperationException. "boom")) 1)]]
+    (testing (pr-str form)
+      (let [e (eval-root-cause form)]
+        (is (= InvalidOperationException (type e)))
+        (is (= "boom" (some-> e .Message))))))
+  (testing "a form with a value still returns it"
+    (is (= 3 (api/eval '(+ 1 2))))
+    (is (= :caught (api/eval '(try (throw (InvalidOperationException. "boom"))
+                                   (catch InvalidOperationException _ :caught))))))
+  (testing "a void call still returns nil"
+    (is (nil? (api/eval '(System.Console/Write ""))))))
