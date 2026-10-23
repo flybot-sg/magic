@@ -21,7 +21,7 @@
  clojure.genclass {:source "magic-compiler/src/stdlib/clojure/genclass.clj", :sha256 "c2ca43c86ed5eb8cd55f539be68eec2ea8d8fb921c76ab863b3bd001d73e2e48"}
  clojure.gvec {:source "magic-compiler/src/stdlib/clojure/gvec.clj", :sha256 "65ea07f553c53d07c6442602b10fa4ef459c4c908d581b707e3f613da53621ec"}
  clojure.instant {:source "magic-compiler/src/stdlib/clojure/instant.clj", :sha256 "708a8367cd0ff7c529bc54e2f032b451607d474533975163e2cd1036fc54e2fa"}
- clojure.main {:source "magic-compiler/src/stdlib/clojure/main.clj", :sha256 "0e6ce867f60f67771702d0f615cb18db7d40ab2d591b0de3202f585f68ee116b"}
+ clojure.main {:source "magic-compiler/src/stdlib/clojure/main.clj", :sha256 "ef5f69abec48f58a7274ad86d254c0cbafcccf8ac1d6b66ac55349645f864bc9"}
  clojure.pprint {:source "magic-compiler/src/stdlib/clojure/pprint.clj", :sha256 "a9ff9b336906ba64943de80038fa1a1ddad9aecedb518c16525c5838473ec90f"}
  clojure.pprint.cl_format {:source "magic-compiler/src/stdlib/clojure/pprint/cl_format.clj", :sha256 "d260fe991b3acc55c40e3c80fef1627e335f472329b9b4bd8d97d03179105ac5"}
  clojure.pprint.column_writer {:source "magic-compiler/src/stdlib/clojure/pprint/column_writer.clj", :sha256 "bd175e6d656adc69de69e231fd46e6aa00049e740bbe08ea826d11cb6f9cb8d1"}
@@ -59,7 +59,7 @@
  magic.analyzer.uniquify {:source "magic-compiler/src/magic/analyzer/uniquify.clj", :sha256 "8efe465c85094d3c1a788403231f5f84dde5c6a169ec66ca897da93bb4794d7a"}
  magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "19e7f4f2a357f2c265e373dcb1175f336baaf09b5d380744433a4d25f87c4a94"}
  magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "696020a2e8ae86c432ea83d2b783bc1a51fcc999972840889d76564b9a60e385"}
- magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "aae30236ac01aad276a05f1dc280c2d1db3643e5e970493ff57302bb6197ac2d"}
+ magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "3c977f486ddca663d98b6d29d1533976d586c3936bc958a5da77bb6920cffbfa"}
  magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "3752d85fe5cb0288d7f37309325733492d6546699f228550b2e498d4df10028b"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
@@ -67,7 +67,7 @@
  magic.intrinsics {:source "magic-compiler/src/magic/intrinsics.clj", :sha256 "c69d799ae4a07715de4f163e0e00d6b7969409cb487d519553469439aca29fa4"}
  magic.spells.lift_keywords {:source "magic-compiler/src/magic/spells/lift_keywords.clj", :sha256 "907dc9a166b32a95d237440b5875a186de05e7786390a8fba095382611eaf75e"}
  magic.spells.lift_vars {:source "magic-compiler/src/magic/spells/lift_vars.clj", :sha256 "1dafcdadb721c083f867e6935b9cb9ea3bdc2e2e7a8f07cd3c0daae9f4293ead"}
- magic.util {:source "magic-compiler/src/magic/util.clj", :sha256 "62d16cbc45160f486776f6c0c240bf6762846bbcbb59cf1cd45d409defe9c7d7"}
+ magic.util {:source "magic-compiler/src/magic/util.clj", :sha256 "e5f29bfd6f20a734d43fc3f7ee6f9c5523a9d54ac9ff9f0d3c97a68c738fb05b"}
  nostrand.cli {:source "nostrand/nostrand/cli.clj", :sha256 "f1abc27fb12c15b8143d514cab8aea3de363e88c6ee4e5bee04d3977e78e9873"}
  nostrand.core {:source "nostrand-lib/nostrand/core.clj", :sha256 "457214655318fb5f8eede402ffe5828ae4fa8da0214b5fedb2296d271c96b971"}
  nostrand.deps.basis {:source "nostrand-lib/nostrand/deps/basis.clj", :sha256 "5e7181e2ddae6edde623e51aa3fa68d60e17dae7285929448b06a02c7eedccd8"}
@@ -75,5 +75,7 @@
  nostrand.deps.nuget {:source "nostrand-lib/nostrand/deps/nuget.clj", :sha256 "589591b8b9fde3af2a7d9e6f0f5e3195a6249833d4f992f80dba90f4507959a0"}
  nostrand.deps.shell {:source "nostrand-lib/nostrand/deps/shell.clj", :sha256 "623bd8876470a09fcbe652d7de51152e6ecf3b89df38b03bbd7c867137212271"}
  nostrand.deps.submodules {:source "nostrand-lib/nostrand/deps/submodules.clj", :sha256 "adf03193ee08b2a44854f19e049fa0892f1cad1fabfb419ad88330c8ce6b7684"}
+ nostrand.exec {:source "nostrand-lib/nostrand/exec.clj", :sha256 "3eebcd029c283c6f35b04eec952a02920a03b22aac186a351fc49b2f39dad914"}
+ nostrand.main {:source "nostrand/nostrand/main.clj", :sha256 "f03dd52efdf516a0a87041430174873abb306e2cfef9ab78239aecb565749979"}
  nostrand.repl {:source "nostrand-lib/nostrand/repl.clj", :sha256 "dbb794289ee4b539317ce27f923e8cfff6e627222e0260aec0cc72f1d2e55101"}
  nostrand.tasks {:source "nostrand-lib/nostrand/tasks.clj", :sha256 "1082b6001e13caf320af03ab5f7d366761a072b2e8c6990b718700bc0b23ef6c"}}
