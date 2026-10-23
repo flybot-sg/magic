@@ -4,6 +4,7 @@
 
 ### Compiler
 - A `loop` whose `recur` widens a binding whose init contains `fn`, `for` or `lazy-seq` now compiles to a DLL - [#179](https://github.com/flybot-sg/magic/issues/179).
+- `eval` of a form that can only throw, such as `(throw ...)`, throws its exception instead of failing with `DefineMethod` - [#195](https://github.com/flybot-sg/magic/issues/195).
 
 ### Nostrand
 - `nos` ships its own eight namespaces as committed `nostrand.*.clj.dll` instead of compiling them in memory at every startup, so a short invocation starts roughly twice as fast. `bb build-runtime` recompiles them - [#183](https://github.com/flybot-sg/magic/issues/183).
