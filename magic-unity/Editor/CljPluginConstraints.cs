@@ -18,6 +18,14 @@ namespace Magic.Unity
         // Synced with the :magic block in bb/magic/unity.clj
         const string MagicConstraint = "!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR";
 
+        static readonly string[] Or = { "||" };
+
+        // MagicConstraint's terms, each false in the ClojureCLR Editor.
+        static readonly string[] CljClrEditorFalseTerms = MagicConstraint
+            .Split(Or, StringSplitOptions.None)
+            .Select(t => t.Trim())
+            .ToArray();
+
         const string Tag = "[Magic.Unity/CljPluginConstraints]";
         const int NamedInSummary = 5;
 
@@ -228,12 +236,14 @@ namespace Magic.Unity
                 );
         }
 
+        // Unity ANDs entries, so one entry whose terms are all false gates the plugin.
         static bool NeedsConstraint(string[] constraints)
         {
             return constraints == null
-                || !constraints.Any(c =>
-                    string.Equals(c?.Trim(), MagicConstraint, StringComparison.Ordinal)
-                );
+                || !constraints.Any(entry =>
+                    entry != null
+                    && entry.Split(Or, StringSplitOptions.None)
+                        .All(term => CljClrEditorFalseTerms.Contains(term.Trim())));
         }
 
         static string[] Constrain(string[] constraints)

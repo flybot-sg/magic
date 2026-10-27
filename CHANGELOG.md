@@ -25,6 +25,9 @@
 - A task in a dashed namespace runs, so `nos dotnet-tasks/build` finds `dotnet_tasks.clj` - [nasser/nostrand#33](https://github.com/nasser/nostrand/issues/33).
 - `Runtime.Run` returns the task's value and throws its error instead of returning `false` - [#192](https://github.com/flybot-sg/magic/issues/192).
 
+### Unity
+- A Clojure DLL already kept out of the ClojureCLR Editor, e.g. by `MAGIC_RUNTIME_IN_EDITOR`, is no longer restamped or falsely warned about - [#200](https://github.com/flybot-sg/magic/issues/200).
+
 ### Tooling
 - Every C# assembly carries the full commit SHA that the SDK's SourceLink stamps into `InformationalVersion`, so `nos version` reports `0.13.0+<sha>`. The csprojs no longer run `git describe` themselves, which ends the `+v0.11.0-0-g<hash>` form a tag checkout stamped since [#75](https://github.com/flybot-sg/magic/issues/75).
 
