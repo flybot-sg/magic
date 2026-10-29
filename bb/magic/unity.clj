@@ -31,13 +31,18 @@
 ;; The runtimes' polarity (default ClojureCLR, opt in to MAGIC) is forced by
 ;; Unity's grammar: entries AND, and a `||` entry is satisfied iff every
 ;; negated term is absent or any plain term is present.
+;; :any-platform is the `Any:` row's enabled value in the meta's platform table:
+;; 1 ships to players, 0 never does.
 (def ^:private plugin-sets
   {:magic       {:dir          (str default-pkg "/Runtime/magic")
-                 :constraints  [(str "!UNITY_EDITOR || " magic-symbol)]}
+                 :constraints  [(str "!UNITY_EDITOR || " magic-symbol)]
+                 :any-platform 1}
    :clojure-clr {:dir          (str default-pkg "/Runtime/clojure-clr")
-                 :constraints  ["UNITY_EDITOR" (str "!" magic-symbol)]}
+                 :constraints  ["UNITY_EDITOR" (str "!" magic-symbol)]
+                 :any-platform 0}
    :compiler    {:dir          (str default-pkg "/Editor/Compiler")
-                 :constraints  [magic-symbol]}})
+                 :constraints  [magic-symbol]
+                 :any-platform 0}})
 
 (def ^:private magic-entry (first (get-in plugin-sets [:magic :constraints])))
 
@@ -62,6 +67,15 @@
        (take-while some?)
        (mapv #(or (second (re-matches #"'(.*)'" (str/trim %)))
                   (str/trim %)))))
+
+(defn- any-platform-enabled
+  "The `Any:` row's enabled value in a plugin meta's platform table, as a long.
+   nil when the row is absent."
+  [meta-yaml]
+  (some-> (->> (str/split-lines meta-yaml)
+               (drop-while #(not (re-matches #"\s*Any:\s*" %)))
+               (some #(second (re-matches #"\s*enabled:\s*(\d+)\s*" %))))
+          parse-long))
 
 (defn plugin-dir
   "Where a plugin set's DLLs live in the package."
@@ -199,6 +213,20 @@
       (apply log/fail! "define constraints are wrong"
              (concat ["" "These shipped DLLs do not carry the runtime-selection block" ""]
                      wrong)))
+    ;; The other half of "never reaches a player": the platform table's Any row.
+    (when-let [wrong-any (seq (for [[set-key {:keys [any-platform]}] plugin-sets
+                                    dll (dlls set-key)
+                                    :let [meta-file (str dll ".meta")
+                                          found     (when (fs/exists? meta-file)
+                                                      (any-platform-enabled (slurp meta-file)))]
+                                    :when (and (fs/exists? meta-file)
+                                               (not= any-platform found))]
+                                (str "  " meta-file "\n"
+                                     "    expected Any: enabled " any-platform "\n"
+                                     "    found    " (pr-str found))))]
+      (apply log/fail! "define constraints are wrong"
+             (concat ["" "These shipped DLLs carry the wrong Any platform value" ""]
+                     wrong-any)))
     (when-not (constrainer-agrees?)
       (log/fail! "define constraints are wrong"
                  ""
