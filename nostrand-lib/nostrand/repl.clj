@@ -1,9 +1,7 @@
 (ns nostrand.repl
-  (:require [clojure.string :as string]
-            [clojure.core.server :as clj-server])
+  (:require [clojure.core.server :as clj-server])
   (:import
    [System.IO StringWriter]
-   [System.Collections Queue]
    [System.Text Encoding StringBuilder]
    [System.Net IPEndPoint IPAddress]
    [System.Net.Sockets UdpClient SocketException]))
@@ -12,8 +10,6 @@
   (str *ns* "> "))
 
 (def socket-repl-running (atom true))
-
-(defonce cli-output-queue (Queue/Synchronized (Queue.)))
 
 (defn- random-port []
   (int (+ 1024 (* (rand) (- UInt16/MaxValue 1024)))))
@@ -24,23 +20,21 @@
     (catch SocketException e
       (available-socket (random-port)))))
 
-(defn socket [{:keys [line-editor
-                      env
-                      history
-                      port
-                      send-buffer-size
-                      receive-buffer-size
-                      receive-timeout
-                      on-start
-                      on-eval]
-               :or {history 500
-                    port 11217
-                    send-buffer-size (* 1024 5000)
-                    receive-buffer-size (* 1024 5000)
-                    receive-timeout 100
-                    on-start (fn [_])
-                    on-eval (fn [_])}
-               :as args}]
+(defn socket
+  ":on-eval runs with *out* bound to the reply buffer, so it must write to
+   the console directly."
+  [{:keys [port
+           send-buffer-size
+           receive-buffer-size
+           receive-timeout
+           on-start
+           on-eval]
+    :or {port 11217
+         send-buffer-size (* 1024 5000)
+         receive-buffer-size (* 1024 5000)
+         receive-timeout 100
+         on-start (fn [_])
+         on-eval (fn [_])}}]
   (let [^UdpClient socket (available-socket port)
         sb (StringBuilder.)]
     (set! (.. socket Client SendBufferSize) (int send-buffer-size))
@@ -63,7 +57,6 @@
                                      eval
                                      pr-str)
                           out-str (str sb)
-                          out-bytes (.GetBytes Encoding/UTF8 out-str)
                           response-bytes (.GetBytes Encoding/UTF8 (str in-code out-str result "\n" (prompt)))]
                       (.Send socket response-bytes (.Length response-bytes) sender)
                       (on-eval {:code in-code :out out-str :result result})

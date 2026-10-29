@@ -21,8 +21,8 @@
   (msg "Clojure.Runtime" (Nostrand/ClojureRuntimeVersion) ConsoleColor/Cyan)
   (msg "Magic.Runtime" (Nostrand/MagicRuntimeVersion) ConsoleColor/Cyan)
   (msg "Clojure" (clojure-version) ConsoleColor/Cyan)
-  (msg "Runtime" (str (Environment/get_Version)
-                      " (" (Environment/get_OSVersion) ")")
+  (msg "CLR Runtime" (str (Environment/get_Version)
+                          " (" (Environment/get_OSVersion) ")")
        ConsoleColor/DarkGray))
 
 (defn where
@@ -45,42 +45,37 @@
     (catch EndOfStreamException e
       false)))
 
-(defn- cli [{:keys [history
-                    line-editor
-                    env]
-             :or {history 500
-                  line-editor (LineEditor. "nostrand" 500)}
-             :as args}]
-  (binding [*ns* (find-ns 'user)
-            *warn-on-reflection* *warn-on-reflection*
-            *unchecked-math* *unchecked-math*]
-    (loop [s (.Edit line-editor (repl/prompt) "")]
-      (when s
-        (if-not (balanced? s)
-          (recur (str s "\n" (.Edit line-editor (continue-prompt) "")))
-          (do
-            (try
-              (-> (read-string {:read-cond :allow} s)
-                  eval
-                  pr-str
-                  (Nostrand.Terminal/Message ConsoleColor/Gray))
-              (catch Exception e
-                (Nostrand.Terminal/Message "Exception" (str e) ConsoleColor/Yellow)))
-            (recur (.Edit line-editor (repl/prompt) "")))))))
-  (reset! repl/socket-repl-running false))
+(defn- new-line-editor []
+  (LineEditor. "nostrand" 500))
 
 (defn cli-repl
   ([] (cli-repl nil))
-  ([args]
-   (cli args)))
+  ([{:keys [line-editor]
+     :or {line-editor (new-line-editor)}}]
+   (binding [*ns* (find-ns 'user)
+             *warn-on-reflection* *warn-on-reflection*
+             *unchecked-math* *unchecked-math*]
+     (loop [s (.Edit line-editor (repl/prompt) "")]
+       (when s
+         (if-not (balanced? s)
+           (recur (str s "\n" (.Edit line-editor (continue-prompt) "")))
+           (do
+             (try
+               (-> (read-string {:read-cond :allow} s)
+                   eval
+                   pr-str
+                   (Nostrand.Terminal/Message ConsoleColor/Gray))
+               (catch Exception e
+                 (msg "Exception" (str e) ConsoleColor/Yellow)))
+             (recur (.Edit line-editor (repl/prompt) "")))))))
+   (reset! repl/socket-repl-running false)))
 
 (defn- echo [line-editor]
   (fn [{:keys [code out result exception]}]
-    ;; cli print
     (Console/WriteLine)
     (Console/Write (repl/prompt))
     (if exception
-      (Nostrand.Terminal/Message "Exception" (str exception) ConsoleColor/Yellow)
+      (msg "Exception" (str exception) ConsoleColor/Yellow)
       (do (Console/Write code)
           (when-not (empty? out)
             (Nostrand.Terminal/Message out ConsoleColor/Gray))
@@ -92,8 +87,8 @@
   (repl/socket
    (assoc args
           :on-start (fn [endpoint]
-                      (Nostrand.Terminal/Message "REPL" endpoint ConsoleColor/Blue)
-                      (.Start (Thread. (gen-delegate ThreadStart [] (cli args)))))
+                      (msg "REPL" endpoint ConsoleColor/Blue)
+                      (.Start (Thread. (gen-delegate ThreadStart [] (cli-repl args)))))
           :on-eval (echo (:line-editor args)))))
 
 (defn repl

@@ -32,7 +32,6 @@ namespace Nostrand
             else
             {
                 Terminal.Message("Nostrand", Nostrand.Version(), ConsoleColor.White);
-                // Terminal.Message("Mono", GetRuntimeVersion(), ConsoleColor.White);
                 Terminal.Message("Clojure", RT.var("clojure.core", "clojure-version").invoke(), ConsoleColor.White);
             }
         }
