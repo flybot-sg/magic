@@ -76,6 +76,7 @@ public static class CoexistenceProbe
             $"[CoexistenceProbe] symbol={SymbolState} "
                 + $"preloaded-clj={preloaded} "
                 + $"compiler-in-domain={compilerInDomain} "
+                + $"compiler-boots={CompilerBoots()} "
                 + $"core-clj-loadable={coreLoadable.ToString().ToLowerInvariant()} "
                 + $"core-clj-load={loadDetail} "
                 + $"clojure-versions=[{string.Join(",", clojureVersions)}] "
@@ -112,5 +113,31 @@ public static class CoexistenceProbe
     static bool FromCompilerDir(Assembly a)
     {
         return !a.IsDynamic && a.Location.Contains(CompilerDir);
+    }
+
+    // Whether the in-process host can actually boot the compiler it ships with.
+    // The host assembly is constrained to the MAGIC state, so in the other one
+    // there is nothing to call and the field reports "absent".
+    static string CompilerBoots()
+    {
+#if MAGIC_RUNTIME_IN_EDITOR
+        try
+        {
+            var nostrand = new Magic.Unity.NostrandEditor();
+            nostrand.Prewarm();
+            return nostrand.Host.IsPrewarmed ? "true" : "false";
+        }
+        catch (Exception e)
+        {
+            // The field stays a bare type name so it can be asserted, but a
+            // type name alone is not diagnosable: log the whole thing.
+            // Not the [CoexistenceProbe] tag: the harness takes the first line
+            // carrying it as the marker, and this one would shadow it.
+            Debug.Log("[CoexistenceProbe/detail] compiler-boots threw: " + e);
+            return e.GetType().Name;
+        }
+#else
+        return "absent";
+#endif
     }
 }

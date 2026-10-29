@@ -59,7 +59,11 @@
                                       :clojure-versions  "[1.11.0.0]"
                                       :editor-clj-refs   "0"
                                       :player-clj-refs   n
-                                      :compiler-in-domain "0"})}
+                                      ;; The constraint entry and the platform
+                                      ;; table both exclude the compiler set here,
+                                      ;; and its host assembly with it.
+                                      :compiler-in-domain "0"
+                                      :compiler-boots     "absent"})}
        :magic       {:symbol? true
                      :probe   (merge csharp-fields
                                      {:symbol            "set"
@@ -68,7 +72,8 @@
                                       :clojure-versions  "[1.0.0.0]"
                                       :editor-clj-refs   n
                                       :player-clj-refs   n
-                                      :compiler-in-domain c})}})))
+                                      :compiler-in-domain c
+                                      :compiler-boots     "true"})}})))
 
 (defn- pack-tarball!
   "Pack pkg into a UPM tarball at tgz; exclude paths are relative to pkg."
@@ -188,9 +193,13 @@
     (report! (array-map :check :logs :status status :message message))))
 
 (defn- marker
-  "The first line carrying tag, and its key=value pairs."
+  "The first line carrying tag that actually holds key=value pairs, and those
+   pairs. The pair requirement is what keeps a diagnostic log line sharing the
+   tag from shadowing the real marker and parsing as every field nil."
   [lines tag]
-  (let [line (first (filter #(str/includes? % tag) lines))]
+  (let [line (first (filter #(and (str/includes? % tag)
+                                  (re-find #"\S+=\S+" %))
+                            lines))]
     [line (into {} (map (fn [[_ k v]] [(keyword k) v])
                         (re-seq #"(\S+)=(\S+)" (or line ""))))]))
 
