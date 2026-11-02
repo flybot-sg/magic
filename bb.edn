@@ -173,6 +173,11 @@
    :requires ([magic.coexist :as coexist])
    :task (coexist/coexist-noise! (first *command-line-args*))}
 
+  reloader-probes
+  {:doc "Out-of-Unity regression pack for the hot reloader in magic-unity/Editor/Reload: compiles the real sources with csc and runs them under mono, against magic-unity/Runtime/clojure-clr and, for Probe 7m, against Runtime/magic + Editor/Compiler with fixtures built by the repo's nos. What each probe asserts is in magic-unity/Tests~/reloader/README.md.
+         Needs csc (Roslyn), mono and `bb build-runtime`. FileSystemWatcher behaviour is platform-specific (measured on macOS), so it runs by hand, not in CI."
+   :task (shell "bash" "magic-unity/Tests~/reloader/run.sh")}
+
   ;; ============================================================
   ;; Hygiene + release
   ;; ============================================================
