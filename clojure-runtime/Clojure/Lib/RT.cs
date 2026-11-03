@@ -505,22 +505,7 @@ namespace clojure.lang
                 Symbol.intern("*read-eval-invoke-static-method*"), 
                 new DefaultHostFunction("clojure.core/*read-eval-invoke-static-method*")).setDynamic();  
 
-        // ^object [^string path]
-        internal static readonly Var LoadFileVar
-            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*load-file-fn*"), 
-                new DefaultHostFunction("clojure.core/*load-file-fn*")).setDynamic();
-
-        // ^void [^string dirName ^string name ^TextReader rdr ^string relativePath]
-        internal static readonly Var CompileFileVar
-            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*compile-file-fn*"), 
-                new DefaultHostFunction("clojure.core/*compile-file-fn*")).setDynamic();
-
-        internal static readonly Var LoadVar
-            = Var.intern(Namespace.findOrCreate(Symbol.intern("clojure.core")),
-                Symbol.intern("*load-fn*"), 
-                var("clojure.core", "-load")).setDynamic();
+        static readonly Var LoadVar = var("clojure.core", "-load");
 
         #endregion
 
@@ -689,6 +674,16 @@ namespace clojure.lang
 
             if ( doRuntimePostBoostrap )
             PostBootstrapInit();
+        }
+
+        // The host loads magic.api.clj.dll; this only runs its init type.
+        public static void UseMagicCompiler()
+        {
+            if (!TryLoadInitType("magic/api"))
+                throw new InvalidOperationException(
+                    "The MAGIC compiler is not loaded: no loaded assembly holds the magic/api init type.");
+
+            Compiler.Backend = (ICompilerBackend)var("magic.api", "backend").deref();
         }
 
         public static void PostBootstrapInit()
@@ -4225,12 +4220,12 @@ namespace clojure.lang
 
         public static void LoadScript(FileInfo cljInfo, string relativePath)
         {
-            Compiler.CallBackend(b => b.LoadFile(cljInfo, relativePath), "*load-file-fn*", cljInfo, relativePath);
+            Compiler.RequiredBackend("load", cljInfo.FullName).LoadFile(cljInfo, relativePath);
         }
 
         public static void Compile(FileInfo cljInfo, string relativePath)
         {
-            Compiler.CallBackend(b => b.CompileFile(cljInfo, relativePath), "*compile-file-fn*", cljInfo, relativePath);
+            Compiler.RequiredBackend("compile", cljInfo.FullName).CompileFile(cljInfo, relativePath);
         }
 
         static FileInfo FindFile(string path, string filename)
