@@ -1066,9 +1066,20 @@ namespace clojure.lang
 
         #endregion
 
+        public static volatile ICompilerBackend Backend;
+
+        // TODO(#186): drop the var fallback once the committed compiler sets Backend
+        internal static object CallBackend(Func<ICompilerBackend, object> call, string fallbackVar, params object[] args)
+        {
+            ICompilerBackend backend = Backend;
+            if (backend != null)
+                return call(backend);
+            return RT.var("clojure.core", fallbackVar).applyTo(RT.seq(args));
+        }
+
         public static object eval(object form)
         {
-            throw new NotSupportedException("clojure.lang.Compiler::eval disabled in this runtime");
+            return CallBackend(b => b.Eval(form), "*eval-form-fn*", form);
         }
 
 //         #region eval
@@ -1172,7 +1183,7 @@ namespace clojure.lang
 
         public static object macroexpand1(object form)
         {
-            throw new NotSupportedException("clojure.lang.Compiler::macroexpand1 disabled in this runtime");
+            return CallBackend(b => b.Macroexpand1(form), "*macroexpand-1-fn*", form);
         }
 
 //         /// <summary>
