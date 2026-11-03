@@ -51,7 +51,7 @@ Three directories hold committed `.clj.dll`, and two of them hold a compiler.
 
 A fourth copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 84 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
 
-`Nostrand.Runtime.Boot` loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and binds `clojure.core`'s empty compiler slots to `magic.api` ([Nostrand](./architecture.md#nostrand)).
+`Nostrand.Runtime.Boot` loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and sets `Compiler.Backend` to `magic.api/backend` ([Nostrand](./architecture.md#nostrand)).
 
 These 84 binaries are versioned like source, because for this compiler they are source: they are the only form of MAGIC that another MAGIC can be built from.
 

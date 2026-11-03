@@ -1068,18 +1068,19 @@ namespace clojure.lang
 
         public static volatile ICompilerBackend Backend;
 
-        // TODO(#186): drop the var fallback once the committed compiler sets Backend
-        internal static object CallBackend(Func<ICompilerBackend, object> call, string fallbackVar, params object[] args)
+        internal static ICompilerBackend RequiredBackend(string op, object arg)
         {
             ICompilerBackend backend = Backend;
-            if (backend != null)
-                return call(backend);
-            return RT.var("clojure.core", fallbackVar).applyTo(RT.seq(args));
+            if (backend == null)
+                throw new NotSupportedException(
+                    "No compiler is loaded (clojure.lang.Compiler.Backend is unset), so "
+                    + op + " cannot run. Called with " + RT.printString(arg));
+            return backend;
         }
 
         public static object eval(object form)
         {
-            return CallBackend(b => b.Eval(form), "*eval-form-fn*", form);
+            return RequiredBackend("eval", form).Eval(form);
         }
 
 //         #region eval
@@ -1183,7 +1184,7 @@ namespace clojure.lang
 
         public static object macroexpand1(object form)
         {
-            return CallBackend(b => b.Macroexpand1(form), "*macroexpand-1-fn*", form);
+            return RequiredBackend("macroexpand-1", form).Macroexpand1(form);
         }
 
 //         /// <summary>
@@ -1865,7 +1866,7 @@ namespace clojure.lang
         }
 
         // Upstream's body, but each form is evaluated by clojure.core/eval, which
-        // *eval-form-fn* hands to MAGIC, as this fork has no compiler of its own.
+        // Backend hands to MAGIC, as this fork has no compiler of its own.
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "load")]
         public static object load(TextReader rdr, string sourcePath, string sourceName, string relativePath)
         {
