@@ -17,10 +17,16 @@ namespace Nostrand
             RT.TryLoadInitType("magic/api");
 
             RT.var("clojure.core", "*load-fn*").bindRoot(RT.var("clojure.core", "-load"));
-            RT.var("clojure.core", "*eval-form-fn*").bindRoot(RT.var("magic.api", "eval"));
+            RT.var("clojure.core", "*eval-form-fn*").setDynamic().bindRoot(RT.var("magic.api", "eval"));
             RT.var("clojure.core", "*load-file-fn*").bindRoot(RT.var("magic.api", "runtime-load-file"));
             RT.var("clojure.core", "*compile-file-fn*").bindRoot(RT.var("magic.api", "runtime-compile-file"));
-            RT.var("clojure.core", "*macroexpand-1-fn*").bindRoot(RT.var("magic.api", "runtime-macroexpand-1"));
+            RT.var("clojure.core", "*macroexpand-1-fn*").setDynamic().bindRoot(RT.var("magic.api", "runtime-macroexpand-1"));
+
+            // TODO(#186): drop the hook vars above and set Backend unconditionally once the
+            // committed magic.api has one. setDynamic: clojure.core no longer defines them.
+            Var backend = Var.find(Symbol.intern("magic.api", "backend"));
+            if (backend != null && backend.isBound)
+                Compiler.Backend = (ICompilerBackend)backend.deref();
         }
 
         public static void LoadNostrand()

@@ -4223,14 +4223,14 @@ namespace clojure.lang
                 throw new FileNotFoundException(String.Format("Could not locate Clojure resource on {0}", ClojureLoadPathString));
         }
 
-        public  static void LoadScript(FileInfo cljInfo, string relativePath)
+        public static void LoadScript(FileInfo cljInfo, string relativePath)
         {
-            LoadFileVar.invoke(cljInfo, relativePath);
+            Compiler.CallBackend(b => b.LoadFile(cljInfo, relativePath), "*load-file-fn*", cljInfo, relativePath);
         }
 
-        private static void Compile(FileInfo cljInfo, string relativePath)
+        public static void Compile(FileInfo cljInfo, string relativePath)
         {
-            CompileFileVar.invoke(cljInfo, relativePath);
+            Compiler.CallBackend(b => b.CompileFile(cljInfo, relativePath), "*compile-file-fn*", cljInfo, relativePath);
         }
 
         static FileInfo FindFile(string path, string filename)
