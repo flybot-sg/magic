@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 
 namespace Magic.Unity
 {
@@ -149,6 +150,10 @@ namespace Magic.Unity
             // The budget is only for the conflicts between a read and a save: code
             // that does not compile stays the same after each new read.
             _retries.Remove(path);
+            if (!TryBoot(path))
+            {
+                return;
+            }
             try
             {
                 clojure.lang.Compiler.load(new StringReader(snapshot),
@@ -168,6 +173,55 @@ namespace Magic.Unity
             {
                 _logger?.Invoke($"Reload callback failed for {path}: {ex}");
             }
+        }
+
+        // Magic.Unity.Clojure.Boot, found by a scan: this assembly references only Clojure.dll.
+        static MethodInfo _boot;
+        static bool _bootSearched;
+
+        bool TryBoot(string path)
+        {
+            if (!_bootSearched)
+            {
+                _bootSearched = true;
+                _boot = FindBoot();
+                if (_boot == null)
+                {
+                    _logger?.Invoke("Magic.Unity.Clojure.Boot() is not loaded; reloading without booting the runtime.");
+                }
+            }
+            if (_boot == null)
+            {
+                return true;
+            }
+            try
+            {
+                _boot.Invoke(null, null);
+                return true;
+            }
+            catch (TargetInvocationException ex)
+            {
+                _logger?.Invoke($"Reload failed for {path}: Magic.Unity.Clojure.Boot() threw {ex.InnerException}");
+                return false;
+            }
+        }
+
+        static MethodInfo FindBoot()
+        {
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (assembly.IsDynamic)
+                {
+                    continue;
+                }
+                var boot = assembly.GetType("Magic.Unity.Clojure")?.GetMethod("Boot",
+                    BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null);
+                if (boot != null)
+                {
+                    return boot;
+                }
+            }
+            return null;
         }
 
         void Defer(string path, Exception ex)
