@@ -1,6 +1,6 @@
 # Plan: MAGIC hot reload in the Unity Editor
 
-Steps 0 and 1 are done (§5.1); nothing else is implemented.
+Steps 0, 1 and 2 are done (§5.1); nothing else is implemented.
 Line references hold on `develop` as of 2026-10-30, plus `magic-unity/README.md`'s "What a reload changes" and "Save order", which land with this plan.
 Open claims are tagged **[inferred]** or **[unverified]**; everything else was read in code or measured.
 
@@ -10,7 +10,7 @@ Player builds run MAGIC; the Editor runs ClojureCLR only for its hot reload, a s
 Move the Editor to MAGIC, then drop ClojureCLR, in two gates:
 
 1. **`integrated` switches to MAGIC by default**, with ClojureCLR still installed as a fallback, once:
-   - steps 2–7 in §5.2 are done and their checks are green (step 8 belongs to gate 2);
+   - steps 2–7 in §5 are done and their checks are green (step 8 belongs to gate 2);
    - every reload behaviour `magic-unity/README.md` documents on ClojureCLR has been checked on MAGIC: the six rows of "What a reload changes" and the two outcomes in "Save order".
 
    The package cannot make MAGIC the Editor default: Unity's constraint grammar forces ClojureCLR to be the default (rationale beside `plugin-sets` in `bb/magic/unity.clj`).
@@ -53,7 +53,9 @@ One new `nos` entry point, a task or a `magic.edn` key such as `:dev`, writes bo
     Cleaning empties only `:out`, never `:csharp-out` (`tasks.clj:209-210`). Every run is a full recompile of the consumer.
   - `:csharp-out` puts dependencies' C# DLLs where Unity loads them. An unchanged one is not rewritten (step 0), so a run causes an import only when a dependency's C# changed.
   - `Library/` is never imported: no `.meta` files, no path to a player build, and writing there triggers no domain reload, even with an `AssetDatabase.Refresh()` behind it (measured in `integrated`).
-- **The roots file**: the source roots `establish-project` resolves (`nostrand-lib/nostrand/core.clj:151`), one absolute path per line; the format is fixed at step 2.
+- **The roots file**: `Library/MagicDevRoots.txt`, the source roots `establish-project` resolves (`nostrand-lib/nostrand/core.clj:151`), one absolute path per line; blank lines are skipped.
+  The boot step reads it from the project root, Unity's working directory (`Magic.Unity.Clojure.RootsFile`).
+  It sits beside `Library/MagicDev`, not inside it, since `:clean? true` empties that directory.
   It comes from `nos` because resolving deps can clone and expand submodules, which must stay off Unity's main thread.
   Per machine, never committed, never lists `Assets/Plugins/Magic`, or the mtime rule could load the direct-linked production DLLs.
 - **Loading.** No consumer init type is preloaded, so a namespace's first load falls to FileSystem.
@@ -61,12 +63,14 @@ One new `nos` entry point, a task or a `magic.edn` key such as `:dev`, writes bo
   A dev DLL binds to the `Clojure`, `Magic.Runtime` and C# dependencies Unity has already loaded (step 0).
 - **Reruns.** A rerun of `nos` takes effect only at the next domain reload, so the Editor action that reruns it ends with `EditorUtility.RequestScriptReload`.
   Deleting dev DLLs a domain has loaded is fine on macOS **[inferred]**.
-- **First run.** Without a roots file nothing of the consumer's loads.
-  Proposed: the boot step fails, naming the cause and the menu action that runs `nos`,
-  rather than running `nos` itself, a multi-second subprocess on the first `GetVar`, `Require` or save.
-- **Lookup order, proposed: FileSystem-first in the Editor**, decided at step 2.
-  Today the Editor runs `{InitType, FileSystem}` (`magic-unity/Runtime/Magic.Unity.cs:64`); players keep their order either way.
-  Under InitType-first, `(require 'x :reload)` is a silent no-op for a namespace loaded from the dev set, since `TryLoadInitType` finds its init type (`clojure-runtime/Clojure/CljCompiler/Compiler.cs:1773`, `:1790`).
+- **First run, decided at step 2: the boot step fails, naming the cause**, rather than running `nos` itself, a multi-second subprocess on the first `GetVar`, `Require` or save.
+  The exception names the roots file's path and `nos`; the menu action that runs `nos` is step 3's, and the message names it once it exists.
+  The failure is retried on the next call, so writing the file is enough.
+  It blocks every call, a stdlib-only `GetVar` included: `clojure.core/+` threw at step 2.
+- **Lookup order, decided at step 2: FileSystem-first in the Editor**, `{FileSystem, InitType}`; players keep their order.
+  Under InitType-first, `(require 'x :reload)` is a silent no-op for a namespace loaded from the dev set, since `TryLoadInitType` finds its init type, which has already run (`clojure-runtime/Clojure/CljCompiler/Compiler.cs:1773`, `:1790`).
+  Under FileSystem-first an edited source is newer than its DLL, so the mtime rule compiles it (§5.1, step 2).
+  A `:reload` with no edit still finds the DLL, whose init type has run, and is a no-op **[inferred]**.
   The reloader calls `Compiler.load` directly and is unaffected; a REPL user is not.
 - Optional uses of the roots file: the ClojureCLR state's `CLOJURE_LOAD_PATH` during the transition **[inferred]**, and the reloader's watch roots, project-local ones only.
 - **[unverified]** whether consumer Clojure needs nostrand in the Editor, through `nostrand.core/reference` or `assembly-load-from` at load time.
@@ -74,32 +78,32 @@ One new `nos` entry point, a task or a `magic.edn` key such as `:dev`, writes bo
 
 ### 2.3 Editor boot step
 
-`Magic.Unity.Clojure.Boot` (`magic-unity/Runtime/Magic.Unity.cs:22-30`) boots only the runtime.
+`Magic.Unity.Clojure.Boot` (`magic-unity/Runtime/Magic.Unity.cs`) boots the runtime once (`BootMagicRuntime`), then, under `#if UNITY_EDITOR && MAGIC_RUNTIME_IN_EDITOR`, the Editor part (`BootEditor`).
 Unity has already loaded every `Runtime/magic/` and `Editor/Compiler/` DLL at domain load (step 0), although their metas say `isPreloaded: 0`.
 Do not add a loop that loads them: an Editor probe's `Assembly.LoadFile` of `nostrand.core.clj.dll` failed with `TypeLoadException` on `Magic.Runtime`, although Unity had it loaded.
-So the Editor part only has to:
+The Editor part, in order:
 
-1. **Bind the compiler** with a new `RT.UseMagicCompiler()` in the fork, in the direction of `RT.CompilerHost` (#186).
-   It runs the `magic/api` init type (loaded but not initialized), throws naming `Editor/Compiler/` if it is absent,
-   and binds `*eval-form-fn*`, `*load-fn*`, `*load-file-fn*`, `*compile-file-fn*` and `*macroexpand-1-fn*`.
-   Today those bindings live only in `nostrand-lib/Runtime.cs:11-24`, whose `Boot` then calls the new method instead. C# change: `bb build-runtime`.
-2. **Replace `*load-paths*`** with the roots file's entries plus `Library/MagicDev`.
-   Today it holds only `Clojure.dll`'s directory (`core.clj:5911`), and MAGIC's `-load` ignores `CLOJURE_LOAD_PATH`, which only nostrand reads (`nostrand-lib/nostrand/core.clj:33`),
-   so a file whose `ns` requires a not-yet-loaded namespace fails.
-   Replace, not append: with `Runtime/magic/` off the path, a stdlib namespace should fall through to Unity's loaded copy rather than a second `LoadFrom` of its file, which would duplicate its types **[unverified]**; step 2 checks it.
-3. **Switch the lookup order**, last: core's helper files and `magic.api`'s requires load while the path still holds `Runtime/magic/`, and `-load` reads `CodeLoadOrder` on every call (`core.clj:5987`).
-   It needs the reflected `CodeLoadOrder` field and `CodeSource` type, which `BootMagicRuntime` holds only as locals today.
+1. **Sets the compiler** with `RT.UseMagicCompiler()` in the fork, called by reflection.
+   It runs the `magic/api` init type (loaded but not initialized), throws if it is absent,
+   and sets `Compiler.Backend` (#186) to `magic.api/backend`.
+   `Nostrand.Runtime.Boot` (`nostrand-lib/Runtime.cs`) calls it too, so the assignment lives in one place.
+2. **Replaces `*load-paths*`** with the roots file's entries plus `Library/MagicDev`.
+   It held only `Clojure.dll`'s directory (`core.clj:5911`), and MAGIC's `-load` ignores `CLOJURE_LOAD_PATH`, which only nostrand reads (`nostrand-lib/nostrand/core.clj:33`),
+   so a file whose `ns` requires a not-yet-loaded namespace failed.
+   Appending would not duplicate stdlib types: with `Runtime/magic/` still on the path, a stdlib `require` resolved to the copy Unity had loaded, `-load-assembly`'s `LoadFrom` of the same file returning it (§5.1, step 2).
+   Replace anyway: `Runtime/magic/` holds no source, and off the path a stdlib namespace falls through to its init type.
+3. **Switches the lookup order** to `{FileSystem, InitType}`, last: core's helper files and `magic.api`'s requires load before it, and `-load` reads `CodeLoadOrder` on every call (`core.clj:5987`).
+   `BootMagicRuntime` keeps the reflected `CodeLoadOrder` field and `CodeSource` type in statics for it.
 
-It goes in `Magic.Unity.Clojure.Boot` under `#if UNITY_EDITOR && MAGIC_RUNTIME_IN_EDITOR`, binding fork-only members by reflection as `BootMagicRuntime` already does.
-Split `_booted`, which is set before booting today (`Magic.Unity.cs:24-26`):
-`BootMagicRuntime` runs once, and the Editor part marks itself done only on success, so a fixed cause, such as a missing roots file, is picked up on the next call.
+The roots file is checked before anything changes.
+`BootMagicRuntime` runs once; the Editor part marks itself done only on success, so a fixed cause, such as a missing roots file, is picked up on the next call.
 
 **Trigger: lazy**, on the first `GetVar`/`Require` or the reloader's first save.
-Eager boot on every domain reload was rejected: every C# recompile would pay `magic/api`'s init, about 0.5 s.
-The reloader calls `Boot` by reflection, keeping its asmdef at a single `Clojure.dll` reference and compilable outside Unity:
-- it scans the loaded assemblies once for `Magic.Unity.Clojure` and `GetMethod("Boot", Type.EmptyTypes)`, caches the result, and invokes it;
-- it logs a throwing `Boot` by its `InnerException`, not as `TargetInvocationException`;
-- it logs a missing type once.
+Eager boot on every domain reload was rejected: every C# recompile would pay the Editor part, 0.62 s in smoke (step 2), most of it `magic/api`'s init.
+The reloader calls `Boot` by reflection before each `Compiler.load`, keeping its asmdef at a single `Clojure.dll` reference and compilable outside Unity:
+- it scans the loaded, non-dynamic assemblies once for `Magic.Unity.Clojure` and its static `Boot()`, caches the result, and invokes it;
+- a throwing `Boot` is logged by its `InnerException`, not as `TargetInvocationException`, and the save is not loaded; the next save calls `Boot` again;
+- a missing type is logged once, and saves load without a boot.
 
 In the ClojureCLR state the call is harmless: `BootMagicRuntime` skips when the fork is absent.
 
@@ -108,9 +112,8 @@ In the ClojureCLR state the call is harmless: `BootMagicRuntime` skips when the 
 `ClojureReloader` is reused unchanged (step 1).
 Its only Clojure call, `Compiler.load` (`magic-unity/Editor/Reload/ClojureReloader.cs:154`), evaluates each form in memory through `magic.api/eval`, writes nothing, and picks `:cljr` in a `.cljc` file.
 The compiler has run inside the Editor once: on 2026-10-29, through `in-proc`'s host in `integrated`, in Unity's Mono `6.13.0`, its `compile-file` output structurally identical to a `nos` build of the same file.
-The changes:
-- drop `!MAGIC_RUNTIME_IN_EDITOR` from `magic-unity/Editor/Reload/Magic.Unity.Editor.Reload.asmdef`;
-- add the boot call (§2.3). Without it, a save before game code touches Clojure fails without naming the cause.
+The boot call (§2.3) is in, since step 2; without it, a save before game code touches Clojure would fail without naming the cause.
+What remains is to drop `!MAGIC_RUNTIME_IN_EDITOR` from `magic-unity/Editor/Reload/Magic.Unity.Editor.Reload.asmdef`.
 
 Consumers guard their reloader code with `#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR`, copied from `magic-unity/README.md`, so the guard changes with the asmdef.
 
@@ -170,27 +173,30 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
    - Probe 7's other checks passed on MAGIC too, with no duplicate assemblies.
 
    Probes 3, 4 and 6 of the pack do not compile: they call a three-argument `DebouncedFileWatcher` constructor the shipped watcher does not have. `bb reloader-probes` exits 1 until they are fixed or the seam is restored.
+2. **Editor boot step** (§2.3): `RT.UseMagicCompiler()`, the Editor part of `Magic.Unity.Clojure.Boot`, and the reloader's reflective boot call.
+   Probes 8 and 9 failed on the code before it; the Unity checks ran only after it. `bb test` passed after `Nostrand.Runtime.Boot` moved to `RT.UseMagicCompiler()`.
+   - **Outside Unity**, 2026-11-02, `bb reloader-probes`, macOS; setup in `magic-unity/Tests~/reloader/README.md`.
+     - Probe 8, on ClojureCLR, one `mono` process per build of `ReloaderBootTest.cs`:
+       with a stub `Magic.Unity.Clojure`, each of two saves called `Boot` once, before `Compiler.load`, since the file read a var the stub binds;
+       a throwing stub was logged by its inner exception, the save was not loaded, and the next save called `Boot` again;
+       without the type, both saves loaded and it was logged once.
+     - Probe 9, `UseMagicCompilerTest.cs` over a staged `Runtime/magic`: without `Editor/Compiler/` it threw naming `Editor/Compiler/`; with it, it bound the five hooks to `magic.api` and `eval` compiled.
+     - Probe 7m stayed green, booting through the new `Nostrand.Runtime.Boot`.
+   - **Inside Unity**, 2026-11-02, `unity-examples/magic-unity-smoke`, Unity `2022.3.62f3`, macOS, MAGIC state, headless through a throwaway `-executeMethod` probe, since deleted.
+     The package was this tree's, its `Runtime/magic/Clojure.dll` refreshed by the `MagicUnity` target; `Assets/Plugins/Magic` was empty, as step 4 will leave it.
+     `Library/MagicDev` held step 0's `test-flags` DLLs plus a probe namespace, and the roots file listed `Assets/Clojure` and the probe's source root.
+     - With no roots file, the first `GetVar` threw naming it, after booting the runtime; once the file existed, the next call ran the Editor part, and `RT.Initialize`'s `load-file` fn kept its identity, so `BootMagicRuntime` had not rerun.
+     - After boot: the five hooks bound to `magic.api`, `*load-paths*` the two roots plus `Library/MagicDev`, the order `{FileSystem, InitType}`. The two calls took 388 ms and 617 ms.
+     - Core's nine helper assemblies were each loaded once, from `Runtime/magic/`, and no non-dynamic assembly twice.
+     - `Compiler.load` of a file requiring `smoke.csharp` and `smoke.compare`, neither loaded: `smoke.csharp` and its requires loaded from `Library/MagicDev`, `smoke.compare`, which has no dev DLL, compiled from source in memory, and the file's `Greeter` call returned.
+     - After the switch, `require` of `clojure.zip` left one copy, Unity's. With `Runtime/magic/` appended to `*load-paths*`, `clojure.data` loaded through `-load-assembly` from that directory and also left one copy, Unity's.
+     - `probe.reloadme` loaded from its dev DLL; after an edit, `(require 'probe.reloadme :reload)` picked it up under FileSystem-first. With the order set back to InitType-first, a second edit and `:reload` left the first edit's value.
+   - Not covered: a package from `Library/PackageCache`, and the GUI.
 
 ### 5.2 To do
 
 Each step starts with a test that fails on the current code.
 
-2. **Editor boot step** (§2.3): `RT.UseMagicCompiler()`, the Editor branch of `Magic.Unity.Clojure.Boot`, and the reloader's reflective boot call.
-   In the harness:
-   - with a stub `Magic.Unity.Clojure` whose `Boot()` records the call, a save calls it once before `Compiler.load`;
-   - without the stub, the save proceeds and the missing type is logged once;
-   - a stub `Boot()` that throws is logged by its inner exception;
-   - `RT.UseMagicCompiler()` without `magic.api` throws naming `Editor/Compiler/`.
-
-   Inside Unity, in the MAGIC state, through `GetVar`, with a hand-written roots file and step 0's DLLs in `Library/MagicDev/`.
-   Call `Compiler.load` directly: the reloader is absent in the MAGIC state until step 5.
-   - the Editor branch binds the compiler and sets `*load-paths*`;
-   - a file passed to `Compiler.load` whose `ns` requires a not-yet-loaded namespace resolves it;
-   - a failed Editor part is retried on the next call, while `BootMagicRuntime` runs once;
-   - right after boot, each of core's helper files is loaded once;
-   - after the order switch, requiring a stdlib namespace Unity has loaded leaves one copy of its assembly (§2.3).
-
-   Decide here: the first-run behaviour (§2.2) and the lookup order (§2.2), testing that `(require 'x :reload)` picks up an edit under the chosen order.
 3. **A new `nos` entry point writes the dev set and the roots file** (§2.2).
    Testable outside Unity, starting from: a second run after editing a namespace rewrites its DLL.
    Check that deleting dev DLLs a domain has loaded is harmless; add the Editor action that reruns `nos` and requests a script reload.
