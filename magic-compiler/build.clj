@@ -86,9 +86,6 @@
 
 (defn bootstrap [& {:keys [spells]}]
   (binding [clojure.core/*loaded-libs* (ref (sorted-set))
-            *eval-form-fn*             magic.api/eval
-            *compile-file-fn*          magic.api/runtime-compile-file
-            *load-file-fn*             magic.api/runtime-load-file
             *warn-on-reflection*       true]
     (with-bindings* (spell-flag-bindings spells)
       (fn []

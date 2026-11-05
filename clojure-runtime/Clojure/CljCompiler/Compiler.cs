@@ -1066,9 +1066,21 @@ namespace clojure.lang
 
         #endregion
 
+        public static volatile ICompilerBackend Backend;
+
+        internal static ICompilerBackend RequiredBackend(string op, object arg)
+        {
+            ICompilerBackend backend = Backend;
+            if (backend == null)
+                throw new NotSupportedException(
+                    "No compiler is loaded (clojure.lang.Compiler.Backend is unset), so "
+                    + op + " cannot run. Called with " + RT.printString(arg));
+            return backend;
+        }
+
         public static object eval(object form)
         {
-            throw new NotSupportedException("clojure.lang.Compiler::eval disabled in this runtime");
+            return RequiredBackend("eval", form).Eval(form);
         }
 
 //         #region eval
@@ -1172,7 +1184,7 @@ namespace clojure.lang
 
         public static object macroexpand1(object form)
         {
-            throw new NotSupportedException("clojure.lang.Compiler::macroexpand1 disabled in this runtime");
+            return RequiredBackend("macroexpand-1", form).Macroexpand1(form);
         }
 
 //         /// <summary>
@@ -1854,7 +1866,7 @@ namespace clojure.lang
         }
 
         // Upstream's body, but each form is evaluated by clojure.core/eval, which
-        // *eval-form-fn* hands to MAGIC, as this fork has no compiler of its own.
+        // Backend hands to MAGIC, as this fork has no compiler of its own.
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1709:IdentifiersShouldBeCasedCorrectly", MessageId = "load")]
         public static object load(TextReader rdr, string sourcePath, string sourceName, string relativePath)
         {

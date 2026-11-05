@@ -3250,20 +3250,11 @@
 
 ;; evaluation
 
-(def ^:dynamic
-  ^{:doc "The function called to evaluate a form."}
-  *eval-form-fn*
-  (fn [form]
-    ;; (clojure.lang.Compiler/eval form)
-    (throw (NotSupportedException.
-            (str "Bind clojure.core/*eval-form-fn* to enable evaluation. "
-                 "Called with " form)))))
-
 (defn eval
   "Evaluates the form data structure (not text!) and returns the result."
   {:added "1.0"
    :static true}
-  [form] (*eval-form-fn* form))
+  [form] (. clojure.lang.Compiler (eval form)))
 
 (defmacro doseq
   "Repeatedly executes body (presumably for side-effects) with
@@ -4067,21 +4058,13 @@ Note that read can execute code (controlled by *read-eval*),
           (recur (inc i) (next xs))))
       ret))
 
-(def ^:dynamic
-  ^{:doc "The function called to expand a macro."}
-  *macroexpand-1-fn*
-  (fn [form]
-    (throw (NotSupportedException.
-            (str "Bind clojure.core/*macroexpand-1-fn* to enable macroexpansion. "
-                 "Called with " form)))))
-
 (defn macroexpand-1
   "If form represents a macro form, returns its expansion,
   else returns form."
   {:added "1.0"
    :static true}
   [form]
-    (*macroexpand-1-fn* form))
+    (. clojure.lang.Compiler (macroexpand1 form)))
 
 (defn macroexpand
   "Repeatedly calls macroexpand-1 on form until it no longer
@@ -5898,8 +5881,8 @@ Note that read can execute code (controlled by *read-eval*),
 ;;;;;;;;;;; require/use/load, contributed by Stephen C. Gilardi ;;;;;;;;;;;;;;;;;;
 
 ;;;;;; bootstrap loading machinery
-;; extends basic clojure loading mechanisms with hooks (dynamic vars) that allow
-;; an embedding system to change how loading and compiling works
+;; the namespace lookup that upstream does in C#: clojure.lang.RT.load calls
+;; -load, and RT.FindFile calls find-file
 ;; contributed by Ramsey Nasser
 
 (def load-code-from-filesystem?
@@ -5911,33 +5894,6 @@ Note that read can execute code (controlled by *read-eval*),
   *load-paths* (if load-code-from-filesystem?
                   [(System.IO.Path/GetDirectoryName (.Location (.Assembly clojure.lang.RT)))]
                   []))
-
-;; dynamic vars provided by the runtime
-;; *load-file-fn* 
-;; *compile-file-fn*
-;; *load-fn*
-
-#_
-(def ^:dynamic
-  ^{:doc "The function called to evaluate the contents of a file.
-          The file should be read, analyzed, compiled into memory, and evaluated
-          but no file should be written do disk. Throws an exception by default."}
-  *load-file-fn*
-  (fn [^System.IO.FileInfo file relative-path]
-    ;; (clojure.lang.RT/LoadScript file relative-path)
-    (throw (NotSupportedException.
-            (str "Bind clojure.core/*load-file-fn* to enable namespace loading. "
-                 "Called with " (.FullName file))))))
-
-#_
-(def ^:dynamic
-  ^{:doc "The function called to compile a file to disk.
-          Similar to *load-file-fn* but the results should be written to disk."}
-  *compile-file-fn*
-  (fn [^System.IO.FileInfo file relative-path]
-    (throw (NotSupportedException.
-            (str "Bind clojure.core/*compile-file-fn* to enable compilation. "
-                 "Called with " (.FullName file))))))
 
 (defn find-file
   "port of clojure.lang.RT.FindFile, but uses *load-paths* "
@@ -6022,7 +5978,7 @@ Note that read can execute code (controlled by *read-eval*),
                               (when assy-info
                                 (str "  (clj-mtime=" (.LastWriteTime clj-info)
                                      " dll-mtime=" (.LastWriteTime assy-info) ")")))))
-              (*compile-file-fn* clj-info relative-path))
+              (clojure.lang.RT/Compile clj-info relative-path))
 
             clj-info
             (do
@@ -6032,7 +5988,7 @@ Note that read can execute code (controlled by *read-eval*),
                               (when assy-info
                                 (str "  (clj-mtime=" (.LastWriteTime clj-info)
                                      " dll-mtime=" (.LastWriteTime assy-info) ")")))))
-              (*load-file-fn* clj-info relative-path))
+              (clojure.lang.RT/LoadScript clj-info relative-path))
 
             :else
             (recur (first code-sources) (rest code-sources)))
@@ -6046,15 +6002,6 @@ Note that read can execute code (controlled by *read-eval*),
             ;; not-found branch reports what was actually searched
             (= code-source clojure.lang.RuntimeBootstrapFlag+CodeSource/EmbeddedResource)
             (recur (first code-sources) (rest code-sources)))))))
-
-#_
-(def ^:dynamic
-  ^{:doc "The function called whenever a namespace is loaded.
-          By default bound to an implementation that checks the filesystem first
-          and falls back to init types, but can be rebound for bootstraping or
-          running in environments without filesystems. Uses *load-paths* as load
-          path."}
-  *load-fn* -load)
 
 ;;;;;; end bootstrap loading machinery
 
@@ -6344,7 +6291,7 @@ fails, attempts to require sym's namespace and retries."
       (check-cyclic-dependency path)
       (when-not (= path (first *pending-paths*))
         (binding [*pending-paths* (conj *pending-paths* path)]
-          (*load-fn* (.Substring path 1)))))))       ;;; .substring
+          (clojure.lang.RT/load (.Substring path 1)))))))       ;;; .substring
 
 (defn compile
   "Compiles the namespace named by the symbol lib into a set of

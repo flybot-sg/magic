@@ -82,10 +82,7 @@
   "Compile each namespace into tmp-dir, printing progress. Returns a vector of
    [ns message] for the ones that threw, empty when all of them compiled."
   [namespaces tmp-dir]
-  (binding [clojure.core/*eval-form-fn*       api/eval
-            clojure.core/*compile-file-fn*    api/runtime-compile-file
-            clojure.core/*load-file-fn*       api/runtime-load-file
-            clojure.core/*warn-on-reflection* true
+  (binding [clojure.core/*warn-on-reflection* true
             clojure.core/*compile-path*       tmp-dir
             clojure.core/*compile-files*      true]
     (reduce (fn [failed ns]

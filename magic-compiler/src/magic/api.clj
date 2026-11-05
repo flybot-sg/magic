@@ -314,4 +314,12 @@
 (defn runtime-macroexpand-1 [form]
   (ana/macroexpand-1 form))
 
+(def backend
+  "The compiler clojure.core calls through clojure.lang.Compiler/Backend."
+  (reify clojure.lang.ICompilerBackend
+    (Eval [_ form] (eval form))
+    (Macroexpand1 [_ form] (runtime-macroexpand-1 form))
+    (LoadFile [_ file path] (runtime-load-file file path))
+    (CompileFile [_ file path] (runtime-compile-file file path))))
+
 (def version "0.0-alpha")
