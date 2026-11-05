@@ -172,7 +172,7 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
    - a `.cljc` reader conditional picked `:cljr`;
    - Probe 7's other checks passed on MAGIC too, with no duplicate assemblies.
 
-   Probes 3, 4 and 6 of the pack do not compile: they call a three-argument `DebouncedFileWatcher` constructor the shipped watcher does not have. `bb reloader-probes` exits 1 until they are fixed or the seam is restored.
+   Probes 3, 4 and 6 called a three-argument `DebouncedFileWatcher` constructor dropped in #173's review; since 2026-11-05 they run at the shipped 200 ms window, and `bb reloader-probes` exits 0 in about 2.5 min.
 2. **Editor boot step** (§2.3): `RT.UseMagicCompiler()`, the Editor part of `Magic.Unity.Clojure.Boot`, and the reloader's reflective boot call.
    Probes 8 and 9 failed on the code before it; the Unity checks ran only after it. `bb test` passed after `Nostrand.Runtime.Boot` moved to `RT.UseMagicCompiler()`.
    - **Outside Unity**, 2026-11-02, `bb reloader-probes`, macOS; setup in `magic-unity/Tests~/reloader/README.md`.
@@ -180,16 +180,17 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
        with a stub `Magic.Unity.Clojure`, each of two saves called `Boot` once, before `Compiler.load`, since the file read a var the stub binds;
        a throwing stub was logged by its inner exception, the save was not loaded, and the next save called `Boot` again;
        without the type, both saves loaded and it was logged once.
-     - Probe 9, `UseMagicCompilerTest.cs` over a staged `Runtime/magic`: without `Editor/Compiler/` it threw naming `Editor/Compiler/`; with it, it bound the five hooks to `magic.api` and `eval` compiled.
+     - Probe 9, `UseMagicCompilerTest.cs` over a staged `Runtime/magic`: without `Editor/Compiler/` it throws naming `magic/api`; with it, it sets `Compiler.Backend` to `magic.api/backend` and `eval` compiles.
+       Rerun 2026-11-05 after #186; on 2026-11-02 it checked the five hook vars #186 removed.
      - Probe 7m stayed green, booting through the new `Nostrand.Runtime.Boot`.
-   - **Inside Unity**, 2026-11-02, `unity-examples/magic-unity-smoke`, Unity `2022.3.62f3`, macOS, MAGIC state, headless through a throwaway `-executeMethod` probe, since deleted.
-     The package was this tree's, its `Runtime/magic/Clojure.dll` refreshed by the `MagicUnity` target; `Assets/Plugins/Magic` was empty, as step 4 will leave it.
+   - **Inside Unity**, 2026-11-02 and again 2026-11-05 after #186, `unity-examples/magic-unity-smoke`, Unity `2022.3.62f3`, macOS, MAGIC state, headless through a throwaway `-executeMethod` probe, since deleted.
+     The package was this tree's, its `Runtime/magic/Clojure.dll` refreshed by the `MagicUnity` target on 2026-11-02 and #186's committed one on 2026-11-05; `Assets/Plugins/Magic` was empty, as step 4 will leave it.
      `Library/MagicDev` held step 0's `test-flags` DLLs plus a probe namespace, and the roots file listed `Assets/Clojure` and the probe's source root.
      - With no roots file, the first `GetVar` threw naming it, after booting the runtime; once the file existed, the next call ran the Editor part, and `RT.Initialize`'s `load-file` fn kept its identity, so `BootMagicRuntime` had not rerun.
-     - After boot: the five hooks bound to `magic.api`, `*load-paths*` the two roots plus `Library/MagicDev`, the order `{FileSystem, InitType}`. The two calls took 388 ms and 617 ms.
+     - After boot: `Compiler.Backend` was `magic.api/backend` and `eval` compiled (on 2026-11-02, the five hooks bound to `magic.api`), `*load-paths*` the two roots plus `Library/MagicDev`, the order `{FileSystem, InitType}`. The two calls took 388 ms and 617 ms, and 388 ms and 586 ms on the rerun.
      - Core's nine helper assemblies were each loaded once, from `Runtime/magic/`, and no non-dynamic assembly twice.
      - `Compiler.load` of a file requiring `smoke.csharp` and `smoke.compare`, neither loaded: `smoke.csharp` and its requires loaded from `Library/MagicDev`, `smoke.compare`, which has no dev DLL, compiled from source in memory, and the file's `Greeter` call returned.
-     - After the switch, `require` of `clojure.zip` left one copy, Unity's. With `Runtime/magic/` appended to `*load-paths*`, `clojure.data` loaded through `-load-assembly` from that directory and also left one copy, Unity's.
+     - After the switch, `require` of `clojure.zip` left one copy, Unity's. With `Runtime/magic/` appended to `*load-paths*`, `clojure.data` loaded through `-load-assembly` from that directory and also left one copy, Unity's (2026-11-02 only).
      - `probe.reloadme` loaded from its dev DLL; after an edit, `(require 'probe.reloadme :reload)` picked it up under FileSystem-first. With the order set back to InitType-first, a second edit and `:reload` left the first edit's value.
    - Not covered: a package from `Library/PackageCache`, and the GUI.
 
