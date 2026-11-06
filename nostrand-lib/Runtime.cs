@@ -13,7 +13,6 @@ namespace Nostrand
                 Assembly.LoadFile(cljDll);
 
             RT.Initialize(doRuntimePostBoostrap: false);
-            RT.TryLoadInitType("clojure/core");
             RT.UseMagicCompiler();
         }
 

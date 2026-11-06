@@ -30,14 +30,14 @@ namespace Magic.Unity
         }
 
         // The bootstrap below uses API that only exists in MAGIC's Clojure
-        // fork: RuntimeBootstrapFlag.CodeLoadOrder, RT.Initialize with the
-        // doRuntimePostBoostrap parameter, and RT.TryLoadInitType. A consumer
-        // may keep a ClojureCLR Clojure.dll in Assets for in-editor runtime
-        // compilation; Unity dedups managed plugins by file name, so this
-        // file can end up compiled against that copy. Bind the fork-only
-        // members via reflection: when the fork is present the full MAGIC
-        // bootstrap runs, when it is absent the bootstrap is skipped and
-        // ClojureCLR self-initializes on first RT.var.
+        // fork: RuntimeBootstrapFlag.CodeLoadOrder and RT.Initialize with the
+        // doRuntimePostBoostrap parameter. A consumer may keep a ClojureCLR
+        // Clojure.dll in Assets for in-editor runtime compilation; Unity
+        // dedups managed plugins by file name, so this file can end up
+        // compiled against that copy. Bind the fork-only members via
+        // reflection: when the fork is present the full MAGIC bootstrap runs,
+        // when it is absent the bootstrap is skipped and ClojureCLR
+        // self-initializes on first RT.var.
         static void BootMagicRuntime()
         {
             var clojureAssembly = typeof(RT).Assembly;
@@ -45,8 +45,7 @@ namespace Magic.Unity
             var codeLoadOrderField = bootstrapFlagType?.GetField("CodeLoadOrder", BindingFlags.Public | BindingFlags.Static);
             var codeSourceType = bootstrapFlagType?.GetNestedType("CodeSource");
             var initializeMethod = typeof(RT).GetMethod("Initialize", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(bool), typeof(bool) }, null);
-            var tryLoadInitTypeMethod = typeof(RT).GetMethod("TryLoadInitType", BindingFlags.Public | BindingFlags.Static, null, new[] { typeof(string) }, null);
-            if (codeLoadOrderField == null || codeSourceType == null || initializeMethod == null || tryLoadInitTypeMethod == null)
+            if (codeLoadOrderField == null || codeSourceType == null || initializeMethod == null)
             {
                 // Silent skip is correct for ClojureCLR (no RuntimeBootstrapFlag).
                 // A non-null bootstrapFlagType means the fork is loaded but a member
@@ -55,9 +54,9 @@ namespace Magic.Unity
                     UnityEngine.Debug.LogWarning(
                         "MAGIC runtime bootstrap skipped: the Magic.Unity scripts and the loaded "
                         + "Clojure.dll are from different MAGIC versions (missing fork member "
-                        + "RuntimeBootstrapFlag.CodeLoadOrder, RT.Initialize(bool,bool), or "
-                        + "RT.TryLoadInitType). Reimport the MAGIC Unity package so its scripts "
-                        + "and Clojure.dll come from the same version.");
+                        + "RuntimeBootstrapFlag.CodeLoadOrder or RT.Initialize(bool,bool)). "
+                        + "Reimport the MAGIC Unity package so its scripts and Clojure.dll come "
+                        + "from the same version.");
                 return;
             }
 #if UNITY_EDITOR
@@ -66,7 +65,6 @@ namespace Magic.Unity
             SetCodeLoadOrder(codeLoadOrderField, codeSourceType, new[] { "InitType" });
 #endif
             initializeMethod.Invoke(null, new object[] { true, false });
-            tryLoadInitTypeMethod.Invoke(null, new object[] { "clojure/core" });
         }
 
         static void SetCodeLoadOrder(FieldInfo codeLoadOrderField, Type codeSourceType, string[] sourceNames)

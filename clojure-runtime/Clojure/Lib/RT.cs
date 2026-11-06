@@ -20,6 +20,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -585,10 +586,15 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]
         public static bool instrumentMacros = !ReadTrueFalseDefault(Environment.GetEnvironmentVariable("clojure.spec.skip-macros"), false);
 #endif
-        
+
+        private static bool INIT = false; // init guard, as on upstream's Init()/DoInit(); later calls are no-ops, whatever their flags
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline")]
+        [MethodImpl(MethodImplOptions.Synchronized)]
         public static void Initialize(bool doRuntimeBootstrap=true, bool doRuntimePostBoostrap=true)
         {
+            if (INIT) { return; } else { INIT = true; }
+
             AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
 
             // TODO: Check for existence of ClojureContext.Default before doing this?
@@ -701,6 +707,8 @@ namespace clojure.lang
                 Var refer = var("clojure.core", "refer");
                 in_ns.invoke(USER);
                 refer.invoke(CLOJURE);
+                MaybeLoadCljScript("user.cljr");
+                MaybeLoadCljScript("user.cljc");
                 MaybeLoadCljScript("user.clj");
 
                 // start socket servers

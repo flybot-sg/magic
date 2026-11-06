@@ -13,6 +13,7 @@
 - `*file*` in a loaded file holds its path instead of `#eval#` - [#192](https://github.com/flybot-sg/magic/issues/192).
 - `clojure.main` reports an uncaught error and exits 1, instead of crashing Mono - [#192](https://github.com/flybot-sg/magic/issues/192).
 - Recompiling `clojure.core` in a running process no longer disconnects the compiler. A host sets `clojure.lang.Compiler/Backend` instead of binding `*eval-form-fn*` and the other compiler hook vars, which are gone - [#186](https://github.com/flybot-sg/magic/issues/186).
+- `nos` loads `user.cljr` and `user.cljc` at startup, like ClojureCLR - [#208](https://github.com/flybot-sg/magic/issues/208).
 
 ### Stdlib
 - `root-cause`, and so `(pst)`, skips a `CompilerException` from `NO_SOURCE_FILE`, as on the JVM - [#197](https://github.com/flybot-sg/magic/issues/197).
