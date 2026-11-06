@@ -273,6 +273,9 @@ namespace Magic.Unity
             {
                 DrawClojureCLRApiLevel(target);
             }
+#if MAGIC_RUNTIME_IN_EDITOR
+            DevSet.DrawSettings();
+#endif
         }
 
         static void DrawClojureCLRApiLevel(NamedBuildTarget target)

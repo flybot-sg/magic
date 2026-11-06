@@ -44,7 +44,7 @@ namespace Magic.Unity
             if (!File.Exists(rootsFile))
                 throw new InvalidOperationException(
                     "MAGIC Editor boot: no roots file at " + rootsFile + ", so none of the project's "
-                    + "Clojure can load. nos writes it together with " + DevSetDirectory + ".");
+                    + "Clojure can load. Run 'MAGIC/Build Dev Set' (nos dev) to write it with " + DevSetDirectory + ".");
 
             RT.UseMagicCompiler();
 
