@@ -36,8 +36,11 @@
         :when (not= v (get fields k))]
     (str (name k) "=" (pr-str (get fields k)) " (expected " (pr-str v) ")")))
 
+(defn- package-clj-count []
+  (count (unity/clj-dlls (unity/plugin-dir :magic))))
+
 (defn- shipped-clj-count []
-  (+ (count (unity/clj-dlls (unity/plugin-dir :magic)))
+  (+ (package-clj-count)
      (count (unity/clj-dlls consumer-dir))))
 
 (def ^:private csharp-fields
@@ -47,9 +50,12 @@
 
 (def ^:private states
   "The two valid Editor states, keyed by the runtime the Editor loads, each
-   with the probe fields that must hold."
+   with the probe fields that must hold. Consumer DLLs are player-only: the
+   MAGIC Editor loads its namespaces from the dev set, so only the package's
+   own runtime reaches its domain."
   (delay
     (let [n (str (shipped-clj-count))
+          p (str (package-clj-count))
           c (str (count (unity/clj-dlls (unity/plugin-dir :compiler))))]
       {:clojure-clr {:symbol? false
                      :probe   (merge csharp-fields
@@ -63,10 +69,10 @@
        :magic       {:symbol? true
                      :probe   (merge csharp-fields
                                      {:symbol            "set"
-                                      :preloaded-clj     n
+                                      :preloaded-clj     p
                                       :core-clj-loadable "true"
                                       :clojure-versions  "[1.0.0.0]"
-                                      :editor-clj-refs   n
+                                      :editor-clj-refs   p
                                       :player-clj-refs   n
                                       :compiler-in-domain c})}})))
 
@@ -271,16 +277,31 @@
                            "Editor/CljPluginConstraints.cs.meta"]))
 
 (defn- consumer-metas
-  "Each fixture consumer DLL's meta state: :constrained, :unconstrained, or :no-meta."
+  "Each fixture consumer DLL's meta state: :player-only (the gate alone),
+   :legacy (an earlier constrainer's entry, which a MAGIC Editor admits),
+   :unconstrained, :no-meta, or any other entries as found."
   []
   (into (sorted-map)
         (for [dll (unity/clj-dlls consumer-dir)
-              :let [meta-file (str dll ".meta")]]
+              :let [meta-file (str dll ".meta")
+                    entries   (when (fs/exists? meta-file)
+                                (unity/define-constraints (slurp meta-file)))]]
           [(str (fs/file-name dll))
            (cond
-             (not (fs/exists? meta-file))                         :no-meta
-             (str/includes? (slurp meta-file) unity/magic-symbol) :constrained
-             :else                                                :unconstrained)])))
+             (nil? entries)                              :no-meta
+             (= [unity/player-only-entry] entries)       :player-only
+             (some #{unity/magic-entry} entries)         :legacy
+             (empty? entries)                            :unconstrained
+             :else                                       entries)])))
+
+(defn- seed-legacy-metas!
+  "Give each fixture consumer DLL the meta an earlier constrainer wrote, before
+   it is first imported, so Unity records that constraint as the baseline."
+  []
+  (doseq [dll (unity/clj-dlls consumer-dir)
+          :let [dll-name (str (fs/file-name dll))]]
+    (spit (str dll ".meta")
+          (unity/plugin-meta-yaml :magic :coexist-consumer dll-name [unity/magic-entry]))))
 
 (def ^:private constrainer-tag "[Magic.Unity/CljPluginConstraints]")
 
@@ -289,10 +310,10 @@
   [log-text]
   (let [lines (filter #(str/includes? % constrainer-tag) (str/split-lines log-text))]
     {:brought (some->> lines
-                       (keep #(second (re-find #"brought (\d+) already-imported" %)))
+                       (keep #(second (re-find #"made (\d+) already-imported" %)))
                        first
                        parse-long)
-     :refused (first (filter #(str/includes? % "would not take the constraint") lines))
+     :refused (first (filter #(str/includes? % "would not take the") lines))
      :lines   (count lines)}))
 
 (defn- upgrade-verdict
@@ -303,19 +324,19 @@
    nobody notices. Its own log line is what pins which entry point ran."
   [before after fields reconcile broken]
   (let [not-baseline (remove #(= :unconstrained (val %)) before)
-        not-constrained (remove #(= :constrained (val %)) after)
+        not-constrained (remove #(= :player-only (val %)) after)
         brought      (:brought reconcile)
         ;; Exact: Consumer/ holds the fixture's only clj assemblies under Assets/.
         mechanism    (cond
                        (nil? brought)
-                       (str "no \"" constrainer-tag " brought N already-imported\" line on the "
+                       (str "no \"" constrainer-tag " made N already-imported\" line on the "
                             "upgrade launch. Either it did not run, or the import callback got "
                             "there first -- in which case Unity now dirties Assets/ on a package "
                             "install and Reconcile is dead code")
                        (not= (count before) brought)
-                       (str "Reconcile brought " brought " assembl" (if (= 1 brought) "y" "ies")
-                            " but the baseline left " (count before)
-                            " unconstrained, so something else constrained the rest"))
+                       (str "Reconcile made " brought " assembl" (if (= 1 brought) "y" "ies")
+                            " player-only but the baseline left " (count before)
+                            " unconstrained, so something else gated the rest"))
         leaked       (field-mismatches {:preloaded-clj "0" :editor-clj-refs "0" :compiler-in-domain "0"} fields)
         ;; Two mechanisms each keep this at 1: Reconcile pre-constrains the
         ;; metas, and the import callback batches its report behind a delayCall.
@@ -364,6 +385,44 @@
                   " picked up the constraint from Reconcile, and the Editor dropped "
                   (if (= 1 (count after)) "it" "them"))])))
 
+(defn- upgrade-launches!
+  "Import the consumer DLLs under the package without a constrainer, upgrade
+   to the real one with their metas left in place, then probe a fresh launch.
+   seed! runs after the consumer metas are dropped and before the first import."
+  [log-name symbol? seed!]
+  (let [after-log (log-path (str log-name "-after"))]
+    (write-define-symbol! symbol?)
+    (println "Run 1/3: import under a package with no constrainer...")
+    (pack-without-constrainer! tarball)
+    (reset-package-cache!)
+    (reset-consumer-metas!)
+    (seed!)
+    (run-editor! (log-path (str log-name "-before")))
+    (let [before (consumer-metas)]
+      (println "Run 2/3: upgrade to the real package, consumer metas left in place...")
+      ;; install! and deliberately not reset-consumer-metas!: that those metas
+      ;; survive the upgrade untouched is the whole question.
+      (install!)
+      (run-editor! after-log)
+      (let [after (consumer-metas)
+            after-text (slurp after-log)
+            ;; A launch of its own: the reconcile's reimports reload the domain,
+            ;; and a probe racing that reports whichever side it lands on.
+            probe-log (log-path (str log-name "-probe"))
+            _ (println "Run 3/3: fresh launch -- did the constraint take effect?")
+            _ (run-editor! probe-log "-executeMethod" "CoexistenceProbe.Run")
+            probe-text (slurp probe-log)
+            [line fields] (marker (str/split-lines probe-text) "[CoexistenceProbe]")]
+        {:before    before
+         :after     after
+         ;; Read from run 2: this is the launch the reconcile runs on, and
+         ;; run 3 is a fresh domain that finds nothing left to do.
+         :reconcile (reconcile-report after-text)
+         :broken    {:upgrade   (broken-count after-text)
+                     :converged (broken-count probe-text)}
+         :line      line
+         :fields    fields}))))
+
 (defn- check-upgrade!
   "Assert an *already imported* consumer DLL picks up the constraint when the
    package that constrains it arrives -- the path every existing consumer takes.
@@ -373,39 +432,65 @@
   []
   (println)
   (println "=== upgrade path ===")
-  (let [after-log (log-path "upgrade-after")]
-    ;; The ClojureCLR state, where an unconstrained consumer DLL is the live hazard.
-    (write-define-symbol! false)
-    (println "Run 1/3: import under a package with no constrainer...")
-    (pack-without-constrainer! tarball)
-    (reset-package-cache!)
-    (reset-consumer-metas!)
-    (run-editor! (log-path "upgrade-before"))
-    (let [before (consumer-metas)]
-      (println "Run 2/3: upgrade to the real package, consumer metas left in place...")
-      ;; install! and deliberately not reset-consumer-metas!: that those metas
-      ;; survive the upgrade untouched is the whole question.
-      (install!)
-      (run-editor! after-log)
-      (let [after (consumer-metas)
-            after-text (slurp after-log)
-            ;; Read from run 2: this is the launch the reconcile runs on, and
-            ;; run 3 is a fresh domain that finds nothing left to do.
-            reconcile (reconcile-report after-text)
-            ;; A launch of its own: the reconcile's reimports reload the domain,
-            ;; and a probe racing that reports whichever side it lands on.
-            probe-log (log-path "upgrade-probe")
-            _ (println "Run 3/3: fresh launch -- did the constraint take effect?")
-            _ (run-editor! probe-log "-executeMethod" "CoexistenceProbe.Run")
-            probe-text (slurp probe-log)
-            broken {:upgrade   (broken-count after-text)
-                    :converged (broken-count probe-text)}
-            [line fields] (marker (str/split-lines probe-text) "[CoexistenceProbe]")
-            [status message] (upgrade-verdict before after fields reconcile broken)]
-        (report! (array-map :check :upgrade :status status :message message
-                            :before before :after after
-                            :reconcile (:brought reconcile) :broken broken
-                            :probe line))))))
+  ;; The ClojureCLR state, where an unconstrained consumer DLL is the live hazard.
+  (let [{:keys [before after reconcile broken line fields]}
+        (upgrade-launches! "upgrade" false (constantly nil))
+        [status message] (upgrade-verdict before after fields reconcile broken)]
+    (report! (array-map :check :upgrade :status status :message message
+                        :before before :after after
+                        :reconcile (:brought reconcile) :broken broken
+                        :probe line))))
+
+(defn- legacy-upgrade-verdict
+  "Classify the upgrade from the pre-player-only constraint as [status message].
+   Reconcile's line is asserted for the same reason as in upgrade-verdict."
+  [before after fields reconcile broken]
+  (let [not-legacy      (remove #(= :legacy (val %)) before)
+        not-player-only (remove #(= :player-only (val %)) after)
+        brought         (:brought reconcile)
+        leaked          (field-mismatches (get-in @states [:magic :probe]) fields)]
+    (cond
+      (empty? before)
+      [:inconclusive "no consumer DLL in the fixture to upgrade"]
+      (seq not-legacy)
+      [:inconclusive (str "the seeded metas imported as " (pr-str (into {} not-legacy))
+                          ", so the baseline is not the legacy constraint")]
+      (nil? (:preloaded-clj fields))
+      [:inconclusive "no [CoexistenceProbe] line after the upgrade; did the package resolve?"]
+      (:refused reconcile)
+      [:fail (str "Reconcile could not constrain every assembly: " (:refused reconcile))]
+      (seq not-player-only)
+      [:fail (str "the upgrade left " (pr-str (into {} not-player-only))
+                  ": a consumer assembly stamped by an earlier constrainer stays in the"
+                  " MAGIC Editor, where its init types shadow the dev set")]
+      (not= (count before) brought)
+      [:fail (str "the metas are player-only but Reconcile made " (pr-str brought)
+                  " of " (count before))]
+      (pos? (:converged broken))
+      [:fail (str "the launch after the upgrade logs \"" broken-line "\" ("
+                  (:converged broken) " line(s))")]
+      (seq leaked)
+      [:fail (str "every meta is player-only but the MAGIC Editor state is wrong: "
+                  (str/join ", " leaked))]
+      :else
+      [:pass (str (count after) " consumer assembl" (if (= 1 (count after)) "y" "ies")
+                  " stamped with the legacy constraint became player-only, and the"
+                  " MAGIC Editor dropped " (if (= 1 (count after)) "it" "them"))])))
+
+(defn- check-legacy-upgrade!
+  "Assert a consumer DLL whose meta carries the constraint an earlier
+   constrainer wrote, which a MAGIC Editor admits, becomes player-only when the
+   package arrives. Run in the MAGIC state, where that constraint is the hazard."
+  []
+  (println)
+  (println "=== legacy-constraint upgrade ===")
+  (let [{:keys [before after reconcile broken line fields]}
+        (upgrade-launches! "legacy-upgrade" true seed-legacy-metas!)
+        [status message] (legacy-upgrade-verdict before after fields reconcile broken)]
+    (report! (array-map :check :legacy-upgrade :status status :message message
+                        :before before :after after
+                        :reconcile (:brought reconcile) :broken broken
+                        :probe line))))
 
 (defn- check-toggle!
   "Exercise the Project Settings > MAGIC runtime toggle. Nothing else covers
@@ -489,7 +574,8 @@
                  (str "  valid states: " (str/join " | " (map name (keys @states))))))
     (sweep-logs!)
     (let [results (mapv run-state! (if state [state] [:magic :clojure-clr]))]
-      ;; Order matters: check-upgrade! ends with the real package resolved, which
-      ;; check-toggle! reuses instead of repacking, and check-logs! is last
-      ;; because it reads what every launch before it wrote.
-      (report-outcome! results (into results [(check-upgrade!) (check-toggle!) (check-logs!)])))))
+      ;; Order matters: check-upgrade! ends with the real package resolved and
+      ;; the symbol unset, which check-toggle! reuses instead of repacking, and
+      ;; check-logs! is last because it reads what every launch before it wrote.
+      (report-outcome! results (into results [(check-legacy-upgrade!) (check-upgrade!)
+                                              (check-toggle!) (check-logs!)])))))

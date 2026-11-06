@@ -17,21 +17,29 @@ and they assert opposite things:
 | state | symbol | Editor loads | `preloaded-clj` | `core-clj-loadable` | `clojure-versions` |
 |---|---|---|---|---|---|
 | `clojure-clr` (default) | unset | ClojureCLR 1.11.0 | 0 | false | `[1.11.0.0]` |
-| `magic` | set | the MAGIC fork | 39 | true | `[1.0.0.0]` |
+| `magic` | set | the MAGIC fork | 37 | true | `[1.0.0.0]` |
 
 Both must be silent: **0** `Assembly is incompatible with the editor` lines,
 **0** `Duplicate assembly 'Clojure.dll'` lines, and **0** `Unloading broken
 assembly` lines. `player-clj-refs` must not move between them.
+The consumer DLLs are player-only, so `preloaded-clj` counts only the
+package's own stdlib, and `player-clj-refs` counts both.
 `core-clj-loadable=false` in the default state is #25 held by construction:
 the fork `*.clj.dll` are not in the editor domain, so ClojureCLR's namespace
 resolution can never reach them.
 
-After the states, three more checks:
+After the states, four more checks:
 
+- **The legacy-constraint upgrade** (three launches, MAGIC state): seed the
+  consumer metas with `'!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR'`, the entry
+  earlier constrainers wrote, import them under the package packed *without*
+  `CljPluginConstraints.cs`, upgrade to the real package, and assert
+  `Reconcile` replaced it with `'!UNITY_EDITOR'` and that a fresh launch
+  matches the `magic` state.
 - **The upgrade path** (three launches): import under the package packed
   *without* `CljPluginConstraints.cs`, upgrade to the real package with the
-  consumer metas left in place, and assert `Reconcile` constrained every one of
-  them (in one log line), and that a fresh launch drops them from the Editor.
+  consumer metas left in place, and assert `Reconcile` made every one of them
+  player-only (in one log line), and that a fresh launch drops them from the Editor.
   The upgrade launch must itself log `Unloading broken assembly` and the
   fresh launch must not, pinning that the noise converges and that the
   fixture can still produce it.
@@ -72,12 +80,12 @@ constraining into setup.
 Close all open instances of Unity first, then run one of:
 
 ```
-bb coexist-noise              # both states, then the upgrade path and the toggle
+bb coexist-noise              # both states, then the upgrade paths and the toggle
 bb coexist-noise clojure-clr  # just the default state, plus those
 bb coexist-noise magic        # just the opted-in state, plus those
 ```
 
-A full run is eight Unity launches (two per state, three for the upgrade path,
+A full run is eleven Unity launches (two per state, three per upgrade path,
 one for the toggle) on Unity 2022.3.62f3.
 
 The tarball, `Packages/packages-lock.json`, `Logs/` and the consumer `.meta`s

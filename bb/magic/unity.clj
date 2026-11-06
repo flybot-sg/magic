@@ -39,7 +39,11 @@
    :compiler    {:dir          (str default-pkg "/Editor/Compiler")
                  :constraints  [magic-symbol]}})
 
-(def ^:private magic-entry (first (get-in plugin-sets [:magic :constraints])))
+(def magic-entry (first (get-in plugin-sets [:magic :constraints])))
+
+(def player-only-entry
+  "The entry that keeps a consumer's Clojure DLLs out of both Editor states."
+  "!UNITY_EDITOR")
 
 (def ^:private bare-symbol
   "An entry YAML reads plainly. Unity quotes the rest; a leading `!` is a tag."
@@ -50,7 +54,7 @@
     entry
     (str "'" entry "'")))
 
-(defn- define-constraints
+(defn define-constraints
   "The entries a plugin meta declares, unquoted. Absent and empty both read none."
   [meta-yaml]
   (->> (str/split-lines meta-yaml)
@@ -79,10 +83,11 @@
 (def ^:private constrainer-path (str default-pkg "/Editor/CljPluginConstraints.cs"))
 
 (defn- constrainer-agrees?
-  "Whether the import-time constrainer's C# constant is the MAGIC entry."
+  "Whether the import-time constrainer's C# constants are the player-only
+   entry and, for the metas it replaces, the MAGIC entry."
   []
-  (str/includes? (slurp constrainer-path)
-                 (str "\"" magic-entry "\"")))
+  (let [source (slurp constrainer-path)]
+    (every? #(str/includes? source (str "\"" % "\"")) [player-only-entry magic-entry])))
 
 ;;; The Clojure-output extension lists
 
@@ -129,12 +134,17 @@
 ;; no C# code references its types.
 (def ^:private template-dir "bb/templates/plugin-meta")
 
-(defn- plugin-meta [set-key dll-name]
+(defn plugin-meta-yaml
+  "A plugin meta from set-key's template, declaring entries."
+  [set-key guid-key asset-name entries]
   (-> (slurp (str template-dir "/" (name set-key) ".meta.tmpl"))
-      (str/replace "{{guid}}" (guid set-key dll-name))
+      (str/replace "{{guid}}" (guid guid-key asset-name))
       (str/replace "{{defineConstraints}}"
-                   (str/join "\n" (for [entry (get-in plugin-sets [set-key :constraints])]
+                   (str/join "\n" (for [entry entries]
                                     (str "  - " (yaml-entry entry)))))))
+
+(defn- plugin-meta [set-key dll-name]
+  (plugin-meta-yaml set-key set-key dll-name (get-in plugin-sets [set-key :constraints])))
 
 (defn- folder-meta [set-key]
   (str "fileFormatVersion: 2\n"
@@ -202,8 +212,8 @@
     (when-not (constrainer-agrees?)
       (log/fail! "define constraints are wrong"
                  ""
-                 (str "  " constrainer-path " does not constrain with the MAGIC entry")
-                 (str "  " (pr-str magic-entry) " onto consumer *.clj.dll.")))
+                 (str "  " constrainer-path " does not gate consumer *.clj.dll with")
+                 (str "  " (pr-str player-only-entry) ", replacing " (pr-str magic-entry) ".")))
     (when-let [mismatched (seq (extension-mismatches))]
       (apply log/fail! "the Clojure-output extension lists disagree"
              (concat ["" "These copies of the extension list have drifted apart" ""]
