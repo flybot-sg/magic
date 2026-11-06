@@ -70,7 +70,7 @@ One folder works: `:csharp-out` defaults to `:out`, MAGIC loads the DLLs the sam
 | Written by | `nos build`, compiling your sources | `nos build`, copying files `csc` compiled long before |
 | Wiped every build | yes, by `:clean?` | no |
 | `.meta` | Unity writes it on import, then the package's hook constrains it | Unity writes it on import, nothing touches it after |
-| Define constraint | `!UNITY_EDITOR \|\| MAGIC_RUNTIME_IN_EDITOR`, so the Editor loads it only under MAGIC | none, so it always loads, in both Editor runtimes and every player |
+| Define constraint | `!UNITY_EDITOR`, so only players load it; a MAGIC Editor loads your namespaces from `Library/MagicDev` (`MAGIC/Build Dev Set`) | none, so it always loads, in both Editor runtimes and every player |
 | In git | no, gitignore it | your call, `.meta` files included |
 
 A library ships only the DLL. Everything else in that table is produced inside your project.

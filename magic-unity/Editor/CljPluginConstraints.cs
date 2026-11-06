@@ -7,24 +7,25 @@ using UnityEngine;
 
 namespace Magic.Unity
 {
-    // A consumer's .clj.dll imports with no define constraint, so it needs the
-    // same one the package's own MAGIC DLLs carry.
+    // A consumer's .clj.dll is player-only: the MAGIC Editor loads its namespaces
+    // from the dev set, and the ClojureCLR Editor from source. It imports with no
+    // define constraint, or with the one an earlier version of this class wrote,
+    // which admitted it to the MAGIC Editor.
     //
     // Two entry points: OnPreprocessAsset for DLLs as they import, Reconcile for
     // DLLs already imported when this package version arrived -- a package
     // install does not dirty the project, so the callback never re-runs for those.
     internal sealed class CljPluginConstraints : AssetPostprocessor
     {
+        // Synced with player-only-entry in bb/magic/unity.clj
+        const string PlayerOnlyConstraint = "!UNITY_EDITOR";
+
+        // What earlier versions stamped, replaced by PlayerOnlyConstraint.
         // Synced with the :magic block in bb/magic/unity.clj
-        const string MagicConstraint = "!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR";
+        const string LegacyConstraint = "!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR";
 
-        static readonly string[] Or = { "||" };
-
-        // MagicConstraint's terms, each false in the ClojureCLR Editor.
-        static readonly string[] CljClrEditorFalseTerms = MagicConstraint
-            .Split(Or, StringSplitOptions.None)
-            .Select(t => t.Trim())
-            .ToArray();
+        // The package's own DLLs carry authored constraints (bb write-metas).
+        const string OwnPackagePrefix = "Packages/sg.flybot.magic.unity/";
 
         const string Tag = "[Magic.Unity/CljPluginConstraints]";
         const int NamedInSummary = 5;
@@ -170,15 +171,15 @@ namespace Magic.Unity
             if (constrained > 0)
             {
                 Debug.Log(
-                    $"{Tag} brought {constrained} already-imported "
-                        + $"{Assemblies(constrained)} under {EditorRuntime.Symbol}."
+                    $"{Tag} made {constrained} already-imported "
+                        + $"{Assemblies(constrained)} player-only."
                 );
             }
             if (refused.Count > 0)
             {
                 Debug.LogWarning(
                     $"{Tag} {refused.Count} {Assemblies(refused.Count)} would not take the "
-                        + "constraint and stay visible to the Editor. Usually a read-only "
+                        + "player-only constraint and stay loaded in the Editor. Usually a read-only "
                         + $".meta: {Named(refused)}"
                 );
             }
@@ -197,7 +198,7 @@ namespace Magic.Unity
             }
             Debug.Log(
                 $"{Tag} reloading scripts: {stale} {Assemblies(stale)} "
-                    + "loaded before the Editor's runtime selection was applied."
+                    + "loaded before they were made player-only."
             );
             // Both callers can be inside an import; reload on the next tick instead.
             EditorApplication.delayCall += EditorUtility.RequestScriptReload;
@@ -208,6 +209,7 @@ namespace Magic.Unity
             return importer != null
                 && importer.assetPath != null
                 && PlayerCljAssemblies.IsCljAssembly(importer.assetPath)
+                && !importer.assetPath.StartsWith(OwnPackagePrefix, StringComparison.Ordinal)
                 && NeedsConstraint(importer.DefineConstraints);
         }
 
@@ -236,24 +238,27 @@ namespace Magic.Unity
                 );
         }
 
-        // Unity ANDs entries, so one entry whose terms are all false gates the plugin.
+        // Unity ANDs entries, so the gate alone keeps the plugin out of both Editor states.
         static bool NeedsConstraint(string[] constraints)
         {
             return constraints == null
-                || !constraints.Any(entry =>
-                    entry != null
-                    && entry.Split(Or, StringSplitOptions.None)
-                        .All(term => CljClrEditorFalseTerms.Contains(term.Trim())));
+                || !constraints.Any(IsPlayerOnly)
+                || constraints.Any(IsLegacy);
         }
+
+        static bool IsPlayerOnly(string entry) => entry?.Trim() == PlayerOnlyConstraint;
+
+        static bool IsLegacy(string entry) => entry?.Trim() == LegacyConstraint;
 
         static string[] Constrain(string[] constraints)
         {
             return (constraints ?? Array.Empty<string>())
-                .Concat(new[] { MagicConstraint })
+                .Where(entry => !IsLegacy(entry) && !IsPlayerOnly(entry))
+                .Concat(new[] { PlayerOnlyConstraint })
                 .ToArray();
         }
 
-        // Null when the meta on disk carries the constraint.
+        // Null when the meta on disk carries the gate and not the legacy entry.
         static string DiskComplaint(string assetPath)
         {
             string meta;
@@ -271,9 +276,18 @@ namespace Magic.Unity
                 {
                     return $"no .meta at {meta}";
                 }
-                return File.ReadAllText(meta).Contains(MagicConstraint)
+                var entries = File.ReadAllLines(meta)
+                    .Select(line => line.Trim())
+                    .Where(line => line.StartsWith("- ", StringComparison.Ordinal))
+                    .Select(line => line.Substring(2).Trim().Trim('\''))
+                    .ToArray();
+                if (entries.Any(IsLegacy))
+                {
+                    return "meta on disk still carries the legacy constraint";
+                }
+                return entries.Any(IsPlayerOnly)
                     ? null
-                    : "meta on disk still lacks the constraint";
+                    : "meta on disk still lacks the player-only constraint";
             }
             catch (Exception e)
             {
@@ -299,8 +313,8 @@ namespace Magic.Unity
                 return;
             }
             Debug.Log(
-                $"{Tag} constrained {_pendingReport.Count} imported "
-                    + $"{Assemblies(_pendingReport.Count)} to {EditorRuntime.Symbol}: "
+                $"{Tag} made {_pendingReport.Count} imported "
+                    + $"{Assemblies(_pendingReport.Count)} player-only: "
                     + Named(_pendingReport)
             );
             RequestReloadForStaleDomain(_staleStamped);
@@ -324,9 +338,9 @@ namespace Magic.Unity
             }
             Debug.LogWarning(
                 $"{Tag} {sorted.Count} {Assemblies(sorted.Count)} in an immutable package are"
-                    + $" not under {EditorRuntime.Symbol} and stay visible to the Editor:"
-                    + $" {Named(sorted)}. Unity discards a .meta write under"
-                    + " Library/PackageCache, so the constraint has to ship with the package --"
+                    + $" not player-only and stay loaded in the Editor: {Named(sorted)}."
+                    + " Unity discards a .meta write under Library/PackageCache, so the"
+                    + $" '{PlayerOnlyConstraint}' constraint has to ship with the package --"
                     + " ask its author, or consume the package embedded."
             );
         }
