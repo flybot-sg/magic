@@ -308,6 +308,22 @@
                      :clean?     clean?
                      :flags      (resolve-flags production-flags flags))))
 
+(defn dev
+  "Build the Unity Editor's dev set: magic.edn :build's namespaces under
+  test-flags into Library/MagicDev, and the source roots into
+  Library/MagicDevRoots.txt, one per line, for the Editor's load path.
+  Run as `nos dev` from the Unity project root."
+  []
+  (let [{:keys [aliases namespaces exclude flags]} (:build (read-magic-edn))]
+    (compile-project :aliases    (vec aliases)
+                     :namespaces namespaces
+                     :exclude    exclude
+                     :out        "Library/MagicDev"
+                     :csharp-out "Assets/Plugins/CSharp"
+                     :clean?     true
+                     :flags      (resolve-flags test-flags flags))
+    (File/WriteAllLines "Library/MagicDevRoots.txt" (into-array String (nos/source-roots)))))
+
 (defn test
   "Run the project's clojure.test suites under MAGIC, per magic.edn :test.
   Run as `nos test`."

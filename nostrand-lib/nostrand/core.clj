@@ -117,16 +117,18 @@
   (when-not (.IsDynamic asm)
     (not-empty (.Location asm))))
 
-(defn loaded-assembly-files
-  "The files of the assemblies this process loaded from under a source path.
-  The project root sits on the load path to resolve task files, not as a
-  source path, so matching it would take in every assembly beneath it."
+(defn source-roots
+  "The load path's absolute roots, less the project root, which sits there to
+  resolve task files, not as a source path."
   []
-  (let [root     (dir-prefix (project-root))
-        prefixes (->> (load-path-roots)
+  (into [] (remove #{(project-root)}) (load-path-roots)))
+
+(defn loaded-assembly-files
+  "The files of the assemblies this process loaded from under a source path."
+  []
+  (let [prefixes (->> (source-roots)
                       (filter #(Directory/Exists %))
-                      (map dir-prefix)
-                      (remove #(= root %)))]
+                      (map dir-prefix))]
     (for [asm   (.GetAssemblies AppDomain/CurrentDomain)
           :let  [file (assembly-file asm)]
           :when (and file (under-any? prefixes file))]
