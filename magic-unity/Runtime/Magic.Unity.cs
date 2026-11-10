@@ -75,7 +75,7 @@ namespace Magic.Unity
         public static void Require(string ns)
         {
             Boot();
-            RequireVar.invoke(Symbol.intern(ns));
+            RequireVar.invoke(Symbol.intern(null, ns));
         }
     }
 }
