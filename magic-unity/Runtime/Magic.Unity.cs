@@ -31,16 +31,17 @@ namespace Magic.Unity
         {
         }
 
-        public static Var GetVar(string ns, string name)
+        public static Var Var(string ns, string name)
         {
             return RT.var(ns, name);
         }
 
         /// <summary>
-        /// Derefs the var and casts its value. Casting a type-hinted fn to its
+        /// Returns the var's current value as T. A later redefinition (hot reload,
+        /// REPL) does not reach the returned value. Casting a type-hinted fn to its
         /// Magic.Function type lets callers invoke it without boxing.
         /// </summary>
-        public static T GetVar<T>(string ns, string name)
+        public static T Deref<T>(string ns, string name)
         {
             return (T)(RT.var(ns, name).deref());
         }

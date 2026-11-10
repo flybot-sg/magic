@@ -233,7 +233,7 @@ flowchart TD
 
 The two backends in the diagram are Unity's scripting backend setting, chosen per build target. Mono ships the IL to the device and JIT-compiles it there. IL2CPP translates all the IL to C++ at build time and compiles that to a native binary, which is why nothing may be emitted at run time.
 
-The runtime side is small. `Runtime/Magic.Unity.cs` is the `Magic.Unity.Clojure` API that C# scripts call, `Boot`, `Require` and `GetVar`, and `Runtime/magic/` holds the prebuilt runtime plus the whole stdlib. In Play mode no build callback fires, and the assemblies load and run as they are.
+The runtime side is small. `Runtime/Magic.Unity.cs` is the `Magic.Unity.Clojure` API that C# scripts call, `Boot`, `Require`, `Var` and `Deref`, and `Runtime/magic/` holds the prebuilt runtime plus the whole stdlib. In Play mode no build callback fires, and the assemblies load and run as they are.
 
 The editor side mostly exists because IL2CPP rejects IL that MAGIC emits legally. `Editor/MagicPreprocessor.cs` hooks `IPreprocessBuildWithReport`, so on every player build, under either backend, it hands each assembly to `IL2CPPWorkarounds` to be walked with Mono.Cecil. The backend decides what the walk does, not whether it happens: on IL2CPP the workarounds are added, on Mono any left over from a previous IL2CPP build are removed.
 
