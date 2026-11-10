@@ -19,24 +19,25 @@ namespace Magic.Unity
         /// </remarks>
         public static void Boot()
         {
-            if (!_booted)
-            {
-                _booted = true;
-#if !UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR
-#if UNITY_EDITOR
-                RuntimeBootstrapFlag.CodeLoadOrder = new[] {
-                    RuntimeBootstrapFlag.CodeSource.InitType,
-                    RuntimeBootstrapFlag.CodeSource.FileSystem
-                };
-#elif ENABLE_IL2CPP
-                RuntimeBootstrapFlag.CodeLoadOrder = new[] {
-                    RuntimeBootstrapFlag.CodeSource.InitType
-                };
+            if (_booted)
+                return;
+            _booted = true;
+#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR // ClojureCLR Editor
+            RT.Init();
+#else
+#if UNITY_EDITOR // MAGIC Editor
+            RuntimeBootstrapFlag.CodeLoadOrder = new[] {
+                RuntimeBootstrapFlag.CodeSource.InitType,
+                RuntimeBootstrapFlag.CodeSource.FileSystem
+            };
+#elif ENABLE_IL2CPP // MAGIC IL2CPP Player
+            RuntimeBootstrapFlag.CodeLoadOrder = new[] {
+                RuntimeBootstrapFlag.CodeSource.InitType
+            };
 #endif
-                RT.Initialize(doRuntimePostBoostrap: false);
+            RT.Initialize(doRuntimePostBoostrap: false);
 #endif
-                RequireVar = RT.var("clojure.core", "require");
-            }
+            RequireVar = RT.var("clojure.core", "require");
         }
 
         /// <summary>
