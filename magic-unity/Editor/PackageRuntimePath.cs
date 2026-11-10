@@ -4,12 +4,8 @@ using UnityEditor.PackageManager;
 
 namespace Magic.Unity
 {
-    // The pre-build rewrite must read the package's own runtime DLLs. They
-    // cannot be located through typeof(...).Assembly.Location or
-    // Assembly.Load: when a consumer keeps a ClojureCLR Clojure.dll in
-    // Assets, Unity dedups Clojure.dll by file name and those anchors bind
-    // to that copy. Resolve the package install path instead; resolvedPath
-    // is the physical location for git, registry, local and embedded packages.
+    // Located by package path, not Assembly.Load: the default (ClojureCLR)
+    // Editor loads ClojureCLR's Clojure and no Magic.Runtime.
     internal static class PackageRuntimePath
     {
         static PackageInfo Package => PackageInfo.FindForAssembly(typeof(PackageRuntimePath).Assembly);
@@ -20,9 +16,8 @@ namespace Magic.Unity
 
         internal static string MagicRuntimeAssetPath => Package.assetPath + "/Runtime/magic";
 
-        // Asset paths under Packages/ are virtual; map them to the physical
-        // location before any File or Cecil access. Assets/ paths and
-        // absolute paths pass through.
+        // Asset paths under Packages/ are virtual; File and Cecil need the
+        // physical location.
         internal static string PhysicalPath(string assetPath)
         {
             if (assetPath.StartsWith("Packages/", StringComparison.Ordinal))
