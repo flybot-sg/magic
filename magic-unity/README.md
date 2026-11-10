@@ -19,9 +19,9 @@ Add to `Packages/manifest.json`, pinned to a tag from the [releases page](https:
 `Magic.Unity.Clojure` static class, available on all platforms. Nothing calls these for you; a `MonoBehaviour` of yours has to. See [step 5 of the guide](https://github.com/flybot-sg/magic/blob/main/docs/unity-integration.md#steps).
 
 - `void Require(string ns)` - load a Clojure namespace. Must be called before looking up vars in that namespace.
-- `clojure.lang.Var GetVar(string ns, string name)` - look up a Clojure var. Dereference with `deref` or invoke with `invoke`.
-- `T GetVar<T>(string ns, string name)` - typed variant.
-- `void Boot()` - initialize the Clojure runtime. Called automatically by the other methods; rarely needed directly.
+- `clojure.lang.Var Var(string ns, string name)` - look up a Clojure var. Dereference with `deref` or invoke with `invoke`.
+- `T Deref<T>(string ns, string name)` - deref the var once and cast its value, e.g. to a `Magic.Function` type to invoke a type-hinted fn without boxing.
+- `void Boot()` - initialize the Clojure runtime. Called automatically by the other methods; needed only before using `clojure.lang` directly.
 
 ## Editor API
 
