@@ -308,7 +308,7 @@ First run green on 2026-11-02.
 
 ### Probe 9: `RT.UseMagicCompiler()`
 
-`UseMagicCompilerTest.cs` loads every `*.clj.dll` of a staged directory, as a MAGIC Editor's domain holds them, boots the runtime as `BootMagicRuntime` does, and calls the method by reflection.
+`UseMagicCompilerTest.cs` loads every `*.clj.dll` of a staged directory, as a MAGIC Editor's domain holds them, boots the runtime as `Magic.Unity.Clojure`'s static constructor does, and calls the method by reflection.
 Staged with `Runtime/magic` only, [C1] expects it to throw naming `magic/api`; with `Editor/Compiler` too, [C2] expects `Compiler.Backend` set to `magic.api/backend` and `eval` to compile.
 It stages `Runtime/magic/Clojure.dll`, which `bb build-runtime` does not update, so after a change to `RT` it needs `dotnet build Magic.csproj -t:MagicUnity` first.
 So does Probe 7m, whose `Nostrand.Runtime.Boot` calls the method.
