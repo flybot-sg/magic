@@ -20,6 +20,10 @@ namespace Magic.Unity
             };
 #endif
             RT.Initialize();
+#if UNITY_EDITOR // MAGIC Editor: Editor/Compiler ships magic.api
+            RT.UseMagicCompiler();
+            RT.Init();
+#endif
 #endif
         }
 
