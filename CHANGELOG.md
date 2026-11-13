@@ -32,6 +32,7 @@
 - A Clojure DLL already kept out of the ClojureCLR Editor, e.g. by `MAGIC_RUNTIME_IN_EDITOR`, is no longer restamped or falsely warned about - [#200](https://github.com/flybot-sg/magic/issues/200).
 - The package ships the MAGIC compiler and nostrand's Clojure namespaces under `Editor/Compiler/`, Editor-only and loaded under `MAGIC_RUNTIME_IN_EDITOR` - [#202](https://github.com/flybot-sg/magic/issues/202).
 - On the ClojureCLR Editor, `Magic.Unity.Clojure` runs ClojureCLR's full init, so `user.clj` loads and socket servers start - [#213](https://github.com/flybot-sg/magic/issues/213).
+- On a MAGIC Editor, `Magic.Unity.Clojure` boots with the MAGIC compiler, so `eval` and loading a `.clj` work, and runs `RT.Init()`, as on the ClojureCLR Editor - [#215](https://github.com/flybot-sg/magic/issues/215).
 - **Breaking:** `Magic.Unity.Clojure.GetVar` is renamed `Var`, and `GetVar<T>` is renamed `Deref<T>`, since it returns the var's value - [#213](https://github.com/flybot-sg/magic/issues/213).
 
 ### Tooling
