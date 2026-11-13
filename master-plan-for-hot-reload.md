@@ -77,10 +77,10 @@ A `:build` flag that turns direct linking back on carries over.
   The exe is an `EditorPrefs` path set on `Project Settings > MAGIC`, per machine, else the `NostrandMain.exe` beside the target of `~/.local/bin/nos`, the link the installer writes.
   Not `nos` through PATH: an Editor started from the Dock gets launchd's PATH, which has neither `nos` (`~/.local/bin`) nor a Homebrew `mono`, and the `nos` script calls `mono` from PATH.
   A domain reload while `nos` runs drops the action's handle: `nos` finishes, but nothing logs or reloads.
-- **First run, decided at step 2: the boot step fails, naming the cause**, rather than running `nos` itself, a multi-second subprocess on the first `GetVar`, `Require` or save.
+- **First run, decided at step 2: the boot step fails, naming the cause**, rather than running `nos` itself, a multi-second subprocess on the first `Var`, `Require` or save.
   The exception names the roots file's path and `MAGIC/Build Dev Set`.
-  The failure is retried on the next call, so writing the file is enough.
-  It blocks every call, a stdlib-only `GetVar` included: `clojure.core/+` threw at step 2.
+  The failure is not retried: it stays until the next domain reload, which `MAGIC/Build Dev Set` requests.
+  It blocks every call, a stdlib-only `Var` included: `clojure.core/+` threw at step 2.
 - **Lookup order, decided at step 2: FileSystem-first in the Editor**, `{FileSystem, InitType}`; players keep their order.
   Under InitType-first, `(require 'x :reload)` is a silent no-op for a namespace loaded from the dev set, since `TryLoadInitType` finds its init type, which has already run (`clojure-runtime/Clojure/CljCompiler/Compiler.cs:1821`, `:1785`).
   Under FileSystem-first an edited source is newer than its DLL, so the mtime rule compiles it (§5.1, step 2).
@@ -92,12 +92,12 @@ A `:build` flag that turns direct linking back on carries over.
 
 ### 2.3 Editor boot step
 
-`Magic.Unity.Clojure.Boot` (`magic-unity/Runtime/Magic.Unity.cs`) boots the runtime once (`BootMagicRuntime`), then, under `#if UNITY_EDITOR && MAGIC_RUNTIME_IN_EDITOR`, the Editor part (`BootEditor`).
+`Magic.Unity.Clojure`'s static constructor (`magic-unity/Runtime/Magic.Unity.cs`) boots the runtime, then, in a MAGIC Editor, the Editor part (`BootEditor`).
 Unity has already loaded every `Runtime/magic/` and `Editor/Compiler/` DLL at domain load (step 0), although their metas say `isPreloaded: 0`.
 Do not add a loop that loads them: an Editor probe's `Assembly.LoadFile` of `nostrand.core.clj.dll` failed with `TypeLoadException` on `Magic.Runtime`, although Unity had it loaded.
 The Editor part, in order:
 
-1. **Sets the compiler** with `RT.UseMagicCompiler()` in the fork, called by reflection.
+1. **Sets the compiler** with `RT.UseMagicCompiler()` in the fork.
    It runs the `magic/api` init type (loaded but not initialized), throws if it is absent,
    and sets `Compiler.Backend` (#186) to `magic.api/backend`.
    `Nostrand.Runtime.Boot` (`nostrand-lib/Runtime.cs`) calls it too, so the assignment lives in one place.
@@ -107,19 +107,18 @@ The Editor part, in order:
    Appending would not duplicate stdlib types: with `Runtime/magic/` still on the path, a stdlib `require` resolved to the copy Unity had loaded, `-load-assembly`'s `LoadFrom` of the same file returning it (§5.1, step 2).
    Replace anyway: `Runtime/magic/` holds no source, and off the path a stdlib namespace falls through to its init type.
 3. **Switches the lookup order** to `{FileSystem, InitType}`, last: core's helper files and `magic.api`'s requires load before it, and `-load` reads `CodeLoadOrder` on every call (`core.clj:5943`).
-   `BootMagicRuntime` keeps the reflected `CodeLoadOrder` field and `CodeSource` type in statics for it.
 
 The roots file is checked before anything changes.
-`BootMagicRuntime` runs once; the Editor part marks itself done only on success, so a fixed cause, such as a missing roots file, is picked up on the next call.
+A failure throws from the static constructor, so every later use of `Magic.Unity.Clojure` throws `TypeInitializationException` until the next domain reload.
 
-**Trigger: lazy**, on the first `GetVar`/`Require` or the reloader's first save.
+**Trigger: lazy**, on the first use of `Magic.Unity.Clojure` or the reloader's first save.
 Eager boot on every domain reload was rejected: every C# recompile would pay the Editor part, 0.62 s in smoke (step 2), most of it `magic/api`'s init.
 The reloader calls `Boot` by reflection before each `Compiler.load`, keeping its asmdef at a single `Clojure.dll` reference and compilable outside Unity:
 - it scans the loaded, non-dynamic assemblies once for `Magic.Unity.Clojure` and its static `Boot()`, caches the result, and invokes it;
-- a throwing `Boot` is logged by its `InnerException`, not as `TargetInvocationException`, and the save is not loaded; the next save calls `Boot` again;
+- a throwing `Boot` is logged by its `InnerException`, not as `TargetInvocationException`, and the save is not loaded; until a domain reload, every save logs the same failure;
 - a missing type is logged once, and saves load without a boot.
 
-In the ClojureCLR state the call is harmless: `BootMagicRuntime` skips when the fork is absent.
+In the ClojureCLR state the call is harmless: the static constructor only runs `RT.Init()`.
 
 ### 2.4 Hot reload
 
@@ -251,7 +250,7 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
 Each step starts with a test that fails on the current code.
 
 5. **Drop the reloader's constraint** (§2.4). By hand in `integrated`:
-   - right after a domain reload, before any `GetVar` or `Require`, save a file: the reloader boots the runtime and reloads it;
+   - right after a domain reload, before any `Var` or `Require`, save a file: the reloader boots the runtime and reloads it;
    - reload a `defn` and a `defmethod`, and see a caller in another namespace pick it up;
    - enter play mode with `Reload Domain` on and off.
 6. **The shipped build's trigger** (§2.1): a build entry point (proposed), CI, or a pre-build hook, which would first need its mid-build import tested.

@@ -5,7 +5,7 @@ using clojure.lang;
 
 // Probe 9: RT.UseMagicCompiler() in the MAGIC fork (plan §2.3, item 1). Mimics a MAGIC
 // Editor's domain: every *.clj.dll of the staged directory is loaded before the runtime
-// boots, then the runtime boots as Magic.Unity.Clojure.BootMagicRuntime does.
+// boots, then the runtime boots as Magic.Unity.Clojure's static constructor does.
 // Takes `<runtime-dir> absent|present`, one mono process per staging:
 //
 //   absent  [C1] Runtime/magic only: UseMagicCompiler() throws, naming magic/api.
@@ -23,7 +23,6 @@ class UseMagicCompilerTest {
         foreach (var dll in Directory.EnumerateFiles(Path.GetFullPath(args[0]), "*.clj.dll"))
             Assembly.LoadFile(dll);
         RT.Initialize(true, false);
-        RT.TryLoadInitType("clojure/core");
 
         var use = typeof(RT).GetMethod("UseMagicCompiler", BindingFlags.Public | BindingFlags.Static, null, Type.EmptyTypes, null);
         if (use == null) {
