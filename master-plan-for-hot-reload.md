@@ -1,7 +1,7 @@
 # Plan: MAGIC hot reload in the Unity Editor
 
-Steps 0 to 3 are done (§5.1); nothing else is implemented.
-Line references hold on `feat/magic-editor-hot-reload` as of 2026-11-06, #186's commits plus step 3's working tree, and `magic-unity/README.md`'s "What a reload changes" and "Save order", which land with this plan.
+Steps 0 to 4 are done (§5.1); nothing else is implemented.
+Line references hold on `feat/magic-editor-hot-reload` as of 2026-11-06, #186's commits plus step 4's working tree, and `magic-unity/README.md`'s "What a reload changes" and "Save order", which land with this plan.
 Open claims are tagged **[inferred]** or **[unverified]**; everything else was read in code or measured.
 
 ## 1. Goal
@@ -38,8 +38,11 @@ Observed in `magic-unity-smoke` on 2026-10-29: with the previous output already 
   A `production-flags` build under it, and any build of `integrated`, is **[unverified]**.
 - **Trigger, proposed: a build entry point.** A menu action runs `nos`, calls `AssetDatabase.Refresh()`, then `BuildPipeline.BuildPlayer`; CI does the same.
   Not a pre-build hook, which would import DLLs mid-build beside `MagicPreprocessor` and `PlayerCljAssemblies`; whether Unity picks those up is **[unverified]**.
-- **Consumer `.clj.dll`s become player-only.** `CljPluginConstraints` adds a separate `!UNITY_EDITOR` entry, which ANDs with the existing one **[inferred]**.
-  Today they carry `!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR` (`magic-unity/Editor/CljPluginConstraints.cs:19`), so Unity preloads them in the MAGIC state and their init types would shadow the dev set.
+- **Consumer `.clj.dll`s are player-only, decided at step 4.** `CljPluginConstraints` stamps `!UNITY_EDITOR` (`magic-unity/Editor/CljPluginConstraints.cs:21`), false in both Editor states.
+  It replaces the entry earlier versions stamped, `!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR` (`:25`), which let Unity preload them in the MAGIC state, where their init types would shadow the dev set.
+  Replaced rather than ANDed with a second entry: nobody hand-writes that entry, so every meta carrying it was stamped, and every converged meta reads `[!UNITY_EDITOR]`.
+  The package's own DLLs carry the same legacy entry (`Runtime/magic/`), so they are told apart by path, `Packages/sg.flybot.magic.unity/` (`:28`), skipped before the immutable check, or a tarball install would report them.
+  Player discovery is unchanged: `PlayerCljAssemblies.Paths()` still lists every consumer DLL (§5.1, step 4).
 
 ### 2.2 Dev set and roots file
 
@@ -63,7 +66,7 @@ A `:build` flag that turns direct linking back on carries over.
   It sits beside `Library/MagicDev`, not inside it, since `:clean? true` empties that directory.
   It comes from `nos` because resolving deps can clone and expand submodules, which must stay off Unity's main thread.
   Per machine, never committed, never lists `Assets/Plugins/Magic`, or the mtime rule could load the direct-linked production DLLs.
-- **Loading.** No consumer init type is preloaded, so a namespace's first load falls to FileSystem.
+- **Loading.** No consumer init type is preloaded (§5.1, step 4), so a namespace's first load falls to FileSystem.
   There the mtime rule (`magic-compiler/src/stdlib/clojure/core.clj:5961-5963`) loads the dev DLL, or compiles the source in memory when it is newer.
   A dev DLL binds to the `Clojure`, `Magic.Runtime` and C# dependencies Unity has already loaded (step 0).
 - **Reruns.** A rerun of `nos` takes effect only at the next domain reload, so the Editor action that reruns it ends with `EditorUtility.RequestScriptReload`.
@@ -160,7 +163,8 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
   A hot reload of A has the same limit, but a cold start after a C#-triggered domain reload looks fresh and silently mixes new A with stale B.
   The roots file goes stale when `deps.edn`, `deps-clr.edn` or `.gitmodules` changes.
   Mitigation: `MAGIC/Build Dev Set` (step 3), plus a warning, not built, when any source or those files are newer than the last run.
-- **Clojure DLLs in immutable UPM packages cannot be made player-only**: `Library/PackageCache` discards `.meta` writes, so the package author's constraint stands (`CljPluginConstraints.cs:219`).
+- **Clojure DLLs in immutable UPM packages cannot be made player-only**: `Library/PackageCache` discards `.meta` writes, so the package author's constraint stands (`CljPluginConstraints.cs:221`).
+  Since step 4 the constrainer warns about any of them not carrying `!UNITY_EDITOR`, legacy-stamped ones included, once per distinct set; the fix is the author's.
   They stay loaded in the Editor and production-built: under InitType-first their init types shadow a source checkout of the library, and their callers miss reloads.
   Not an issue for `integrated`, whose 109 consumer `.clj.dll`s are all in `Assets/Plugins/Magic`.
 - **After the drop, C# naming a Clojure-generated type breaks in the Editor.** In `integrated`, none does (by grep; reflection by name not covered).
@@ -225,12 +229,27 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
      - Afterwards, this tree's `nos build` regenerated `Assets/Plugins/Magic`, byte-identical to the `magic` checkout's build.
    - Not covered: the GUI, including the `Project Settings > MAGIC` field, and a domain reload while `nos dev` runs.
 
+4. **Consumer DLLs player-only** (§2.1): `CljPluginConstraints` stamps `!UNITY_EDITOR`, replacing the legacy entry, and skips `Packages/sg.flybot.magic.unity/`.
+   - **`bb coexist-noise`**, 2026-11-06, Unity `2022.3.62f3`, macOS: a tarball install, so the package's own DLLs are immutable, with two consumer DLLs in `Assets/Plugins/Consumer/`.
+     On the code before it, `bb coexist-noise magic` failed three checks: the MAGIC state had `preloaded-clj=39` and `editor-clj-refs=39` against 37, the package's own; the upgrade left the metas legacy-stamped; and the new legacy-upgrade check left them legacy-stamped, with no `Reconcile` line.
+     After it, all six checks passed in both states:
+     - MAGIC state: `preloaded-clj=37`, `editor-clj-refs=37`, `compiler-in-domain=45`; ClojureCLR state unchanged; `player-clj-refs=39` in both.
+     - Legacy upgrade, new, in the MAGIC state: metas seeded with the legacy entry and imported under the package without its constrainer; on the upgrade launch `Reconcile` made both player-only, and a fresh launch held the MAGIC state's values.
+     - Upgrade from unconstrained metas: `Reconcile` made both player-only, and a fresh launch logged no `Unloading broken assembly`.
+     - Every consumer meta read `[!UNITY_EDITOR]`; no immutable-package warning named the package's own DLLs.
+   - **Inside Unity**, 2026-11-06, `unity-examples/magic-unity-smoke`, MAGIC state, headless through a throwaway `-executeMethod` probe, since deleted.
+     The package was this tree's, a writable `file:` package; `Assets/Plugins/Magic` held this tree's `nos build`, its 14 DLLs importing for the first time, and `Library/MagicDev` this tree's `nos dev`, rebuilt in 3.9 s.
+     - The import launch logged `made 14 imported assemblies player-only`; each meta read `[!UNITY_EDITOR]`, and the package's 37 `Runtime/magic/` DLLs kept theirs and stayed in the domain.
+     - At load, no consumer assembly was in the domain and none was an Editor reference.
+     - Player references listed all 14, and `PlayerCljAssemblies.Paths()` returned 51, the 37 package DLLs and the 14 consumer ones.
+     - `Boot`, then `Require` of `smoke.runner`: all 14 consumer assemblies loaded from `Library/MagicDev`, none twice, and `all-pass?` returned true. `Boot` took 1013 ms and `Require` 241 ms.
+   - `bb check-drift` checks both constants against `bb/magic/unity.clj`; it failed with the gate's constant edited.
+   - Not covered: the GUI, including the script reload the constrainer requests after stamping an already-imported DLL; an immutable library package carrying the legacy entry, so the reworded warning; a player build.
+
 ### 5.2 To do
 
 Each step starts with a test that fails on the current code.
 
-4. **Consumer DLLs player-only** (§2.1).
-   Must precede step 5: until then the Editor preloads the direct-linked production DLLs, and a cross-namespace reload fails for the wrong reason.
 5. **Drop the reloader's constraint** (§2.4). By hand in `integrated`:
    - right after a domain reload, before any `GetVar` or `Require`, save a file: the reloader boots the runtime and reloads it;
    - reload a `defn` and a `defmethod`, and see a caller in another namespace pick it up;
@@ -259,6 +278,6 @@ Each step starts with a test that fails on the current code.
 - `magic-unity/README.md`: `Editor API`, its reloader guard, and the "What a reload changes" table, which needs two rows:
   a `defn` body reloads only if the calling namespace was compiled with direct linking off,
   and a reload during play mode takes effect live but cannot reach an object graph the old code already built.
-- The runtime-selection table, once consumer DLLs are player-only and again when ClojureCLR is dropped.
+- The runtime-selection table, now that consumer DLLs are player-only (step 4), and again when ClojureCLR is dropped.
 - `nostrand/README.md`'s task list and `docs/nos-cli.md`: `nos dev`. `magic-unity/README.md`'s `Editor API`: `MAGIC/Build Dev Set` and its `NostrandMain.exe` setting.
 - The local `CLAUDE.md` and `magic-unity/CLAUDE.md`: the `Editor/Reload/` layout entry and the constraint description, and their `in-proc` sections once `in-proc` is abandoned.
