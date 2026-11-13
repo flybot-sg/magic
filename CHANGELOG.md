@@ -12,7 +12,7 @@
 - `load-file`, `load-string`, `load-reader` and `clojure.main` scripts now run - [#192](https://github.com/flybot-sg/magic/issues/192).
 - `*file*` in a loaded file holds its path instead of `#eval#` - [#192](https://github.com/flybot-sg/magic/issues/192).
 - `clojure.main` reports an uncaught error and exits 1, instead of crashing Mono - [#192](https://github.com/flybot-sg/magic/issues/192).
-- Recompiling `clojure.core` in a running process no longer disconnects the compiler. A host sets `clojure.lang.Compiler/Backend` instead of binding `*eval-form-fn*` and the other compiler hook vars, which are gone - [#186](https://github.com/flybot-sg/magic/issues/186).
+- **Breaking:** Recompiling `clojure.core` in a running process no longer disconnects the compiler. A host sets `clojure.lang.Compiler/Backend` instead of binding `*eval-form-fn*` and the other compiler hook vars, which are gone - [#186](https://github.com/flybot-sg/magic/issues/186).
 - `nos` loads `user.cljr` and `user.cljc` at startup, like ClojureCLR - [#208](https://github.com/flybot-sg/magic/issues/208).
 
 ### Stdlib
@@ -20,16 +20,18 @@
 
 ### Nostrand
 - `nos` ships its own eight namespaces as committed `nostrand.*.clj.dll` instead of compiling them in memory at every startup, so a short invocation starts roughly twice as fast. `bb build-runtime` recompiles them - [#183](https://github.com/flybot-sg/magic/issues/183).
-- The engine ships as its own `Nostrand.dll`, so a host that is not a console process can boot MAGIC and run a nostrand task. The terminal tasks such as `repl` move from `nostrand.tasks` to a new `nostrand.cli`; unqualified names such as `nos repl` resolve as before - [#185](https://github.com/flybot-sg/magic/issues/185).
+- **Breaking:** The engine ships as its own `Nostrand.dll`, so a host that is not a console process can boot MAGIC and run a nostrand task. The terminal tasks such as `repl` move from `nostrand.tasks` to a new `nostrand.cli`; unqualified names such as `nos repl` resolve as before - [#185](https://github.com/flybot-sg/magic/issues/185).
 - `*load-paths*` holds each root once, and `set-load-path` drops roots it no longer names - [#182](https://github.com/flybot-sg/magic/issues/182).
-- Load-path and assembly roots pin to the directory they were added from, and `establish-project` takes the project root explicitly instead of reading the process directory; it owns both searches, so a second call switches projects rather than searching the first one first - [#187](https://github.com/flybot-sg/magic/issues/187).
-- `nos` runs its command line through `clojure.main`, as `clj -X` does: a failed task exits 1, tasks run in `user`, a bare task name no longer falls back to `clojure.core` (`nos println hi` exits 1), and `nos script.clj` no longer calls `-main` (`nos -m my.ns` does) - [#192](https://github.com/flybot-sg/magic/issues/192).
+- **Breaking:** Load-path and assembly roots pin to the directory they were added from, and `establish-project` takes the project root explicitly instead of reading the process directory; it owns both searches, so a second call switches projects rather than searching the first one first - [#187](https://github.com/flybot-sg/magic/issues/187).
+- **Breaking:** `nos` runs its command line through `clojure.main`, as `clj -X` does: a failed task exits 1, tasks run in `user`, a bare task name no longer falls back to `clojure.core` (`nos println hi` exits 1), and `nos script.clj` no longer calls `-main` (`nos -m my.ns` does) - [#192](https://github.com/flybot-sg/magic/issues/192).
 - A task in a dashed namespace runs, so `nos dotnet-tasks/build` finds `dotnet_tasks.clj` - [nasser/nostrand#33](https://github.com/nasser/nostrand/issues/33).
-- `Runtime.Run` returns the task's value and throws its error instead of returning `false` - [#192](https://github.com/flybot-sg/magic/issues/192).
+- **Breaking:** `Runtime.Run` returns the task's value and throws its error instead of returning `false` - [#192](https://github.com/flybot-sg/magic/issues/192).
 
 ### Unity
 - A Clojure DLL already kept out of the ClojureCLR Editor, e.g. by `MAGIC_RUNTIME_IN_EDITOR`, is no longer restamped or falsely warned about - [#200](https://github.com/flybot-sg/magic/issues/200).
 - The package ships the MAGIC compiler and nostrand's Clojure namespaces under `Editor/Compiler/`, Editor-only and loaded under `MAGIC_RUNTIME_IN_EDITOR` - [#202](https://github.com/flybot-sg/magic/issues/202).
+- On the ClojureCLR Editor, `Magic.Unity.Clojure` runs ClojureCLR's full init, so `user.clj` loads and socket servers start - [#213](https://github.com/flybot-sg/magic/issues/213).
+- **Breaking:** `Magic.Unity.Clojure.GetVar` is renamed `Var`, and `GetVar<T>` is renamed `Deref<T>`, since it returns the var's value - [#213](https://github.com/flybot-sg/magic/issues/213).
 
 ### Tooling
 - Every C# assembly carries the full commit SHA that the SDK's SourceLink stamps into `InformationalVersion`, so `nos version` reports `0.13.0+<sha>`. The csprojs no longer run `git describe` themselves, which ends the `+v0.11.0-0-g<hash>` form a tag checkout stamped since [#75](https://github.com/flybot-sg/magic/issues/75).

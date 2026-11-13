@@ -15,8 +15,8 @@ public class SmokeTestRunner : MonoBehaviour
         try
         {
             Clojure.Require("smoke.runner");
-            var okVar   = Clojure.GetVar("smoke.runner", "all-pass?");
-            var textVar = Clojure.GetVar("smoke.runner", "report-text");
+            var okVar   = Clojure.Var("smoke.runner", "all-pass?");
+            var textVar = Clojure.Var("smoke.runner", "report-text");
             _ok     = (bool)okVar.invoke();
             _report = (string)textVar.invoke();
         }
