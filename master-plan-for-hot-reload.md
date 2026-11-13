@@ -1,7 +1,7 @@
 # Plan: MAGIC hot reload in the Unity Editor
 
 Steps 0 to 4 are done (§5.1); nothing else is implemented.
-Line references hold on `feat/magic-editor-hot-reload` as of 2026-11-06, #186's commits plus step 4's working tree, and `magic-unity/README.md`'s "What a reload changes" and "Save order", which land with this plan.
+Line references hold on `feat/magic-editor-hot-reload` as of 2026-11-13, rebased onto `fix/magic-unity-boot` (#208, #211, #213), with step 4 committed, and `magic-unity/README.md`'s "What a reload changes" and "Save order", which land with this plan.
 Open claims are tagged **[inferred]** or **[unverified]**; everything else was read in code or measured.
 
 ## 1. Goal

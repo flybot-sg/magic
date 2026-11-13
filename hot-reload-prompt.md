@@ -6,18 +6,17 @@ You are continuing MAGIC hot reload in the Unity Editor. Steps 0–4 are done; y
 
 `master-plan-for-hot-reload.md`, all of it, then again §2.4, §2.2's "Optional uses of the roots file", §3 and §5.2 step 5.
 Claims are tagged **[inferred]** or **[unverified]** unless read in code or measured.
-Line references held as of 2026-11-06, before a rebase onto `magic`'s changes; re-find every line you cite, and keep the "Line references hold" header current.
+Line references held as of 2026-11-06, before the 2026-11-13 rebase onto `fix/magic-unity-boot` (#208, #211, #213); re-find every line you cite, and keep the "Line references hold" header current.
 Then `magic-unity/README.md`'s "Editor API", "What a reload changes" and "Save order", `magic-unity/Tests~/reloader/README.md`, and `unity-examples/magic-unity-coexist/README.md`.
 
 ## Where to work
 
-- `/Users/parth/gh-repos/magic-2`, branch `feat/magic-editor-hot-reload`, rebased onto `magic`'s changes, then `wip` commits.
-  Do not rebase, squash, drop, push or commit. The plan has uncommitted edits; keep them.
+- `/Users/parth/gh-repos/magic-2`, branch `feat/magic-editor-hot-reload`: `fix/magic-unity-boot` (#208, #211, #213), then `wip` commits.
+  Do not rebase, squash, drop, push or commit.
 - The build is current. `bb` tasks write into tracked DLL folders; `git checkout --` them before reporting.
 - `bb reloader-probes` exits 0 (about 2.5 min); `bb test` passes; a full `bb coexist-noise` is eleven Unity launches.
 - Use `nostrand/bin/Release/net471/NostrandMain.exe` from this tree, under `mono`, not the `nos` on PATH.
-- `integrated` is at `~/git-repos/integrated`. Its package is `file:/Users/parth/gh-repos/magic/magic-unity`, the `magic` checkout, which the user keeps in sync with this tree.
-  Before any Unity run there, check that `magic/magic-unity` matches this tree's (`diff -r`, ignoring `bin/`, `obj/` and `CLAUDE.md`); if it does not, stop and ask.
+- `integrated` is at `~/git-repos/integrated`. Its package is `file:/Users/parth/gh-repos/magic-2/magic-unity`, this tree's.
   Do not commit there, and do not read its git history. Its unstaged changes are the user's and will be committed: the manifest's `file:` package, `MAGIC_RUNTIME_IN_EDITOR` on Standalone, `CljRuntime.cs`. Leave them; list any change you make there.
 
 ## Scope
@@ -26,7 +25,7 @@ Step 5 only: the reloader runs in the MAGIC Editor (§2.4).
 
 1. Drop `!MAGIC_RUNTIME_IN_EDITOR` from `magic-unity/Editor/Reload/Magic.Unity.Editor.Reload.asmdef`, so the assembly compiles in both Editor states.
    Its only precompiled reference, `Clojure.dll`, should resolve to whichever runtime the state loads (`magic-unity/CLAUDE.md`, Layout) **[inferred]** for the MAGIC state; measure it.
-2. The reloader works there, per §5.2 step 5: a save before any `GetVar` or `Require` boots the runtime and reloads; a reloaded `defn` and `defmethod` reach a caller in another namespace; play mode with `Reload Domain` on and off.
+2. The reloader works there, per §5.2 step 5: a save before any `Var` or `Require` boots the runtime and reloads; a reloaded `defn` and `defmethod` reach a caller in another namespace; play mode with `Reload Domain` on and off.
 3. Not step 6 or 7: leave `Editor/Compiler/` and the build trigger alone. Do not edit `magic-unity/README.md`'s guard or tables; list them (§7).
 
 ## Read in `integrated` on 2026-11-10
@@ -38,8 +37,8 @@ Step 5 only: the reloader runs in the MAGIC Editor (§2.4).
 - The reloader wiring is consumer code, not the package's:
   - `Assets/AppIntegrated/CljSystem.Reload.cs`, under `#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR`, builds a `ClojureReloader` over `CljSourceRoots.Installed`.
   - `CljSourceRoots.Install` (`Packages/clojure-tool/Runtime/CljSourceRoots.cs`, a submodule) returns nothing under `!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR`, so in the MAGIC state the reloader would watch no root. Its roots come from `clojure-libs/reload.edn`, 29 entries.
-  - `Poll` runs only from `CljSystem.FrameTick`, in play mode, after `CljSystem.Init` has called `Clj.Boot()` and required namespaces.
-    So the plan's "save before any `GetVar` or `Require`" cannot happen through `integrated`'s wiring; check it in smoke.
+  - `Poll` runs only from `CljSystem.FrameTick`, in play mode, after `CljSystem.InitSystem` has booted the runtime and required namespaces.
+    So the plan's "save before any `Var` or `Require`" cannot happen through `integrated`'s wiring; check it in smoke.
 
 ## Order
 
@@ -49,7 +48,7 @@ Each piece starts with a test that fails on the current code.
 - **`bb reloader-probes`** stays green: Probe 7m is the reloader on MAGIC outside Unity (§5.1, step 1).
 - **`magic-unity-smoke`**, MAGIC state, headless through `-executeMethod` with a throwaway probe, as steps 2–4 did.
   Rebuild `Library/MagicDev` with this tree's `nos dev` first.
-  - Build a `ClojureReloader` over the roots file's entries before any `GetVar` or `Require`, edit a smoke source, and `Poll` until it settles: `Boot` runs, then the edit takes.
+  - Build a `ClojureReloader` over the roots file's entries before any `Var` or `Require`, edit a smoke source, and `Poll` until it settles: `Boot` runs, then the edit takes.
   - A `defn` called from another namespace, and a `defmethod` (`smoke.polymorphism` has multimethods): after the reload, the caller sees the new body.
   - Play mode, if a headless run can enter it; if not, say so and leave it to the by-hand list.
   - `git checkout --` every smoke source you edit; delete the probe and its output.
@@ -60,6 +59,8 @@ Each piece starts with a test that fails on the current code.
 - A headless probe that needs a domain reload or a polling loop runs without `-quit`, keeps its phase in `SessionState`, ticks from `EditorApplication.update`, and ends with `EditorApplication.Exit`.
 - Whether `FileSystemWatcher` fires in batch mode is **[unverified]**; the reloader's watcher is a background thread with a 200 ms settle.
 - `EditorPrefs` is per machine, shared with every project: restore any key a probe sets.
+- Since the rebase the Editor boot runs in `Magic.Unity.Clojure`'s static constructor (§2.3): with no roots file, the first use throws `TypeInitializationException`, and so does every later one until a domain reload.
+  In `integrated`, `CljRuntime.Init()` (`ResourceIndex` and the edit-mode tests) calls `Clj.Boot()`, so run its first `nos dev` before its first MAGIC-state launch.
 - Unity reports `Assets/` references project-relative, other paths absolute.
 - Every coexist run rewrites `unity-examples/magic-unity-coexist/ProjectSettings/ProjectSettings.asset` with default icons; `git checkout --` it.
 - One Unity at a time; `bb coexist-noise` wants none open.
