@@ -1,70 +1,84 @@
-# Prompt: MAGIC hot reload, step 4 (consumer DLLs player-only)
+# Prompt: MAGIC hot reload, step 5 (drop the reloader's constraint)
 
-You are continuing MAGIC hot reload in the Unity Editor. Steps 0–3 are done; your job is step 4.
+You are continuing MAGIC hot reload in the Unity Editor. Steps 0–4 are done; your job is step 5.
 
 ## Read first
 
-`master-plan-for-hot-reload.md`, all of it, then again §2.1's last bullet, §4's immutable-package bullet and §5.2 step 4.
+`master-plan-for-hot-reload.md`, all of it, then again §2.4, §2.2's "Optional uses of the roots file", §3 and §5.2 step 5.
 Claims are tagged **[inferred]** or **[unverified]** unless read in code or measured.
-Line references hold as of 2026-11-06; re-find every line you cite anyway, and keep the "Line references hold" header current.
-Then `magic-unity/CLAUDE.md`'s "Runtime selection", and `unity-examples/magic-unity-coexist/README.md`.
+Line references held as of 2026-11-06, before a rebase onto `magic`'s changes; re-find every line you cite, and keep the "Line references hold" header current.
+Then `magic-unity/README.md`'s "Editor API", "What a reload changes" and "Save order", `magic-unity/Tests~/reloader/README.md`, and `unity-examples/magic-unity-coexist/README.md`.
 
 ## Where to work
 
-- `/Users/parth/gh-repos/magic-2`, branch `feat/magic-editor-hot-reload`: #186's commits (PR #207, unmerged), then `wip` commits.
+- `/Users/parth/gh-repos/magic-2`, branch `feat/magic-editor-hot-reload`, rebased onto `magic`'s changes, then `wip` commits.
   Do not rebase, squash, drop, push or commit. The plan has uncommitted edits; keep them.
 - The build is current. `bb` tasks write into tracked DLL folders; `git checkout --` them before reporting.
-- `bb reloader-probes` exits 0 (about 2.5 min); `bb test` passes (a single namespace still takes about 2 min, since `test/run` loads them all).
-- The `nos` on PATH is the `magic` checkout's. Use `nostrand/bin/Release/net471/NostrandMain.exe` from this tree, under `mono`.
+- `bb reloader-probes` exits 0 (about 2.5 min); `bb test` passes; a full `bb coexist-noise` is eleven Unity launches.
+- Use `nostrand/bin/Release/net471/NostrandMain.exe` from this tree, under `mono`, not the `nos` on PATH.
+- `integrated` is at `~/git-repos/integrated`. Its package is `file:/Users/parth/gh-repos/magic/magic-unity`, the `magic` checkout, which the user keeps in sync with this tree.
+  Before any Unity run there, check that `magic/magic-unity` matches this tree's (`diff -r`, ignoring `bin/`, `obj/` and `CLAUDE.md`); if it does not, stop and ask.
+  Do not commit there, and do not read its git history. Its unstaged changes are the user's and will be committed: the manifest's `file:` package, `MAGIC_RUNTIME_IN_EDITOR` on Standalone, `CljRuntime.cs`. Leave them; list any change you make there.
 
 ## Scope
 
-Step 4 only: in both Editor states, a consumer's `.clj.dll` stays out of the Editor and reaches player builds (§2.1).
+Step 5 only: the reloader runs in the MAGIC Editor (§2.4).
 
-1. `CljPluginConstraints` (`magic-unity/Editor/CljPluginConstraints.cs`) gates consumer DLLs to players.
-   The plan proposes a separate `!UNITY_EDITOR` entry that ANDs with the existing one **[inferred]**; measure it.
-2. Consumer DLLs already stamped with today's constraint get the new gate too.
-   Today they are skipped: `NeedsConstraint` treats any entry whose terms are all false in the ClojureCLR Editor as done, and `!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR` is such an entry.
-3. The package's own DLLs stay as they are: `Runtime/magic/` (the Editor's runtime and stdlib) and `Editor/Compiler/` are `.clj.dll`s too, and in `magic-unity-smoke` they sit in a writable `file:` package.
-4. Player discovery still finds the consumer DLLs: `PlayerCljAssemblies` reads `CompilationPipeline.GetAssemblies(PlayerWithoutTestAssemblies)`, which IL2CPP rewriting and `link.xml` depend on.
+1. Drop `!MAGIC_RUNTIME_IN_EDITOR` from `magic-unity/Editor/Reload/Magic.Unity.Editor.Reload.asmdef`, so the assembly compiles in both Editor states.
+   Its only precompiled reference, `Clojure.dll`, should resolve to whichever runtime the state loads (`magic-unity/CLAUDE.md`, Layout) **[inferred]** for the MAGIC state; measure it.
+2. The reloader works there, per §5.2 step 5: a save before any `GetVar` or `Require` boots the runtime and reloads; a reloaded `defn` and `defmethod` reach a caller in another namespace; play mode with `Reload Domain` on and off.
+3. Not step 6 or 7: leave `Editor/Compiler/` and the build trigger alone. Do not edit `magic-unity/README.md`'s guard or tables; list them (§7).
 
-Immutable packages stay out of reach (§4); keep the existing warning, and say whether its wording still fits.
-Not step 5: leave the reloader's asmdef alone. Keep the `bb/magic/unity.clj` constraint blocks and `CljPluginConstraints` in sync, as the comment at `CljPluginConstraints.cs:18` asks.
+## Read in `integrated` on 2026-11-10
+
+- Unity `2022.3.62f3`; Standalone sets `MAGIC_RUNTIME_IN_EDITOR` (unstaged).
+- No `Library/MagicDev`, no roots file: the first `nos dev` of `integrated` is still to run, and its time is wanted (§5.2 step 8). Record it.
+- `Assets/Plugins/Magic` holds 230 Clojure DLLs (109 `.clj.dll`, 120 `.cljc.dll`, 1 `.cljr.dll`), gitignored, every meta still carrying the legacy entry.
+  Step 4's `Reconcile` should restamp them on the first launch with this package; record what it logs. The plan's §4 says 109; correct it.
+- The reloader wiring is consumer code, not the package's:
+  - `Assets/AppIntegrated/CljSystem.Reload.cs`, under `#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR`, builds a `ClojureReloader` over `CljSourceRoots.Installed`.
+  - `CljSourceRoots.Install` (`Packages/clojure-tool/Runtime/CljSourceRoots.cs`, a submodule) returns nothing under `!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR`, so in the MAGIC state the reloader would watch no root. Its roots come from `clojure-libs/reload.edn`, 29 entries.
+  - `Poll` runs only from `CljSystem.FrameTick`, in play mode, after `CljSystem.Init` has called `Clj.Boot()` and required namespaces.
+    So the plan's "save before any `GetVar` or `Require`" cannot happen through `integrated`'s wiring; check it in smoke.
 
 ## Order
 
 Each piece starts with a test that fails on the current code.
 
-- **`bb coexist-noise`** is the in-repo regression for these constraints: a tarball install, consumer DLLs in `Assets/Plugins/Consumer/`, both states, and an upgrade path.
-  Its MAGIC-state expectations (`bb/magic/coexist.clj:63-71`) count the consumer DLLs in `:preloaded-clj` and `:editor-clj-refs`; step 4 makes them package-only, with `:player-clj-refs` unchanged.
-  Change the expectations first and see `bb coexist-noise magic` fail.
-  Add the upgrade case: a consumer DLL whose meta carries today's constraint gains the new gate on import of the new package.
-- **`magic-unity-smoke`**, Unity `2022.3.62f3`, headless through `-executeMethod` with a throwaway probe, as steps 2 and 3 did (§5.1).
-  Fill `Assets/Plugins/Magic` with this tree's `nos build` first: step 4 needs consumer DLLs to gate.
-  In the MAGIC state, check: no consumer assembly is in the domain at load; `Boot` and `Require` of a smoke namespace load it from `Library/MagicDev` (`MAGIC/Build Dev Set` or this tree's `nos dev` writes it); the player references still list every consumer DLL.
-  Delete the probe and its output; leave `Assets/Plugins/Magic` as `nos build` wrote it.
-  Do not guess at a result you could not observe.
+- **`bb coexist-noise`**: add a `CoexistenceProbe` field for whether `Magic.Unity.Editor.Reload` is in the domain, expected in both states, and see `bb coexist-noise magic` fail first.
+- **`bb reloader-probes`** stays green: Probe 7m is the reloader on MAGIC outside Unity (§5.1, step 1).
+- **`magic-unity-smoke`**, MAGIC state, headless through `-executeMethod` with a throwaway probe, as steps 2–4 did.
+  Rebuild `Library/MagicDev` with this tree's `nos dev` first.
+  - Build a `ClojureReloader` over the roots file's entries before any `GetVar` or `Require`, edit a smoke source, and `Poll` until it settles: `Boot` runs, then the edit takes.
+  - A `defn` called from another namespace, and a `defmethod` (`smoke.polymorphism` has multimethods): after the reload, the caller sees the new body.
+  - Play mode, if a headless run can enter it; if not, say so and leave it to the by-hand list.
+  - `git checkout --` every smoke source you edit; delete the probe and its output.
+- **`integrated`**, after you change its wiring (see decisions): run `nos dev` and one headless launch that compiles with no `error CS`. The rest is a by-hand checklist for the user in the GUI, from §5.2 step 5.
 
-## Pitfalls from step 3
+## Pitfalls from steps 3 and 4
 
-- A headless probe that needs a domain reload runs without `-quit`, keeps its phase in `SessionState`, and ends with `EditorApplication.Exit`.
+- A headless probe that needs a domain reload or a polling loop runs without `-quit`, keeps its phase in `SessionState`, ticks from `EditorApplication.update`, and ends with `EditorApplication.Exit`.
+- Whether `FileSystemWatcher` fires in batch mode is **[unverified]**; the reloader's watcher is a background thread with a 200 ms settle.
 - `EditorPrefs` is per machine, shared with every project: restore any key a probe sets.
-- Nothing headless reaches the GUI; say so rather than infer it.
+- Unity reports `Assets/` references project-relative, other paths absolute.
+- Every coexist run rewrites `unity-examples/magic-unity-coexist/ProjectSettings/ProjectSettings.asset` with default icons; `git checkout --` it.
+- One Unity at a time; `bb coexist-noise` wants none open.
+- Nothing headless reaches the GUI; say so rather than infer it. Do not guess at a result you could not observe.
 
 ## Decisions to bring back, not make
 
-- How a stamped consumer DLL is told from the package's own: by path, by `PackageInfo`, or by the constraint it carries; and whether the new gate is a separate entry or replaces the old one.
-- What the MAGIC Editor does for a consumer that has not run `nos dev`: step 2's boot failure already names the menu, so possibly nothing; say what a consumer upgrading the package sees.
+- Where `integrated`'s reloader gets its watch roots in the MAGIC state: `Library/MagicDevRoots.txt` (project-local roots only, §2.2), `reload.edn`, or `CljSourceRoots` changed to cover both states; and whether the package should expose the roots file's entries rather than each consumer reading it.
+- The consumer guard once the asmdef has no constraint: `#if UNITY_EDITOR` alone, and what the README tells a consumer still on the ClojureCLR state.
 
 Propose each with evidence; stop and ask before building on a choice.
 
 ## Rules and report
 
 - Run tests with `bb test`, `bb reloader-probes` and `bb coexist-noise`, not the REPL. `bb check-drift` must still pass.
-- Record outcomes in the plan, in its own style: move step 4 to §5.1 with what was observed, where and when, and replace the tags it settles.
-  §7's runtime-selection table entry is now due; list the doc changes, do not make them.
+- Record outcomes in the plan, in its own style: move step 5 to §5.1 with what was observed, where and when, and replace the tags it settles. List §7's doc changes, do not make them.
 - Report back:
   - per check, pass or fail with the evidence;
   - the proposed decisions and why;
-  - what changed in the plan;
+  - the by-hand checklist for `integrated`;
+  - what changed in the plan, and in `integrated`;
   - anything the plan got wrong.
