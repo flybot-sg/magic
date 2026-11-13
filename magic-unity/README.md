@@ -30,13 +30,17 @@ Add to `Packages/manifest.json`, pinned to a tag from the [releases page](https:
 - `bool IsMagicEnabled()` - whether the Editor's Clojure runtime is MAGIC.
 - `void UseMagic()` / `void UseClojureCLR()` - set it, on the active build target. It triggers a recompilation, so the switch takes effect on the next Unity invocation.
 
-`Magic.Unity.ClojureReloader` class, in the Editor-only assembly `Magic.Unity.Editor.Reload`, which exists only while the Editor runs ClojureCLR (`MAGIC_RUNTIME_IN_EDITOR` unset). Wrap code that uses it in `#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR`.
+`Magic.Unity.ClojureReloader` class, in the Editor-only assembly `Magic.Unity.Editor.Reload`, under either Editor runtime. Wrap code that uses it in `#if UNITY_EDITOR`.
 
-- `ClojureReloader(IEnumerable<string> roots, Action<string> logger, Action<string> onChanged = null)` - watch the given directories recursively for `.clj`/`.cljc`/`.cljr` saves; typically the directories you put on `CLOJURE_LOAD_PATH`.
+- `ClojureReloader(IEnumerable<string> roots, Action<string> logger, Action<string> onChanged = null)` - watch the given directories recursively for `.clj`/`.cljc`/`.cljr` saves; the directories the Editor loads Clojure source from. In a MAGIC Editor that is `Magic.Unity.DevRoots.Read()`, under ClojureCLR the directories you put on `CLOJURE_LOAD_PATH`.
 - `void Poll()` - call it on each tick of one thread, normally the main thread. It evaluates each source file that has settled.
 - `void Dispose()` - stop watching.
 
 The XML doc comments on the class carry the per-method contract.
+
+`Magic.Unity.DevRoots` static class, in a MAGIC Editor only:
+
+- `IReadOnlyList<string> Read()` - the source roots `nos dev` wrote to `Library/MagicDevRoots.txt`, the ones the Editor loads from; empty if the file is absent. It does not boot the runtime.
 
 ### What `Poll` does
 

@@ -44,9 +44,11 @@
      (count (unity/clj-dlls consumer-dir))))
 
 (def ^:private csharp-fields
-  "The C# assembly carries no define constraint, so both states report it alike."
+  "The C# assembly and the package's reloader carry no define constraint, so
+   both states report them alike."
   {:csharp-in-domain   "true"
-   :csharp-editor-refs "1"})
+   :csharp-editor-refs "1"
+   :reload-in-domain   "true"})
 
 (def ^:private states
   "The two valid Editor states, keyed by the runtime the Editor loads, each

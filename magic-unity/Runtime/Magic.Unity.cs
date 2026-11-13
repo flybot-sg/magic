@@ -50,12 +50,7 @@ namespace Magic.Unity
 
             // Replace: with Runtime/magic off the path, a stdlib namespace resolves to
             // the init type Unity has loaded rather than a second LoadFrom of its file.
-            var loadPaths = new List<object>();
-            foreach (var line in File.ReadAllLines(rootsFile))
-            {
-                if (line.Trim().Length > 0)
-                    loadPaths.Add(line.Trim());
-            }
+            var loadPaths = new List<object>(DevRoots.Read());
             loadPaths.Add(Path.GetFullPath(DevSetDirectory));
             RT.var("clojure.core", "*load-paths*").bindRoot(PersistentVector.create(loadPaths.ToArray()));
 
@@ -96,4 +91,29 @@ namespace Magic.Unity
             RT.var("clojure.core", "require").invoke(Symbol.intern(null, ns));
         }
     }
+
+#if UNITY_EDITOR && MAGIC_RUNTIME_IN_EDITOR
+    /// <summary>
+    /// The project's source roots, from <see cref="Clojure.RootsFile"/>: the directories
+    /// the MAGIC Editor loads Clojure source from, and so the ones to hot-reload.
+    /// Kept out of <see cref="Clojure"/> so reading them does not boot the runtime.
+    /// </summary>
+    public static class DevRoots
+    {
+        /// <summary>The roots file's entries, in order; empty if the file is absent.</summary>
+        public static IReadOnlyList<string> Read()
+        {
+            var roots = new List<string>();
+            var rootsFile = Path.GetFullPath(Clojure.RootsFile);
+            if (!File.Exists(rootsFile))
+                return roots;
+            foreach (var line in File.ReadAllLines(rootsFile))
+            {
+                if (line.Trim().Length > 0)
+                    roots.Add(line.Trim());
+            }
+            return roots;
+        }
+    }
+#endif
 }

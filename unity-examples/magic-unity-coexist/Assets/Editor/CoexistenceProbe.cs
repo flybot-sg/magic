@@ -26,6 +26,9 @@ public static class CoexistenceProbe
     // The unconstrained plugin, expected in both Editor states.
     const string CsharpName = "smoke_csharp";
 
+    // The package's reloader assembly, expected in both Editor states.
+    const string ReloadName = "Magic.Unity.Editor.Reload";
+
     // Both package sets are .clj.dll, so the compiler set is told apart by directory.
     const string CompilerDir = "/Editor/Compiler/";
 
@@ -39,6 +42,10 @@ public static class CoexistenceProbe
         var csharpInDomain = AppDomain
             .CurrentDomain.GetAssemblies()
             .Any(a => a.GetName().Name == CsharpName);
+
+        var reloadInDomain = AppDomain
+            .CurrentDomain.GetAssemblies()
+            .Any(a => a.GetName().Name == ReloadName);
 
         var loadedClj = AppDomain
             .CurrentDomain.GetAssemblies()
@@ -82,7 +89,8 @@ public static class CoexistenceProbe
                 + $"editor-clj-refs={CljReferences(AssembliesType.Editor)} "
                 + $"player-clj-refs={CljReferences(AssembliesType.PlayerWithoutTestAssemblies)} "
                 + $"csharp-in-domain={csharpInDomain.ToString().ToLowerInvariant()} "
-                + $"csharp-editor-refs={CsharpReferences(AssembliesType.Editor)}"
+                + $"csharp-editor-refs={CsharpReferences(AssembliesType.Editor)} "
+                + $"reload-in-domain={reloadInDomain.ToString().ToLowerInvariant()}"
         );
     }
 
