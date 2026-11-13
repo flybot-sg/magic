@@ -1,7 +1,7 @@
 # Plan: MAGIC hot reload in the Unity Editor
 
-Steps 0 to 4 are done (§5.1); nothing else is implemented.
-Line references hold on `feat/magic-editor-hot-reload` as of 2026-11-13, rebased onto `fix/magic-unity-boot` (#208, #211, #213), with step 4 committed, and `magic-unity/README.md`'s "What a reload changes" and "Save order", which land with this plan.
+Steps 0 to 5 are done (§5.1); nothing else is implemented.
+Line references hold on `feat/magic-editor-hot-reload` as of 2026-11-13, rebased onto `fix/magic-unity-boot` (#208, #211, #213), with step 4 committed, step 5's changes uncommitted, and `magic-unity/README.md`'s "What a reload changes" and "Save order", which land with this plan.
 Open claims are tagged **[inferred]** or **[unverified]**; everything else was read in code or measured.
 
 ## 1. Goal
@@ -35,7 +35,7 @@ Observed in `magic-unity-smoke` on 2026-10-29: with the previous output already 
 - `nos` with `production-flags` into `Assets/Plugins/Magic`, built only for a player build, since nothing in the Editor loads that set.
 - Launch `nos` with its working directory set to the project root: it establishes the project from its cwd (`nostrand/Program.cs:24`).
 - Unity's bundled Mono runs `nos`, so consumers need no system Mono. It ran `NostrandMain.exe version` in 2.39 s, and step 3's `nos dev`, a full `test-flags` build of smoke's 14 namespaces, in 3.5 to 4.7 s.
-  A `production-flags` build under it, and any build of `integrated`, is **[unverified]**.
+  A `production-flags` build under it, and any build of `integrated` under it, is **[unverified]**; `integrated`'s first `nos dev` took 114 s under Homebrew `mono` (§5.1, step 5).
 - **Trigger, proposed: a build entry point.** A menu action runs `nos`, calls `AssetDatabase.Refresh()`, then `BuildPipeline.BuildPlayer`; CI does the same.
   Not a pre-build hook, which would import DLLs mid-build beside `MagicPreprocessor` and `PlayerCljAssemblies`; whether Unity picks those up is **[unverified]**.
 - **Consumer `.clj.dll`s are player-only, decided at step 4.** `CljPluginConstraints` stamps `!UNITY_EDITOR` (`magic-unity/Editor/CljPluginConstraints.cs:21`), false in both Editor states.
@@ -86,9 +86,14 @@ A `:build` flag that turns direct linking back on carries over.
   Under FileSystem-first an edited source is newer than its DLL, so the mtime rule compiles it (§5.1, step 2).
   A `:reload` with no edit still finds the DLL, whose init type has run, and is a no-op **[inferred]**.
   The reloader calls `Compiler.load` directly and is unaffected; a REPL user is not.
-- Optional uses of the roots file: the ClojureCLR state's `CLOJURE_LOAD_PATH` during the transition **[inferred]**, and the reloader's watch roots, project-local ones only.
+- **The reloader's watch roots, decided at step 5: the roots file**, so the reloader watches exactly the directories `*load-paths*` loads from.
+  `Magic.Unity.DevRoots.Read()` (`magic-unity/Runtime/Magic.Unity.cs`), MAGIC Editor only, returns its entries, or none without the file; the boot step reads the file through it.
+  It is a class of its own because any use of `Magic.Unity.Clojure` but its constants boots the runtime. Every entry is returned, not only project-local ones.
+  The alternative, `integrated`'s `clojure-libs/reload.edn` in both states, keeps two lists of the same roots: a root on one only is either never watched or watched with its `require`s failing.
+  In `integrated` the roots file lists `reload.edn`'s 29 roots plus four: `src`, absent on disk, `hjd/fast-edn/src_assemblies`, `sg.flybot/pullable/resources` and `skydread1/clr.test.check/test` (§5.1, step 5).
+- Optional use of the roots file: the ClojureCLR state's `CLOJURE_LOAD_PATH` during the transition **[inferred]**.
 - **[unverified]** whether consumer Clojure needs nostrand in the Editor, through `nostrand.core/reference` or `assembly-load-from` at load time.
-  Smoke's did not (step 0); `integrated` is unchecked.
+  Smoke's did not (step 0). In `integrated`, by grep on 2026-11-13, only the `dotnet.clj` task files of its libraries require `nostrand.*`, and its one `assembly-load-from`, in `fast-edn.load-dll`, is `clojure.core`'s, run only under `CLOJURE_LOAD_PATH`; unchecked at runtime, where the trim of step 7 would show it.
 
 ### 2.3 Editor boot step
 
@@ -101,7 +106,7 @@ The Editor part, in order:
    It runs the `magic/api` init type (loaded but not initialized), throws if it is absent,
    and sets `Compiler.Backend` (#186) to `magic.api/backend`.
    `Nostrand.Runtime.Boot` (`nostrand-lib/Runtime.cs`) calls it too, so the assignment lives in one place.
-2. **Replaces `*load-paths*`** with the roots file's entries plus `Library/MagicDev`.
+2. **Replaces `*load-paths*`** with the roots file's entries, read by `DevRoots.Read()` (§2.2), plus `Library/MagicDev`.
    It held only `Clojure.dll`'s directory (`core.clj:5895`), and MAGIC's `-load` ignores `CLOJURE_LOAD_PATH`, which only nostrand reads (`nostrand-lib/nostrand/core.clj:33`),
    so a file whose `ns` requires a not-yet-loaded namespace failed.
    Appending would not duplicate stdlib types: with `Runtime/magic/` still on the path, a stdlib `require` resolved to the copy Unity had loaded, `-load-assembly`'s `LoadFrom` of the same file returning it (§5.1, step 2).
@@ -126,9 +131,9 @@ In the ClojureCLR state the call is harmless: the static constructor only runs `
 Its only Clojure call, `Compiler.load` (`magic-unity/Editor/Reload/ClojureReloader.cs:159`), evaluates each form in memory through `magic.api/eval`, writes nothing, and picks `:cljr` in a `.cljc` file.
 The compiler has run inside the Editor once: on 2026-10-29, through `in-proc`'s host in `integrated`, in Unity's Mono `6.13.0`, its `compile-file` output structurally identical to a `nos` build of the same file.
 The boot call (§2.3) is in, since step 2; without it, a save before game code touches Clojure would fail without naming the cause.
-What remains is to drop `!MAGIC_RUNTIME_IN_EDITOR` from `magic-unity/Editor/Reload/Magic.Unity.Editor.Reload.asmdef`.
+Since step 5 `magic-unity/Editor/Reload/Magic.Unity.Editor.Reload.asmdef` has no define constraint, so the assembly is in both Editor states, its `Clojure.dll` reference resolving to the state's runtime (§5.1, step 5).
 
-Consumers guard their reloader code with `#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR`, copied from `magic-unity/README.md`, so the guard changes with the asmdef.
+Consumers guard their reloader code with `#if UNITY_EDITOR`, as `magic-unity/README.md`'s `Editor API` says since step 5.
 
 ### 2.5 `Editor/Compiler/`
 
@@ -141,13 +146,16 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
 - **Ordinary Clojure, as the ClojureCLR reloader does today.** Every top-level form of the saved file is evaluated in order, side effects included.
   `def`/`defn` rebind roots; `defonce` and `defmulti` are skipped once bound; the `ns` form re-runs but `require` skips loaded libs; dependents are not reloaded.
 - **Incremental.** A form that throws leaves the earlier defs applied and the later ones not, until the next good save.
+- **A parameter hinted with a protocol's simple name does not compile in memory.** `(defprotocol P (f [x])) (defn g [^P s] (f s))` throws `Unable to resolve type hint P` under `eval`, in `nos -e` as in the Editor, so `smoke.polymorphism` neither reloads nor loads from source past its `hinted-len` (§5.1, step 5); `nos build` compiles it.
+  `types/resolve` (`magic-compiler/src/magic/analyzer/types.clj:89`) finds the protocol's interface under the namespace-qualified name only through `*module*` (`:102`), which `compile-file` binds and `eval` does not; `Runtime/FindType` (`:109`) finds the qualified name but is given the simple one **[inferred]**.
+  A compiler fix, outside this plan; until then such a file reloads only with the hint removed.
 - **Each top-level form defines a dynamic assembly** Mono cannot unload: 90 to 140 over 50 evals, bounded by the next domain reload.
 - **Reloaded `deftype`/`defrecord` define new types**; live instances keep the old ones.
 - **Direct-linked callers miss reloads**: anything built with `production-flags`, including Clojure DLLs in immutable packages (§4).
 - **Play mode.** A save takes effect live in the running scene; do not gate it on `EditorApplication.isPlaying`:
   the consumer owns the `Poll` tick, and the ClojureCLR state has reloaded during play since #157.
   A domain reload, on every C# recompile and by default on entering play mode, erases reloaded edits; the dev set's mtime rule recompiles them at the next load (a cost, §4).
-  `Enter Play Mode Options` with `Reload Domain` off keeps them across play-mode entry, a consumer setting the package cannot set.
+  `Enter Play Mode Options` with `Reload Domain` off keeps them across play-mode entry, a consumer setting the package cannot set (both observed in smoke, §5.1, step 5). `integrated`'s C# does not support it.
   Unity defers a recompile during play mode **[unverified]** on `2022.3.62f3`.
   A reload cannot reach a fn already captured in a field or closure, a running coroutine, a delegate handed to Unity, or a `deftype` Unity binds by type.
 - **Write-through**, compiling each reloaded file into the dev set from the Editor, is deferred.
@@ -165,7 +173,7 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
 - **Clojure DLLs in immutable UPM packages cannot be made player-only**: `Library/PackageCache` discards `.meta` writes, so the package author's constraint stands (`CljPluginConstraints.cs:221`).
   Since step 4 the constrainer warns about any of them not carrying `!UNITY_EDITOR`, legacy-stamped ones included, once per distinct set; the fix is the author's.
   They stay loaded in the Editor and production-built: under InitType-first their init types shadow a source checkout of the library, and their callers miss reloads.
-  Not an issue for `integrated`, whose 109 consumer `.clj.dll`s are all in `Assets/Plugins/Magic`.
+  Not an issue for `integrated`, whose 230 consumer Clojure DLLs (109 `.clj.dll`, 120 `.cljc.dll`, 1 `.cljr.dll`) are all in `Assets/Plugins/Magic`.
 - **After the drop, C# naming a Clojure-generated type breaks in the Editor.** In `integrated`, none does (by grep; reflection by name not covered).
 
 ## 5. Work
@@ -245,14 +253,43 @@ drop its host, `Nostrand.dll` in the Editor and the warm-domain workarounds (§6
    - `bb check-drift` checks both constants against `bb/magic/unity.clj`; it failed with the gate's constant edited.
    - Not covered: the GUI, including the script reload the constrainer requests after stamping an already-imported DLL; an immutable library package carrying the legacy entry, so the reworded warning; a player build.
 
+5. **The reloader in the MAGIC Editor** (§2.4): `Magic.Unity.Editor.Reload.asmdef` has no define constraint, and `integrated` builds its reloader in both states.
+   A save before any `Var` or `Require` cannot happen through `integrated`'s wiring, which builds the reloader at the end of `CljSystem.InitSystem`, after its `Require`s, and polls it only from `CljSystem.FrameTick`; smoke covered it.
+   - **`bb coexist-noise`**, 2026-11-13, Unity `2022.3.62f3`, macOS: `CoexistenceProbe` reports `reload-in-domain`, expected `true` in both states.
+     On the code before it, `bb coexist-noise magic` failed the `magic` and legacy-upgrade checks with `reload-in-domain=false`; the ClojureCLR state reported `true`.
+     After it, a full run passed all six checks, `reload-in-domain=true` in both states, the other fields unchanged.
+   - **`bb reloader-probes`** exited 0, Probe 7m's [E13] included; `bb test` and `bb check-drift` passed.
+   - **Inside Unity**, 2026-11-13, `unity-examples/magic-unity-smoke`, MAGIC state, headless through a throwaway `-executeMethod` probe, since deleted, as were its edits to `letfn_cases.clj`, `check.clj` and `polymorphism.clj`.
+     The package was this tree's; `Library/MagicDev` was this tree's `nos dev`, rebuilt in 3.3 s. The probe built a `ClojureReloader` over the roots file's three entries, edited a source 600 ms later and polled from `EditorApplication.update`.
+     - **Batch mode**: the watcher fired; each edit was reloaded 0.3 to 1.9 s after it was written.
+     - **A save before any `Var` or `Require`**: `Compiler.Backend` was null before it. The edit, a `def` appended to `smoke.letfn-cases`, reloaded; afterwards `Backend` was `magic.api/backend`, the order `{FileSystem, InitType}`, `*load-paths*` the three roots plus `Library/MagicDev`, and the new var held its value. So the reloader's `Boot` ran the Editor part.
+     - Then `Require` of `smoke.runner`: 13 consumer assemblies from `Library/MagicDev`, and `smoke.letfn-cases`, whose source was now newer, compiled in memory; `all-pass?` true.
+     - **A `defn`, caller in another namespace**: `smoke.check/check` edited to add a key to a passing result. After the reload, `smoke.value-types/suite`, loaded from its dev DLL, returned it.
+     - **A `defmethod`**: `animal-sound :dog` edited in `smoke.polymorphism`. The first run's reload threw at `hinted-len`, `Unable to resolve type hint IStrLen` (§3), so later runs removed the hint in the same edit.
+       After it, `animal-sound` returned the new value, the var held the same `MultiFn`, and `smoke.runner/report-text`, from its dev DLL, reported `multimethod :dog` failing on it, 106 of 107 passing.
+     - **Play mode**, entered by `EditorApplication.EnterPlaymode()` in batch mode. With `Reload Domain` on, entry reloaded the domain: `smoke.polymorphism` was no longer loaded. A reloader built in play mode booted on its first save, and an edit to `:cat` took effect while playing.
+       After exiting, with `Reload Domain` off, the next entry kept the domain: `:cat` still returned the value reloaded during the previous play session, and a further edit took effect while playing.
+   - **`integrated`**, 2026-11-13, its wiring unchanged and its `MAGIC_RUNTIME_IN_EDITOR` unset on every target, so the ClojureCLR state.
+     - Its first `nos dev`, this tree's `NostrandMain.exe` under Homebrew `mono` 6.14.1: exit 0 in 114 s, 211 DLLs in `Library/MagicDev`, 33 roots (§2.2); `Assets/Plugins/CSharp/fast_edn.dll` unchanged.
+     - One headless launch: no `error CS`, `made 230 already-imported assemblies player-only`, and every meta in `Assets/Plugins/Magic` then read `[!UNITY_EDITOR]`.
+   - **`DevRoots`** (§2.2), smoke, same setup, a throwaway probe since deleted. It failed first to compile, `DevRoots` not existing.
+     After it: `Read()` returned the roots file's three entries in order with `Compiler.Backend` still null, so no boot; with the file moved away, none; then `Require` of `smoke.runner` booted with `*load-paths*` the three roots plus `Library/MagicDev`, and `all-pass?` was true.
+   - **`integrated`'s wiring**: `Assets/AppIntegrated/CljSystem.Reload.cs` now compiles under `#if UNITY_EDITOR` and passes `DevRoots.Read()` in the MAGIC state, `CljSourceRoots.Installed` otherwise.
+     A second `nos dev` after its production DLLs were rebuilt: exit 0 in 114 s, the same 211 namespaces as `Assets/Plugins/Magic`.
+     Then, with `MAGIC_RUNTIME_IN_EDITOR` on Standalone, one headless launch: no `error CS`, and `Library/ScriptAssemblies/Assembly-CSharp.dll` referenced `Magic.Unity.DevRoots.Read` and `Clojure` 1.0.0.0, the fork. The scripts had last compiled in the GUI, with the same define and sources.
+   - A full `bb coexist-noise` after `DevRoots` passed all six checks.
+   - **By hand in `integrated`'s GUI**, 2026-11-13, MAGIC state, play mode with `Reload Domain` on, replaying a recorded game, as reported by the user:
+     the project opened clean, and the reloader watched its roots once `InitSystem` ran;
+     a `defn`, `card-with-effect` in `hjd.integrated-client.design.game.card.poker.card-effect`, changed card colours during the replay;
+     a `defmethod`, `hjd.hyperlink/open-hyperlink :hyperlink.type/replay-player` in `hjd.integrated-client.design.game.game-replay`, showed the edited viewpoint toast, dispatched from `hjd.hyperlink`'s `defmulti`.
+   - `integrated` cannot enter play mode with `Reload Domain` off, so the case is moot there: its C# relies on a reload.
+     `SceneLoader`'s static `m_instance` keeps `isLoading` from the previous session, and `MainScene.OnEnable` logs `在场景正在加载时再次调用加载场景！` (`Assets/PokerGames/Common/Generic/SceneLoader.cs:164`). Its developers keep the default.
+   - Not covered: a C# recompile during play mode.
+
 ### 5.2 To do
 
 Each step starts with a test that fails on the current code.
 
-5. **Drop the reloader's constraint** (§2.4). By hand in `integrated`:
-   - right after a domain reload, before any `Var` or `Require`, save a file: the reloader boots the runtime and reloads it;
-   - reload a `defn` and a `defmethod`, and see a caller in another namespace pick it up;
-   - enter play mode with `Reload Domain` on and off.
 6. **The shipped build's trigger** (§2.1): a build entry point (proposed), CI, or a pre-build hook, which would first need its mid-build import tested.
    Check whether importing a player-only managed DLL triggers a domain reload.
 7. **Trim `Editor/Compiler/`** (§2.5), then `bb check-drift`, and `bb coexist-noise` in both states.
@@ -260,7 +297,7 @@ Each step starts with a test that fails on the current code.
    - a player build of `unity-examples/magic-unity-smoke` on `2022.3.62f3`, compiler absent, IL2CPP succeeding;
    - a full `production-flags` `nos build` of `integrated` under Unity's bundled Mono (smoke's dev set built under it at step 3);
    - cold-start time in `integrated`, with a current dev set and with one older than every source;
-   - the time of one dev-set build of `integrated`.
+   - the time of one dev-set build of `integrated` under Unity's bundled Mono (114 s under Homebrew `mono`, §5.1, step 5).
 
 ## 6. Rejected and pitfalls
 
@@ -274,9 +311,12 @@ Each step starts with a test that fails on the current code.
 
 - `docs/unity-integration.md`: its `Hot reload` section says the reloader is ClojureCLR-only,
   and "The two plugin folders" changes once `Assets/Plugins/Magic` is player-only and the dev run also writes `Assets/Plugins/CSharp`.
-- `magic-unity/README.md`: `Editor API`, its reloader guard, and the "What a reload changes" table, which needs two rows:
+- `magic-unity/README.md`: the "What a reload changes" table, which needs two rows:
   a `defn` body reloads only if the calling namespace was compiled with direct linking off,
   and a reload during play mode takes effect live but cannot reach an object graph the old code already built.
 - The runtime-selection table, now that consumer DLLs are player-only (step 4), and again when ClojureCLR is dropped.
 - `nostrand/README.md`'s task list and `docs/nos-cli.md`: `nos dev`. `magic-unity/README.md`'s `Editor API`: `MAGIC/Build Dev Set` and its `NostrandMain.exe` setting.
 - The local `CLAUDE.md` and `magic-unity/CLAUDE.md`: the `Editor/Reload/` layout entry and the constraint description, and their `in-proc` sections once `in-proc` is abandoned.
+- `magic-unity/CLAUDE.md`'s Layout: `Runtime/Magic.Unity.cs` also holds `DevRoots`. `magic-unity/README.md`'s `Editor API` is done (step 5).
+- `magic-unity/Tests~/reloader/README.md`: the in-Editor tier is no longer ClojureCLR-only.
+- `unity-examples/magic-unity-coexist/README.md`: the marker line's example lacks `compiler-in-domain` and `reload-in-domain`.
