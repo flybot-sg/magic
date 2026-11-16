@@ -12,8 +12,7 @@ namespace Nostrand
             foreach (var cljDll in Directory.EnumerateFiles(runtimeDirectory, "*.clj.dll"))
                 Assembly.LoadFile(cljDll);
 
-            RT.Initialize(doRuntimePostBoostrap: false);
-            RT.TryLoadInitType("clojure/core");
+            RT.Initialize();
             RT.UseMagicCompiler();
         }
 

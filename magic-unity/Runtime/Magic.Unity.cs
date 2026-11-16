@@ -33,8 +33,7 @@ namespace Magic.Unity
                     RuntimeBootstrapFlag.CodeSource.InitType
                 };
 #endif
-                RT.Initialize(doRuntimePostBoostrap: false);
-                RT.TryLoadInitType("clojure/core");
+                RT.Initialize();
 #endif
                 RequireVar = RT.var("clojure.core", "require");
             }

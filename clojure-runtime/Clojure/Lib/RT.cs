@@ -20,6 +20,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -585,10 +586,17 @@ namespace clojure.lang
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]
         public static bool instrumentMacros = !ReadTrueFalseDefault(Environment.GetEnvironmentVariable("clojure.spec.skip-macros"), false);
 #endif
-        
+
+        private static bool BOOTSTRAPPED = false; // Initialize's guard; upstream's static constructor needs none
+
+        // Upstream's static RT(), made explicit: the host loads the .clj.dlls first, and
+        // clojure.core is initialised from its init type. Init runs the rest.
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1810:InitializeReferenceTypeStaticFieldsInline")]
-        public static void Initialize(bool doRuntimeBootstrap=true, bool doRuntimePostBoostrap=true)
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        public static void Initialize()
         {
+            if (BOOTSTRAPPED) { return; } else { BOOTSTRAPPED = true; }
+
             AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
 
             // TODO: Check for existence of ClojureContext.Default before doing this?
@@ -639,8 +647,9 @@ namespace clojure.lang
             //v.setMeta(map(dockw, "tests if 2 arguments are the same object",
             //    arglistskw, list(vector(Symbol.intern("x"), Symbol.intern("y")))));
 
-            if ( doRuntimeBootstrap )
-                DoInit(doRuntimePostBoostrap);
+            if (!TryLoadInitType("clojure/core"))
+                throw new InvalidOperationException(
+                    "clojure.core is not loaded: no loaded assembly holds the clojure/core init type.");
         }
 
         // public static void LoadSpecCode()
@@ -661,21 +670,6 @@ namespace clojure.lang
         //     }
         // }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Reliability", "CA2001:AvoidCallingProblematicMethods", MessageId = "System.Reflection.Assembly.LoadFrom")]
-        static void DoInit(bool doRuntimePostBoostrap)
-        {
-            //Stopwatch sw = new Stopwatch();
-            //sw.Start();
-            TryLoadInitType("clojure/core");
-            // Assembly.LoadFrom("clojure.spec.alpha.dll");
-            // Assembly.LoadFrom("clojure.core.specs.alpha.dll");
-            //sw.Stop();
-            //Console.WriteLine("Initial clojure/core load: {0} milliseconds.", sw.ElapsedMilliseconds);
-
-            if ( doRuntimePostBoostrap )
-            PostBootstrapInit();
-        }
-
         // The host loads magic.api.clj.dll; this only runs its init type.
         public static void UseMagicCompiler()
         {
@@ -684,6 +678,28 @@ namespace clojure.lang
                     "The MAGIC compiler is not loaded: no loaded assembly holds the magic/api init type.");
 
             Compiler.Backend = (ICompilerBackend)var("magic.api", "backend").deref();
+        }
+
+        // A host calls it once its load path is set, so user.clj can be found.
+        public static void Init()
+        {
+            DoInit();
+        }
+
+        private static bool INIT = false; // init guard
+
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        static void DoInit()
+        {
+            if (INIT) { return; } else { INIT = true; }
+
+            // Upstream's static constructor has bootstrapped by now
+            Initialize();
+
+            // Upstream loads clojure.spec.alpha.dll and clojure.core.specs.alpha.dll here;
+            // MAGIC loads them only when required.
+
+            PostBootstrapInit();
         }
 
         public static void PostBootstrapInit()
