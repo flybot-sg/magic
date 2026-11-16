@@ -193,7 +193,7 @@ flowchart TD
     cmd --> a --> b --> c --> d --> e --> f
 ```
 
-The C# half is `nostrand-lib/Runtime.cs`. `Runtime.Boot` loads every `.clj.dll` sitting next to `Clojure.dll`, starts the runtime, initialises `clojure.core` and `magic.api`, then sets `Compiler.Backend` to `magic.api/backend`. After that line `compile`, `eval` and `load-file` work, and nothing that calls them knows which compiler answered.
+The C# half is `nostrand-lib/Runtime.cs`. `Runtime.Boot` loads every `.clj.dll` sitting next to `Clojure.dll`, starts the runtime, initialises `clojure.core`, then calls `RT.UseMagicCompiler`, which initialises `magic.api` and sets `Compiler.Backend` to `magic.api/backend`. After that line `compile`, `eval` and `load-file` work, and nothing that calls them knows which compiler answered.
 
 The Clojure half is under `nostrand-lib/nostrand/`, except `cli.clj`, whose interactive REPL needs Mono.Terminal, and `main.clj`, which reads the command line and exits 1 on an error; both stay under `nostrand/`. It puts source paths on the load path, reads `deps-clr.edn`/`deps.edn` and fetches git dependencies, defines the tasks, and serves the socket REPLs without writing to the console. None of it could have run a moment earlier. [CLR dependency resolution](./clr-dependency-files.md) and [the nos CLI](./nos-cli.md) cover what it does.
 

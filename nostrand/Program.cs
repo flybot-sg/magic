@@ -23,7 +23,7 @@ namespace Nostrand
 
                 Runtime.EstablishProject(Directory.GetCurrentDirectory());
 
-                RT.PostBootstrapInit();
+                RT.Init();
 
                 Runtime.Require("nostrand.main");
                 RT.var("nostrand.main", "main").applyTo(RT.seq(args));

@@ -13,6 +13,7 @@
 - `*file*` in a loaded file holds its path instead of `#eval#` - [#192](https://github.com/flybot-sg/magic/issues/192).
 - `clojure.main` reports an uncaught error and exits 1, instead of crashing Mono - [#192](https://github.com/flybot-sg/magic/issues/192).
 - Recompiling `clojure.core` in a running process no longer disconnects the compiler. A host sets `clojure.lang.Compiler/Backend` instead of binding `*eval-form-fn*` and the other compiler hook vars, which are gone - [#186](https://github.com/flybot-sg/magic/issues/186).
+- **Breaking:** `RT.Initialize` takes no flags, only bootstraps, and throws when `clojure.core` is not loaded. A new `RT.Init()`, as on ClojureCLR, runs the rest once the host's load path is set: the `user` namespace and `user.clj` - [#215](https://github.com/flybot-sg/magic/issues/215).
 
 ### Stdlib
 - `root-cause`, and so `(pst)`, skips a `CompilerException` from `NO_SOURCE_FILE`, as on the JVM - [#197](https://github.com/flybot-sg/magic/issues/197).
