@@ -34,6 +34,7 @@
 - The package ships the MAGIC compiler and the `magic.deps` namespaces under `Editor/Compiler/`, Editor-only and loaded under `MAGIC_RUNTIME_IN_EDITOR` - [#202](https://github.com/flybot-sg/magic/issues/202).
 - On the ClojureCLR Editor, `Magic.Unity.Clojure` runs ClojureCLR's full init, so `user.clj` loads and socket servers start - [#213](https://github.com/flybot-sg/magic/issues/213).
 - On a MAGIC Editor, `Magic.Unity.Clojure` boots with the MAGIC compiler, so `eval` and loading a `.clj` work, and runs `RT.Init()`, as on the ClojureCLR Editor - [#215](https://github.com/flybot-sg/magic/issues/215).
+- The ClojureCLR Editor loads namespaces from the source roots listed in a project's `reload.edn`, which `Magic.Unity.Clojure.SourceRoots` exposes for `ClojureReloader` to watch - [#217](https://github.com/flybot-sg/magic/issues/217).
 - **Breaking:** `Magic.Unity.Clojure.GetVar` is renamed `Var`, and `GetVar<T>` is renamed `Deref<T>`, since it returns the var's value - [#213](https://github.com/flybot-sg/magic/issues/213).
 
 ### Tooling

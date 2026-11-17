@@ -22,6 +22,17 @@ Add to `Packages/manifest.json`, pinned to a tag from the [releases page](https:
 - `clojure.lang.Var Var(string ns, string name)` - look up a Clojure var. Dereference with `deref` or invoke with `invoke`.
 - `T Deref<T>(string ns, string name)` - deref the var once and cast its value, e.g. to a `Magic.Function` type to invoke a type-hinted fn without boxing.
 - `void Boot()` - initialize the Clojure runtime. Called automatically by the other methods; needed only before using `clojure.lang` directly.
+- `IReadOnlyList<string> SourceRoots` - the absolute source roots the ClojureCLR Editor loads namespaces from (see [Source roots](#source-roots)). Empty in a MAGIC Editor and in a player.
+
+## Source roots
+
+The ClojureCLR Editor compiles your Clojure from source, so it has to find your namespaces' files. List their roots in `reload.edn`, with paths relative to that file. It is read from the project root, or else from the one top-level directory that has it:
+
+```clojure
+{:source-roots ["src" "libs/some-lib/src"]}
+```
+
+At boot, `Magic.Unity.Clojure` appends the roots that exist to `CLOJURE_LOAD_PATH`, after any entries already there, so `user.clj` in a root loads too. Each root's layout must match the namespaces (`foo.bar` → `<root>/foo/bar.cljc`) and hold no compiled `.clj.dll`, which ClojureCLR loads in place of a source that is not newer. Without the file nothing is added; a malformed file, or one in several top-level directories, logs an error and boots without roots.
 
 ## Editor API
 
@@ -32,7 +43,7 @@ Add to `Packages/manifest.json`, pinned to a tag from the [releases page](https:
 
 `Magic.Unity.ClojureReloader` class, in the Editor-only assembly `Magic.Unity.Editor.Reload`, which exists only while the Editor runs ClojureCLR (`MAGIC_RUNTIME_IN_EDITOR` unset). Wrap code that uses it in `#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR`.
 
-- `ClojureReloader(IEnumerable<string> roots, Action<string> logger, Action<string> onChanged = null)` - watch the given directories recursively for `.clj`/`.cljc`/`.cljr` saves; typically the directories you put on `CLOJURE_LOAD_PATH`.
+- `ClojureReloader(IEnumerable<string> roots, Action<string> logger, Action<string> onChanged = null)` - watch the given directories recursively for `.clj`/`.cljc`/`.cljr` saves; typically `Clojure.SourceRoots`.
 - `void Poll()` - call it on each tick of one thread, normally the main thread. It evaluates each source file that has settled.
 - `void Dispose()` - stop watching.
 
