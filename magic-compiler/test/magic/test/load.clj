@@ -1,13 +1,9 @@
 (ns magic.test.load
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.string :as string]
-            [magic.api :as api])
+            [magic.api :as api]
+            [magic.test.common :refer [temp-dir]])
   (:import [System.IO Directory File Path]))
-
-(defn- temp-dir []
-  (let [dir (Path/Combine (Path/GetTempPath) (str "magic-test-load-" (gensym)))]
-    (Directory/CreateDirectory dir)
-    dir))
 
 (defn- write-ns!
   "Write source for namespace sym into dir under the given extension, munging

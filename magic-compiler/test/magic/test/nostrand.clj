@@ -1,25 +1,28 @@
 (ns magic.test.nostrand
-  (:require [clojure.test :refer [deftest is]]))
+  (:require [clojure.test :refer [deftest is]]
+            [clojure.string :as string]
+            [magic.test.common :refer [nos temp-dir]]
+            [nostrand.exec :as exec]))
 
-(defn- run [& command]
-  (Nostrand.Runtime/Run (into-array String command)))
+(deftest main-returns-the-task-value
+  (is (= [1 :a] (exec/-main "clojure.core/vector" "1" ":a"))))
 
-(deftest run-returns-the-task-value
-  (is (= [1 :a] (run "clojure.core/vector" "1" ":a"))))
-
-(defn current-ns [] (ns-name *ns*))
-
-(deftest run-runs-the-task-in-user
-  (binding [*ns* (the-ns 'magic.test.nostrand)]
-    (is (= 'user (run "magic.test.nostrand/current-ns")))
-    (is (= 'magic.test.nostrand (ns-name *ns*)))))
-
-(deftest run-throws-a-missing-task
+(deftest main-throws-a-missing-task
   (is (thrown-with-msg? clojure.lang.ExceptionInfo #"No task named magic-test-missing"
-                        (run "magic-test-missing"))))
+                        (exec/-main "magic-test-missing"))))
 
-(deftest run-throws-a-missing-namespace
-  (is (thrown? System.IO.FileNotFoundException (run "magic.test.tmp.missing/f"))))
+(deftest main-throws-a-missing-namespace
+  (is (thrown? System.IO.FileNotFoundException (exec/-main "magic.test.tmp.missing/f"))))
 
-(deftest run-needs-a-task
-  (is (thrown? ArgumentException (run))))
+(deftest main-needs-a-task
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Not a task name: nil" (exec/-main))))
+
+(deftest nos-runs-the-task-in-user
+  (let [dir (temp-dir)]
+    (try
+      (System.IO.File/WriteAllText (System.IO.Path/Combine dir "probe.clj")
+                                   "(ns probe) (defn current-ns [] (println (ns-name *ns*)))")
+      (let [{:keys [exit out]} (nos dir "probe/current-ns")]
+        (is (= 0 exit))
+        (is (= ["user"] (string/split-lines out))))
+      (finally (System.IO.Directory/Delete dir true)))))

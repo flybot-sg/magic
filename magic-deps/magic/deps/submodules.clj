@@ -1,4 +1,4 @@
-(ns nostrand.deps.submodules
+(ns magic.deps.submodules
   "Derive a flat source-path set from git submodules, so a project that vendors
   its dependencies as submodules can treat .gitmodules as the single source of
   truth for its deps.edn :paths instead of hand-maintaining the list."

@@ -57,8 +57,8 @@ Per-component reference lives in each component's own README, linked from [Compo
 | [magic-runtime](./magic-runtime) | Resolves the interop calls whose types are only known at run time, caching each call site. Emits no IL at run time, which is what IL2CPP requires. | C# |
 | [mage](./mage) | MSIL as Clojure data, so bytecode can be built and rewritten as plain values before it is emitted. | Clojure |
 | [magic-compiler](./magic-compiler) | The compiler: Clojure forms to MSIL. Also holds the standard library sources it compiles. | Clojure |
-| [nostrand-lib](./nostrand-lib) | The engine, as `Nostrand.dll`. Boots the runtime, loads the compiler DLLs, resolves dependencies, defines the build and test tasks. Any host can boot it, console or not. | C# + Clojure |
-| [nostrand](./nostrand) | The `nos` CLI wrapped around the engine: `NostrandMain.exe`, command-line reading, and the terminal and REPL tasks. | C# + Clojure |
+| [magic-deps](./magic-deps) | The Clojure `nos` shares with other hosts: dependency resolution. | Clojure |
+| [nostrand](./nostrand) | The `nos` CLI: `NostrandMain.exe`, which boots the runtime, the load path, command-line reading and task lookup, the built-in tasks, and the terminal and REPL tasks. | C# + Clojure |
 | [magic-unity](./magic-unity) | The UPM package Unity loads at play time: the prebuilt runtime plus the IL2CPP pre-build step. Ships both Clojure runtimes; a define symbol selects the Editor's. See [Unity integration](./docs/unity-integration.md). | C# |
 | [magic-unity-smoke](./unity-examples/magic-unity-smoke) | Unity project that drives compiled output through IL2CPP, catching the AOT-only bugs Mono cannot reach. Run by hand on Unity `2022.3.62f3`. | Clojure + C# |
 | [magic-unity-coexist](./unity-examples/magic-unity-coexist) | Unity project that regression-tests which Clojure runtime the Editor loads, in both supported states. Driven by `bb coexist-noise`. | C# |
@@ -73,7 +73,7 @@ Two shippable artifacts; pick the one(s) your project needs.
 
 **`nos` CLI**: a build-time task runner that compiles Clojure to MSIL. Used by Unity projects (before opening Unity) and by non-Unity Clojure libs that want CLR test runs.
 
-- Built from `nostrand/` + `nostrand-lib/` + `clojure-runtime/` + `magic-runtime/` + `magic-compiler/` + `mage/`.
+- Built from `nostrand/` + `magic-deps/` + `clojure-runtime/` + `magic-runtime/` + `magic-compiler/` + `mage/`.
 - Ships as a GitHub Releases tarball, cut on every `v*` tag by [`release.yml`](.github/workflows/release.yml).
 - Consumers install it with `install/nos.sh` (one-line curl; needs `mono`, no .NET SDK).
 
@@ -122,9 +122,9 @@ This repo mixes C# (runtimes + host) and Clojure (compiler + stdlib), and the tw
 
 | You changed | Run | What it costs |
 |---|---|---|
-| any C# in `clojure-runtime/`, `magic-runtime/`, `nostrand-lib/` or `nostrand/` | `bb build-runtime` | a C# build |
+| any C# in `clojure-runtime/`, `magic-runtime/` or `nostrand/` | `bb build-runtime` | a C# build |
 | a callsite `.mustache` template | `bb dev-callsites` | regen, then a C# build |
-| `nostrand-lib/nostrand/**/*.clj`, `nostrand/nostrand/cli.clj`, `nostrand/nostrand/main.clj` | `bb refresh-nostrand` | one compile pass over nostrand's eleven namespaces |
+| `magic-deps/magic/deps/*.clj`, `nostrand/nostrand/**/*.clj` | `bb refresh-nostrand` | one compile pass over nostrand's eleven namespaces |
 | `magic-compiler/src/stdlib/`, outside the `clojure.core` family | `bb refresh-stdlib` | one compile pass over the stdlib |
 | `magic-compiler/src/magic/`, `mage/src/`, or the `clojure.core` family | `bb dev-compiler` | two bootstrap passes |
 
@@ -136,7 +136,7 @@ MAGIC is self-hosting, so compiling the compiler needs a working compiler. Pre-b
 
 - `nostrand/references/*.clj.dll`: 84 DLLs, the compiler, the stdlib and nostrand's own namespaces that Nostrand loads at startup. They are what compiles the next compiler.
 - `magic-unity/Runtime/magic/`: the two runtime DLLs plus 37 stdlib `.clj.dll`, what Unity loads at play time
-- `magic-unity/Editor/Compiler/`: the compiler and nostrand `.clj.dll` (45), loaded only by a Unity Editor running MAGIC
+- `magic-unity/Editor/Compiler/`: the compiler and `magic.deps` `.clj.dll` (40), loaded only by a Unity Editor running MAGIC
 
 That is why a C# edit is cheap and a compiler edit is not. Compiled `.clj.dll` name `Clojure.dll` and `Magic.Runtime.dll` in their assembly references and pick up new bodies at load time, so a C# change never needs a bootstrap. Only the compiler's own source and the `clojure.core` family take the slow path.
 

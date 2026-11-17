@@ -3,8 +3,7 @@
    :doc "Core nostrand API containing load path, assemblies, and dependency functions."}
  nostrand.core
   (:require [clojure.string :as string]
-            [nostrand.deps.basis :as basis]
-            [nostrand.deps.submodules :as submodules])
+            [magic.deps.basis :as basis])
   (:import [System.IO Directory Path File]))
 
 (defn- absolute-path
@@ -162,16 +161,6 @@
      (reset! -project-root root)
      (set-load-path (into (conj -env-load-path root) extra-roots))
      (set-assembly-path (conj -env-assembly-path root))
-     (let [deps-file (basis/project-deps-file root)]
-       (when (File/Exists deps-file)
-         (let [deps-edn (basis/read-project-deps deps-file)
-               b        (establish-deps-edn deps-file (:nos/aliases deps-edn []))
-               ;; A path prefix to restrict the submodules to, or true for all.
-               sub      (:nos/submodule-paths deps-edn)
-               modules  (Path/Combine root ".gitmodules")]
-           (when (and sub (File/Exists modules))
-             (apply load-path
-                    (map #(Path/Combine root %)
-                         (submodules/submodule-paths (slurp modules)
-                                                     (when (string? sub) sub)))))
-           b))))))
+     (when-let [b (basis/project-basis root)]
+       (apply load-path (:classpath-paths b))
+       b))))

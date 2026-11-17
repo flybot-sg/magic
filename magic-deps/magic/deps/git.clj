@@ -1,7 +1,7 @@
-(ns nostrand.deps.git
+(ns magic.deps.git
   (:import [System.IO Directory])
   (:require [clojure.string :as str]
-            [nostrand.deps.shell :refer [sh require-command]]))
+            [magic.deps.shell :refer [sh require-command]]))
 
 (defn- url->rel
   "Cache-relative path for a git url: drops the scheme, the user@, and

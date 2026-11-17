@@ -3,9 +3,7 @@
  nostrand.cli
   (:import
    [Nostrand Nostrand]
-   [Mono.Terminal LineEditor]
-   [System.IO Directory Path EndOfStreamException]
-   [System.Threading Thread ThreadStart])
+   [System.IO Directory Path])
   (:require [nostrand.repl :as repl]
             [clojure.string :as string]
             clojure.repl))
@@ -34,70 +32,16 @@
   ([file] (println (Path/Combine (-> (.Assembly clojure.lang.RT) .Location Path/GetDirectoryName)
                                  (str file)))))
 
-(defn- continue-prompt []
-  (let [l (dec (count (repl/prompt)))]
-    (str (apply str (repeat l ".")) " ")))
-
-(defn- balanced? [s]
-  (try
-    (read-string {:read-cond :allow} s)
-    true
-    (catch EndOfStreamException e
-      false)))
-
-(defn- new-line-editor []
-  (LineEditor. "nostrand" 500))
-
-(defn cli-repl
-  ([] (cli-repl nil))
-  ([{:keys [line-editor]
-     :or {line-editor (new-line-editor)}}]
-   (binding [*ns* (find-ns 'user)
-             *warn-on-reflection* *warn-on-reflection*
-             *unchecked-math* *unchecked-math*]
-     (loop [s (.Edit line-editor (repl/prompt) "")]
-       (when s
-         (if-not (balanced? s)
-           (recur (str s "\n" (.Edit line-editor (continue-prompt) "")))
-           (do
-             (try
-               (-> (read-string {:read-cond :allow} s)
-                   eval
-                   pr-str
-                   (Nostrand.Terminal/Message ConsoleColor/Gray))
-               (catch Exception e
-                 (msg "Exception" (str e) ConsoleColor/Yellow)))
-             (recur (.Edit line-editor (repl/prompt) "")))))))
-   (reset! repl/socket-repl-running false)))
-
-(defn- echo [line-editor]
-  (fn [{:keys [code out result exception]}]
-    (Console/WriteLine)
-    (Console/Write (repl/prompt))
-    (if exception
-      (msg "Exception" (str exception) ConsoleColor/Yellow)
-      (do (Console/Write code)
-          (when-not (empty? out)
-            (Nostrand.Terminal/Message out ConsoleColor/Gray))
-          (Nostrand.Terminal/Message result ConsoleColor/Gray)))
-    (.SnapHomeRowToCursor line-editor)
-    (.StopEdit line-editor)))
-
 (defn socket-repl [args]
-  (repl/socket
-   (assoc args
-          :on-start (fn [endpoint]
-                      (msg "REPL" endpoint ConsoleColor/Blue)
-                      (.Start (Thread. (gen-delegate ThreadStart [] (cli-repl args)))))
-          :on-eval (echo (:line-editor args)))))
+  (repl/socket args))
 
 (defn repl
   ([]
    (version)
-   (cli-repl))
+   (repl/cli-repl))
   ([port]
    (version)
-   (cli-repl)))
+   (repl/cli-repl)))
 
 (defn tasks []
   (let [ns-syms

@@ -1,15 +1,53 @@
 (ns nostrand.repl
   (:require [clojure.core.server :as clj-server])
   (:import
-   [System.IO StringWriter]
+   [Mono.Terminal LineEditor]
+   [System.IO StringWriter EndOfStreamException]
    [System.Text Encoding StringBuilder]
+   [System.Threading Thread ThreadStart]
    [System.Net IPEndPoint IPAddress]
    [System.Net.Sockets UdpClient SocketException]))
 
-(defn prompt []
+(defn- prompt []
   (str *ns* "> "))
 
+(defn- continue-prompt []
+  (let [l (dec (count (prompt)))]
+    (str (apply str (repeat l ".")) " ")))
+
+(defn- balanced? [s]
+  (try
+    (read-string {:read-cond :allow} s)
+    true
+    (catch EndOfStreamException e
+      false)))
+
 (def socket-repl-running (atom true))
+
+(defn- new-line-editor []
+  (LineEditor. "nostrand" 500))
+
+(defn cli-repl
+  ([] (cli-repl nil))
+  ([{:keys [line-editor]
+     :or {line-editor (new-line-editor)}}]
+   (binding [*ns* (find-ns 'user)
+             *warn-on-reflection* *warn-on-reflection*
+             *unchecked-math* *unchecked-math*]
+     (loop [s (.Edit line-editor (prompt) "")]
+       (when s
+         (if-not (balanced? s)
+           (recur (str s "\n" (.Edit line-editor (continue-prompt) "")))
+           (do
+             (try
+               (-> (read-string {:read-cond :allow} s)
+                   eval
+                   pr-str
+                   (Nostrand.Terminal/Message ConsoleColor/Gray))
+               (catch Exception e
+                 (Nostrand.Terminal/Message "Exception" (str e) ConsoleColor/Yellow)))
+             (recur (.Edit line-editor (prompt) "")))))))
+   (reset! socket-repl-running false)))
 
 (defn- random-port []
   (int (+ 1024 (* (rand) (- UInt16/MaxValue 1024)))))
@@ -20,27 +58,39 @@
     (catch SocketException e
       (available-socket (random-port)))))
 
+(defn- echo
+  "Shows a socket eval on the console. Runs with *out* bound to the reply
+   buffer, so it writes to the console directly."
+  [line-editor {:keys [code out result exception]}]
+  (Console/WriteLine)
+  (Console/Write (prompt))
+  (if exception
+    (Nostrand.Terminal/Message "Exception" (str exception) ConsoleColor/Yellow)
+    (do (Console/Write code)
+        (when-not (empty? out)
+          (Nostrand.Terminal/Message out ConsoleColor/Gray))
+        (Nostrand.Terminal/Message result ConsoleColor/Gray)))
+  (.SnapHomeRowToCursor line-editor)
+  (.StopEdit line-editor))
+
 (defn socket
-  ":on-eval runs with *out* bound to the reply buffer, so it must write to
-   the console directly."
-  [{:keys [port
+  [{:keys [line-editor
+           port
            send-buffer-size
            receive-buffer-size
-           receive-timeout
-           on-start
-           on-eval]
+           receive-timeout]
     :or {port 11217
          send-buffer-size (* 1024 5000)
          receive-buffer-size (* 1024 5000)
-         receive-timeout 100
-         on-start (fn [_])
-         on-eval (fn [_])}}]
+         receive-timeout 100}
+    :as args}]
   (let [^UdpClient socket (available-socket port)
         sb (StringBuilder.)]
     (set! (.. socket Client SendBufferSize) (int send-buffer-size))
     (set! (.. socket Client ReceiveBufferSize) (int receive-buffer-size))
     (set! (.. socket Client ReceiveTimeout) (int receive-timeout))
-    (on-start (.. socket Client LocalEndPoint))
+    (Nostrand.Terminal/Message "REPL" (.. socket Client LocalEndPoint) ConsoleColor/Blue)
+    (.Start (Thread. (gen-delegate ThreadStart [] (cli-repl args))))
     (binding [*ns* (find-ns 'user)
               *out* (StringWriter. sb)
               *warn-on-reflection* *warn-on-reflection*
@@ -59,12 +109,12 @@
                           out-str (str sb)
                           response-bytes (.GetBytes Encoding/UTF8 (str in-code out-str result "\n" (prompt)))]
                       (.Send socket response-bytes (.Length response-bytes) sender)
-                      (on-eval {:code in-code :out out-str :result result})
+                      (echo line-editor {:code in-code :out out-str :result result})
                       (.Clear sb))
                     (catch Exception e
                       (let [ex-bytes (.GetBytes Encoding/UTF8 (str in-code e "\n" (prompt)))]
                         (.Send socket ex-bytes (.Length ex-bytes) sender)
-                        (on-eval {:code in-code :exception e})
+                        (echo line-editor {:code in-code :exception e})
                         (.Clear sb)))))))
             (catch SocketException e))
           (recur @socket-repl-running))))))

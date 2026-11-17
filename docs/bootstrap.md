@@ -45,13 +45,13 @@ Three directories hold committed `.clj.dll`, and two of them hold a compiler.
 
 | Directory | Holds | Loaded by |
 |---|---|---|
-| `nostrand/references/` | 84 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), the stdlib (37 `clojure.*`), and nostrand's own namespaces (11 `nostrand.*`) | `nos`, at every startup |
+| `nostrand/references/` | 84 `.clj.dll`: the compiler (26 `magic.*` plus `mage.core`), its analyzer dependency (9 `clojure.tools.analyzer.*`), the stdlib (37 `clojure.*`), and nostrand's own namespaces (7 `nostrand.*` and 4 `magic.deps.*`) | `nos`, at every startup |
 | `magic-unity/Runtime/magic/` | the same 37 stdlib `.clj.dll`, plus `Clojure.dll` and `Magic.Runtime.dll` | Unity, at play time and in players |
-| `magic-unity/Editor/Compiler/` | the compiler and its analyzer dependency (36), and 9 of the 11 `nostrand.*`, all but `nostrand.cli` and `nostrand.main` | a MAGIC Editor only, never a player |
+| `magic-unity/Editor/Compiler/` | the compiler and its analyzer dependency (36), and the 4 `magic.deps.*` | a MAGIC Editor only, never a player |
 
 A fourth copy exists and is not committed: `nostrand/bin/Release/net471/`. `NostrandMain.csproj` lists `references/*.dll`, so building the host copies all 84 there, next to `NostrandMain.exe`. That is the set a running `nos` actually loads, and `references/` is the source of truth that feeds it.
 
-`Nostrand.Runtime.Boot` loads them at startup, every `*.clj.dll` beside `Clojure.dll`, and `RT.UseMagicCompiler` sets `Compiler.Backend` to `magic.api/backend` ([Nostrand](./architecture.md#nostrand)).
+`nos` loads them at startup (`nostrand/Program.cs`), every `*.clj.dll` beside `Clojure.dll`, and `RT.UseMagicCompiler` sets `Compiler.Backend` to `magic.api/backend` ([Nostrand](./architecture.md#nostrand)).
 
 These 84 binaries are versioned like source, because for this compiler they are source: they are the only form of MAGIC that another MAGIC can be built from.
 
@@ -103,7 +103,7 @@ Six of the nine in that fourth row are not libraries of their own, whatever thei
 
 `clojure.core` goes last on purpose. Compiling it re-executes its top-level forms in the running image, which redefines `clojure.core/*load-paths*` and breaks `find-file` for everything after it.
 
-The bootstrap is not a cold boot. `Nostrand.Runtime.Boot` has already loaded all 84 DLLs and initialised `clojure.core` before `build.clj` starts, so nothing has to be built before its dependencies. What the order buys instead is that each namespace is compiled against dependencies the same run just recompiled, rather than a mix of fresh and committed ones, and that nothing recompiled early breaks the process doing the compiling. `clojure.core` last is the sharpest case of the second.
+The bootstrap is not a cold boot. `nos` has already loaded all 84 DLLs and initialised `clojure.core` before `build.clj` starts, so nothing has to be built before its dependencies. What the order buys instead is that each namespace is compiled against dependencies the same run just recompiled, rather than a mix of fresh and committed ones, and that nothing recompiled early breaks the process doing the compiling. `clojure.core` last is the sharpest case of the second.
 
 ## Which task to run
 
@@ -123,7 +123,7 @@ Use `bb build` after a fresh clone, when there is no host to run yet. Use `bb bo
 
 `bb refresh-stdlib` owns 28, every namespace under `magic-compiler/src/stdlib/**/*.clj` outside the `clojure.core` family, and is what to run after editing one. It recompiles them and copies each into `references/`, the host's `bin/Release/net471/`, and `magic/` in one go. When a namespace fails to compile it deploys nothing and exits non-zero, so a partial refresh cannot pass for a complete one.
 
-`bb refresh-nostrand` owns the last 11, under `nostrand-lib/nostrand/**/*.clj` plus `nostrand/nostrand/cli.clj` and `main.clj`, and behaves the same. Prefer `bb build-runtime`, which rebuilds the host first.
+`bb refresh-nostrand` owns the last 11, under `nostrand/nostrand/**/*.clj` and `magic-deps/magic/deps/*.clj`, and behaves the same. Prefer `bb build-runtime`, which rebuilds the host first.
 
 `bb check-drift` therefore runs `refresh-stdlib` and `refresh-nostrand` itself, and wants a fresh `bb build` in front of it. Between them, that is the only way to cover all 84.
 
