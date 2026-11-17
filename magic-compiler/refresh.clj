@@ -175,8 +175,7 @@
 
 (def ^:private nostrand-namespaces
   ;; compile a namespace only after the namespaces it requires
-  '[magic.deps.shell
-    nostrand.deps.nuget
+  '[nostrand.deps.nuget
     magic.deps.git
     magic.deps.submodules
     magic.deps.basis

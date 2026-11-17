@@ -1,7 +1,11 @@
 (ns magic.deps.git
   (:import [System.IO Directory])
   (:require [clojure.string :as str]
-            [magic.deps.shell :refer [sh require-command]]))
+            [clojure.clr.shell :refer [sh]]))
+
+(defn- require-command [cmd]
+  (when-not (zero? (-> (sh "which" cmd) :exit))
+    (throw (Exception. (str cmd " command not found")))))
 
 (defn- url->rel
   "Cache-relative path for a git url: drops the scheme, the user@, and

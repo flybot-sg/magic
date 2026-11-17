@@ -7,9 +7,6 @@ namespace Nostrand
 
     public class Nostrand
     {
-        // [DllImport("__Internal", EntryPoint = "mono_get_runtime_build_info")]
-        // public extern static string GetRuntimeVersion();
-
         static string GetVersionString(Assembly asm)
         {
             return ((AssemblyInformationalVersionAttribute)(asm.GetCustomAttributes(typeof(AssemblyInformationalVersionAttribute), false)[0])).InformationalVersion;
@@ -17,10 +14,7 @@ namespace Nostrand
 
         public static string Version()
         {
-            var asm = typeof(Nostrand).Assembly;
-            if (Assembly.Load("System").GetName().Version.Major == 2)
-                return asm.GetName().Version.ToString();
-            return GetVersionString(asm);
+            return GetVersionString(typeof(Nostrand).Assembly);
         }
 
         public static string MagicRuntimeVersion()
