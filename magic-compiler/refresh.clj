@@ -89,6 +89,12 @@
               (print (str "compiling " ns " ... "))
               (flush)
               (try
+                ;; the ns form re-runs here; let it retarget an alias or a non-core refer
+                (when-let [n (find-ns ns)]
+                  (doseq [a (keys (ns-aliases n))] (ns-unalias n a))
+                  (doseq [[sym ^clojure.lang.Var v] (ns-refers n)
+                          :when (not= (the-ns 'clojure.core) (.Namespace v))]
+                    (ns-unmap n sym)))
                 (api/compile-namespace ns {:write-files true :suppress-print-forms true})
                 (println "ok")
                 failed
