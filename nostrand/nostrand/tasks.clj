@@ -18,9 +18,9 @@
             [clojure.test :as ct]))
 
 (defn print-basis
-  "Resolve ./deps.edn with the given alias keywords and pretty-print the
-  basis (paths + resolved libs) without compiling. Clones git deps into
-  the cache as a side effect.
+  "Resolve the project deps file with the given alias keywords and
+  pretty-print the basis without compiling. Clones git deps into the cache
+  as a side effect.
   Usage: nos print-basis            ; base :deps only
          nos print-basis :clr :test ; with aliases"
   [& aliases]

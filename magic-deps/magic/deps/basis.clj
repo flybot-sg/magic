@@ -202,34 +202,36 @@
       (throw (ex-info (str "Malformed " deps-file ": " (.Message e))
                       {:file deps-file} e)))))
 
+(defn- submodule-dirs
+  "Source dirs of the submodules :nos/submodule-paths selects, absolute under
+  base."
+  [base deps-edn]
+  (let [sub     (:nos/submodule-paths deps-edn)
+        modules (Path/Combine base ".gitmodules")]
+    (when (and sub (File/Exists modules))
+      (map #(Path/Combine base %)
+           (submodules/submodule-paths (slurp modules) (when (string? sub) sub))))))
+
 (defn create-basis
   "Read deps-file, fold in the selected aliases, resolve transitively,
-  and return {:paths :libs :classpath-paths}."
+  and return {:paths :libs :classpath-paths}. :classpath-paths ends with
+  the source dirs of the submodules :nos/submodule-paths selects."
   [deps-file aliases]
-  (let [base  (Path/GetDirectoryName (Path/GetFullPath deps-file))
-        {:keys [paths deps overrides]} (merge-aliases (read-project-deps deps-file) aliases)
-        ;; :local/root resolves against base too, in resolve-deps.
-        paths (mapv #(resolve-root base %) paths)
-        libs  (resolve-deps (cache-root) base deps overrides)]
+  (let [base     (Path/GetDirectoryName (Path/GetFullPath deps-file))
+        deps-edn (read-project-deps deps-file)
+        {:keys [paths deps overrides]} (merge-aliases deps-edn aliases)
+        paths    (mapv #(resolve-root base %) paths)
+        libs     (resolve-deps (cache-root) base deps overrides)]
     {:paths paths
      :libs  libs
-     :classpath-paths (concat paths (mapcat :paths (vals libs)))}))
+     :classpath-paths (concat paths
+                              (mapcat :paths (vals libs))
+                              (submodule-dirs base deps-edn))}))
 
 (defn project-basis
-  "The basis of the project in the absolute directory root, or nil when root
-  has no deps file: its deps file resolved under :nos/aliases, with the source
-  dirs of the submodules :nos/submodule-paths selects appended to
-  :classpath-paths."
+  "The basis of root's deps file resolved under its :nos/aliases, or nil
+  when the absolute directory root has no deps file."
   [root]
   (let [deps-file (project-deps-file root)]
     (when (File/Exists deps-file)
-      (let [deps-edn (read-project-deps deps-file)
-            ;; A path prefix to restrict the submodules to, or true for all.
-            sub      (:nos/submodule-paths deps-edn)
-            modules  (Path/Combine root ".gitmodules")]
-        (cond-> (create-basis deps-file (:nos/aliases deps-edn []))
-          (and sub (File/Exists modules))
-          (update :classpath-paths concat
-                  (map #(Path/Combine root %)
-                       (submodules/submodule-paths (slurp modules)
-                                                   (when (string? sub) sub)))))))))
+      (create-basis deps-file (:nos/aliases (read-project-deps deps-file) [])))))
