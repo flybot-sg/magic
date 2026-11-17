@@ -210,7 +210,7 @@
         modules (Path/Combine base ".gitmodules")]
     (when (and sub (File/Exists modules))
       (map #(Path/Combine base %)
-           (submodules/submodule-paths (slurp modules) (when (string? sub) sub))))))
+           (submodules/submodule-paths base (slurp modules) (when (string? sub) sub))))))
 
 (defn create-basis
   "Read deps-file, fold in the selected aliases, resolve transitively,
