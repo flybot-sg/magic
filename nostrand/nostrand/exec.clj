@@ -2,21 +2,16 @@
  ^{:doc "Runs a task named on the command line, as clojure.run.exec does for
   `clojure -X`."}
  nostrand.exec
-  (:require clojure.main
-            [clojure.edn :as edn]
-            [clojure.string :as string])
+  (:require [clojure.edn :as edn]
+            [clojure.string :as string]
+            nostrand.cli
+            nostrand.tasks)
   (:import [System.IO StringReader]
            [clojure.lang PushbackTextReader]))
 
-(defonce ^{:doc "Namespaces searched in order for an unqualified task name."}
-  task-namespaces
-  (atom '[nostrand.tasks]))
-
-(defn register-tasks
-  "Require ns-sym and append it to task-namespaces."
-  [ns-sym]
-  (require ns-sym)
-  (swap! task-namespaces #(if (some #{ns-sym} %) % (conj % ns-sym))))
+(def ^:private task-namespaces
+  "Namespaces searched in order for an unqualified task name, built-ins first."
+  '[nostrand.tasks nostrand.cli])
 
 (defn- read-forms
   "Every EDN form in s, or nil when s does not read."
@@ -45,9 +40,9 @@
     (or (ns-resolve (doto (symbol ns-name) require) (symbol (name task)))
         (throw (ex-info (str "Namespace " ns-name " loaded but function not found: " (name task))
                         {:task task})))
-    (or (some #(get (ns-interns %) task) @task-namespaces)
+    (or (some #(get (ns-interns %) task) task-namespaces)
         (throw (ex-info (str "No task named " task " in "
-                             (string/join ", " @task-namespaces))
+                             (string/join ", " task-namespaces))
                         {:task task})))))
 
 (defn -main
@@ -55,12 +50,3 @@
   [& args]
   (let [[task & task-args] (read-args args)]
     (apply (resolve-task task) task-args)))
-
-(defn run
-  "Run a task as `nos` does, in `user`, and return its value or throw its
-  error."
-  [args]
-  (clojure.main/with-bindings
-    (in-ns 'user)
-    (set! *command-line-args* (seq args))
-    (apply -main args)))

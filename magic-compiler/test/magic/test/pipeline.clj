@@ -4,7 +4,8 @@
             [pipeline :as pipeline]
             [magic.analyzer :as ana]
             [magic.core :as magic]
-            [mage.core :as il]))
+            [mage.core :as il]
+            [magic.test.common :refer [temp-dir]]))
 
 (defn- opcodes
   "Compile `form`, flatten the resulting IL, and return each opcode
@@ -116,16 +117,6 @@
       (is (= :if (:op ast)))
       (is (not (has-op? ops #"^br(true|false)"))
           "constant-true test means no conditional branch is emitted"))))
-
-(defn- temp-dir
-  "Per-test temp dir so the IO test doesn't depend on CWD or race with
-   concurrent `bb pipeline` invocations writing to magic-compiler/target/."
-  []
-  (let [d (System.IO.Path/Combine
-           (System.IO.Path/GetTempPath)
-           (str "pipeline-test-" (System.Guid/NewGuid)))]
-    (System.IO.Directory/CreateDirectory d)
-    d))
 
 (defn- file-in [dir name]
   (System.IO.Path/Combine dir name))

@@ -10,8 +10,8 @@
    [System.Reflection AssemblyInformationalVersionAttribute])
   (:require [nostrand.core :as nos]
             [nostrand.deps.nuget :as nuget]
-            [nostrand.deps.basis :as basis]
-            [nostrand.deps.submodules :as submodules]
+            [magic.deps.basis :as basis]
+            [magic.deps.submodules :as submodules]
             [magic.flags :as mflags]
             [clojure.edn :as edn]
             [clojure.spec.alpha :as s]

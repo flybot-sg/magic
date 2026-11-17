@@ -12,20 +12,24 @@ namespace Nostrand
         {
             new Mono.Terminal.LineEditor("#force-mono.terminal-assembly-load#");
 
-            Runtime.Boot(Path.GetDirectoryName(Assembly.Load("Clojure").Location));
-            Runtime.LoadNostrand();
+            var runtimeDirectory = Path.GetDirectoryName(Assembly.Load("Clojure").Location);
+            foreach (var cljDll in Directory.EnumerateFiles(runtimeDirectory, "*.clj.dll"))
+                Assembly.LoadFile(cljDll);
+            RT.Initialize();
+            RT.UseMagicCompiler();
 
-            Runtime.RegisterTasks("nostrand.cli");
+            Require("nostrand.core");
+            Require("nostrand.exec");
 
             if (args.Length > 0)
             {
                 AppDomain.CurrentDomain.AssemblyResolve += AssemblyResolver.Resolve;
 
-                Runtime.EstablishProject(Directory.GetCurrentDirectory());
+                RT.var("nostrand.core", "establish-project").invoke(Directory.GetCurrentDirectory());
 
                 RT.Init();
 
-                Runtime.Require("nostrand.main");
+                Require("nostrand.main");
                 RT.var("nostrand.main", "main").applyTo(RT.seq(args));
             }
 
@@ -34,6 +38,11 @@ namespace Nostrand
                 Terminal.Message("Nostrand", Nostrand.Version(), ConsoleColor.White);
                 Terminal.Message("Clojure", RT.var("clojure.core", "clojure-version").invoke(), ConsoleColor.White);
             }
+        }
+
+        static void Require(string ns)
+        {
+            RT.var("clojure.core", "require").invoke(Symbol.intern(ns));
         }
     }
 }

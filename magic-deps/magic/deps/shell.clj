@@ -1,4 +1,4 @@
-(ns nostrand.deps.shell
+(ns magic.deps.shell
   (:import [System.IO Directory Path])
   (:require [clojure.clr.shell :as shell]))
 

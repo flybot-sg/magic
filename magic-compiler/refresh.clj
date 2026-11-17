@@ -5,9 +5,9 @@
 
    refresh/stdlib    clojure.*.clj.dll from magic-compiler/src/stdlib/**/*.clj,
                      also deployed to magic-unity/Runtime/magic/
-   refresh/nostrand  nostrand.*.clj.dll from nostrand-lib/nostrand/**/*.clj and
-                     nostrand/nostrand/{cli,main}.clj, all but nostrand.cli and
-                     nostrand.main also deployed to magic-unity/Editor/Compiler/
+   refresh/nostrand  nostrand.*.clj.dll from nostrand/nostrand/**/*.clj and
+                     magic.deps.*.clj.dll from magic-deps/magic/deps/*.clj, the
+                     magic.deps ones also deployed to magic-unity/Editor/Compiler/
 
    Why this exists: clojure.core/load-one picks between .clj source and .clj.dll
    by mtime comparison. git checkout sets arbitrary mtimes. If the DLL on disk
@@ -25,8 +25,8 @@
 (def ^:private unity "../magic-unity/Runtime/magic")
 (def ^:private unity-compiler "../magic-unity/Editor/Compiler")
 (def ^:private stdlib-root "src/stdlib")
-(def ^:private nostrand-lib-root "../nostrand-lib")
-(def ^:private nostrand-roots [nostrand-lib-root "../nostrand"])
+(def ^:private magic-deps-root "../magic-deps")
+(def ^:private nostrand-roots [magic-deps-root "../nostrand"])
 
 (def ^:private bootstrap-namespaces
   "Namespaces this task must not recompile: clojure.core plus the eight units
@@ -105,9 +105,9 @@
             namespaces)))
 
 (defn- compile-and-deploy!
-  "Deploys only if every namespace compiles. dests maps each destination
-   directory to a predicate on the DLL file name."
-  [task namespaces tmp-dir glob dests]
+  "Deploys only if every namespace compiles. Deploys the DLLs matching globs;
+   dests maps each destination directory to a predicate on the file name."
+  [task namespaces tmp-dir globs dests]
   (when (Directory/Exists tmp-dir) (Directory/Delete tmp-dir true))
   (Directory/CreateDirectory tmp-dir)
 
@@ -120,7 +120,8 @@
     (throw (ex-info (str "refresh/" task " did not compile every namespace")
                     {:failed (mapv first failures)})))
 
-  (let [produced (->> (Directory/EnumerateFiles tmp-dir glob)
+  (let [produced (->> globs
+                      (mapcat #(Directory/EnumerateFiles tmp-dir %))
                       (map #(Path/GetFileName ^String %))
                       sort
                       vec)]
@@ -169,16 +170,16 @@
     (compile-and-deploy! "stdlib"
                          (concat top-level-nss subfile-nss)
                          (Path/GetFullPath "target/refresh-stdlib")
-                         "clojure.*.clj.dll"
+                         ["clojure.*.clj.dll"]
                          {refs any? bin any? unity any?})))
 
 (def ^:private nostrand-namespaces
   ;; compile a namespace only after the namespaces it requires
-  '[nostrand.deps.shell
+  '[magic.deps.shell
     nostrand.deps.nuget
-    nostrand.deps.git
-    nostrand.deps.submodules
-    nostrand.deps.basis
+    magic.deps.git
+    magic.deps.submodules
+    magic.deps.basis
     nostrand.core
     nostrand.repl
     nostrand.cli
@@ -186,12 +187,11 @@
     nostrand.exec
     nostrand.main])
 
-(defn- nostrand-lib-dll?
-  "Whether dll's source is under nostrand-lib. nostrand/'s cli and main stay out
-   of the Editor: cli needs Mono.Terminal, which the package does not ship, and
-   main exits the process."
+(defn- magic-deps-dll?
+  "Whether dll's source is under magic-deps. nostrand/'s namespaces are the
+   nos command line's and stay out of the Editor."
   [dll]
-  (some? (ns-symbol->source-file nostrand-lib-root (dll->ns-symbol dll))))
+  (some? (ns-symbol->source-file magic-deps-root (dll->ns-symbol dll))))
 
 (defn nostrand [& _args]
   (println (str "compiling " (count nostrand-namespaces) " nostrand namespaces"))
@@ -200,7 +200,7 @@
     (compile-and-deploy! "nostrand"
                          nostrand-namespaces
                          (Path/GetFullPath "target/refresh-nostrand")
-                         "nostrand.*.clj.dll"
+                         ["nostrand.*.clj.dll" "magic.deps.*.clj.dll"]
                          {refs           any?
                           bin            any?
-                          unity-compiler nostrand-lib-dll?})))
+                          unity-compiler magic-deps-dll?})))

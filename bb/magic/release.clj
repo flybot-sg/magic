@@ -16,8 +16,7 @@
   (doseq [proj ["clojure-runtime/Clojure.csproj"
                 "magic-runtime/Magic.Runtime/Magic.Runtime.csproj"
                 "magic-runtime/Magic.Runtime.Callsites/Magic.Runtime.Callsites.csproj"
-                "nostrand/NostrandMain.csproj"
-                "nostrand-lib/Nostrand.csproj"]]
+                "nostrand/NostrandMain.csproj"]]
     (println)
     (println (str "=== " proj " (NuGet) ==="))
     (shell {:continue true} "dotnet" "list" proj "package" "--outdated"))

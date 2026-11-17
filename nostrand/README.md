@@ -1,5 +1,5 @@
 # Nostrand
-Runtime environment and REPL for Clojure on the CLR, shipped in [flybot-sg/magic](https://github.com/flybot-sg/magic) as the `nos` CLI. The engine it runs on, [`nostrand-lib`](../nostrand-lib), can be booted by any host.
+Runtime environment and REPL for Clojure on the CLR, shipped in [flybot-sg/magic](https://github.com/flybot-sg/magic) as the `nos` CLI. The Clojure it shares with other hosts is in [`magic-deps`](../magic-deps).
 
 This page covers installing `nos` and how it resolves dependencies. How a command runs, the built-in tasks, `magic.edn` and task files are in [the `nos` CLI](../docs/nos-cli.md).
 

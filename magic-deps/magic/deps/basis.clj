@@ -1,8 +1,9 @@
-(ns nostrand.deps.basis
+(ns magic.deps.basis
   (:import [System.IO File Path])
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
-            [nostrand.deps.git :as git]))
+            [magic.deps.git :as git]
+            [magic.deps.submodules :as submodules]))
 
 (def ^:private default-paths ["src"])
 
@@ -213,3 +214,22 @@
     {:paths paths
      :libs  libs
      :classpath-paths (concat paths (mapcat :paths (vals libs)))}))
+
+(defn project-basis
+  "The basis of the project in the absolute directory root, or nil when root
+  has no deps file: its deps file resolved under :nos/aliases, with the source
+  dirs of the submodules :nos/submodule-paths selects appended to
+  :classpath-paths."
+  [root]
+  (let [deps-file (project-deps-file root)]
+    (when (File/Exists deps-file)
+      (let [deps-edn (read-project-deps deps-file)
+            ;; A path prefix to restrict the submodules to, or true for all.
+            sub      (:nos/submodule-paths deps-edn)
+            modules  (Path/Combine root ".gitmodules")]
+        (cond-> (create-basis deps-file (:nos/aliases deps-edn []))
+          (and sub (File/Exists modules))
+          (update :classpath-paths concat
+                  (map #(Path/Combine root %)
+                       (submodules/submodule-paths (slurp modules)
+                                                   (when (string? sub) sub)))))))))

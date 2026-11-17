@@ -2,8 +2,7 @@
   (:require [clojure.test :refer [deftest testing]]
             [clojure.main :as main]
             [clojure.repl :as repl]
-            [clojure.core.server :as server]
-            [clojure.clr.shell :as shell])
+            [clojure.core.server :as server])
   (:use magic.test.common)
   (:import [clojure.lang Compiler+CompilerException]))
 
@@ -214,20 +213,6 @@
      (.EndsWith (report "stderr")
                 (str "Execution error (ArgumentException) at (REPL:1).\nxyz\n"
                      Environment/NewLine)))))
-
-(defn- temp-dir []
-  (let [dir (System.IO.Path/Combine (System.IO.Path/GetTempPath)
-                                    (str "magic-test-main-" (gensym)))]
-    (System.IO.Directory/CreateDirectory dir)
-    dir))
-
-(defn- nos
-  "Run the nos running this suite with args in dir: {:exit :out :err}."
-  [dir & args]
-  (apply shell/sh
-         (.. System.Diagnostics.Process GetCurrentProcess MainModule FileName)
-         (.Location (System.Reflection.Assembly/GetEntryAssembly))
-         (concat args [:dir dir])))
 
 (deftest test-main-reports-uncaught-exception
   (let [dir (temp-dir)]

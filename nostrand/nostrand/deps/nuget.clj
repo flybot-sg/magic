@@ -1,5 +1,5 @@
 (ns nostrand.deps.nuget
-  (:require [nostrand.deps.shell :refer [sh]]))
+  (:require [magic.deps.shell :refer [sh]]))
 
 (defn pack-and-push-nuget
   "Packs the dlls and push it to the online repo.
