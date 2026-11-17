@@ -1,5 +1,5 @@
 (ns nostrand.deps.nuget
-  (:require [magic.deps.shell :refer [sh]]))
+  (:require [clojure.clr.shell :refer [sh]]))
 
 (defn pack-and-push-nuget
   "Packs the dlls and push it to the online repo.

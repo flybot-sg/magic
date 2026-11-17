@@ -25,7 +25,7 @@
 - `*load-paths*` holds each root once, and `set-load-path` drops roots it no longer names - [#182](https://github.com/flybot-sg/magic/issues/182).
 - **Breaking:** Load-path and assembly roots pin to the directory they were added from, and `establish-project` takes the project root explicitly instead of reading the process directory; it owns both searches, so a second call switches projects rather than searching the first one first - [#187](https://github.com/flybot-sg/magic/issues/187).
 - **Breaking:** `nos` runs its command line through `clojure.main`, as `clj -X` does: a failed task exits 1, tasks run in `user`, a bare task name no longer falls back to `clojure.core` (`nos println hi` exits 1), and `nos script.clj` no longer calls `-main` (`nos -m my.ns` does) - [#192](https://github.com/flybot-sg/magic/issues/192).
-- **Breaking:** `nostrand.deps.basis`, `git`, `shell` and `submodules` are renamed `magic.deps.*` - [#218](https://github.com/flybot-sg/magic/issues/218).
+- **Breaking:** `nostrand.deps.basis`, `git` and `submodules` are renamed `magic.deps.*`, and `nostrand.deps.shell` is deleted - [#218](https://github.com/flybot-sg/magic/issues/218), [#221](https://github.com/flybot-sg/magic/issues/221).
 - **Breaking:** `nos cli-repl` is removed; `nos repl` runs the same REPL after printing the version - [#218](https://github.com/flybot-sg/magic/issues/218).
 - A task in a dashed namespace runs, so `nos dotnet-tasks/build` finds `dotnet_tasks.clj` - [nasser/nostrand#33](https://github.com/nasser/nostrand/issues/33).
 

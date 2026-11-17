@@ -5,9 +5,7 @@
   (:refer-clojure :exclude [test])
   (:import
    [System.IO Directory File Path]
-   [System.Security.Cryptography MD5]
-   [System.Threading Thread ThreadStart]
-   [System.Reflection AssemblyInformationalVersionAttribute])
+   [System.Security.Cryptography MD5])
   (:require [nostrand.core :as nos]
             [nostrand.deps.nuget :as nuget]
             [magic.deps.basis :as basis]

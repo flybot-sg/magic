@@ -175,7 +175,7 @@ The callsite templates are the easy case: five Mustache templates, one per calls
 
 `package.json` is checked because the monorepo keeps one version, in `version.edn`, which `Directory.Build.props` feeds to every C# project automatically. The Unity package's `package.json` is plain JSON that MSBuild cannot reach, so a task copies the version across and the check catches a `version.edn` bump that forgot it.
 
-`refresh-stdlib` rewrites 28 of the 84 committed DLLs and `refresh-nostrand` another 11; the rest belong to `bb bootstrap` ([which task owns what](./bootstrap.md#which-task-to-run)). That is why the check wants a fresh `bb build` in front of it: CI runs that sequence, and so does the pre-PR checklist in [CONTRIBUTING.md](../CONTRIBUTING.md).
+`refresh-stdlib` rewrites 28 of the 83 committed DLLs and `refresh-nostrand` another 10; the rest belong to `bb bootstrap` ([which task owns what](./bootstrap.md#which-task-to-run)). That is why the check wants a fresh `bb build` in front of it: CI runs that sequence, and so does the pre-PR checklist in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 A refresh that fails to compile anything deploys nothing and exits non-zero, so a half-written set of committed DLLs is not a state you can reach. And a red run already holds its remedy: the regeneration happens before the diff, so the refreshed files are sitting in the working tree, ready for the paired refresh commit ([CONTRIBUTING.md](../CONTRIBUTING.md)).
 
