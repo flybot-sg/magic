@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using clojure.lang;
+using Debug = UnityEngine.Debug;
 
 namespace Magic.Unity
 {
@@ -7,6 +10,14 @@ namespace Magic.Unity
         static Clojure()
         {
 #if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR // ClojureCLR Editor
+            try
+            {
+                SourceRootInstaller.Install(); // before RT.Init, which loads user.clj
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
             RT.Init();
 #else
 #if UNITY_EDITOR // MAGIC Editor
@@ -33,6 +44,23 @@ namespace Magic.Unity
         /// </summary>
         public static void Boot()
         {
+        }
+
+        /// <summary>
+        /// The absolute source roots from reload.edn that the runtime loads
+        /// namespaces from, e.g. to watch with ClojureReloader. Empty in a MAGIC
+        /// Editor and in a player.
+        /// </summary>
+        public static IReadOnlyList<string> SourceRoots
+        {
+            get
+            {
+#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR
+                return SourceRootInstaller.Installed;
+#else
+                return Array.Empty<string>();
+#endif
+            }
         }
 
         public static Var Var(string ns, string name)
