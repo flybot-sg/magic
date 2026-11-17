@@ -61,6 +61,9 @@
  magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "696020a2e8ae86c432ea83d2b783bc1a51fcc999972840889d76564b9a60e385"}
  magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "ec48bf0a2625ba7119065f7faeef5a4e3011350ddaf3156f288645c3e501ba62"}
  magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "3752d85fe5cb0288d7f37309325733492d6546699f228550b2e498d4df10028b"}
+ magic.deps.basis {:source "magic-deps/magic/deps/basis.clj", :sha256 "68d8922684db9d1a4f8d44fb2b385b1e7f0601fd27f415ae0cdc3c64afb0488f"}
+ magic.deps.git {:source "magic-deps/magic/deps/git.clj", :sha256 "0b10fe9ed89463a1917aaed6586d2bf4995dae8f9ada2fd6666e0639f891d733"}
+ magic.deps.submodules {:source "magic-deps/magic/deps/submodules.clj", :sha256 "499a78a4e4a827f0656a30b3aa248888a7359ba32fe7fc3152ddf3f33271a0bb"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
  magic.interop {:source "magic-compiler/src/magic/interop.clj", :sha256 "77d63812bfffc65e41baa5c161ddf6a41b1145a6a11becc8104b6b8897ccbbe2"}
@@ -68,14 +71,10 @@
  magic.spells.lift_keywords {:source "magic-compiler/src/magic/spells/lift_keywords.clj", :sha256 "907dc9a166b32a95d237440b5875a186de05e7786390a8fba095382611eaf75e"}
  magic.spells.lift_vars {:source "magic-compiler/src/magic/spells/lift_vars.clj", :sha256 "1dafcdadb721c083f867e6935b9cb9ea3bdc2e2e7a8f07cd3c0daae9f4293ead"}
  magic.util {:source "magic-compiler/src/magic/util.clj", :sha256 "e5f29bfd6f20a734d43fc3f7ee6f9c5523a9d54ac9ff9f0d3c97a68c738fb05b"}
- nostrand.cli {:source "nostrand/nostrand/cli.clj", :sha256 "44671ec6ae273e1454458a6806b08d879f64ccfbb31e50063983193bc642f0f6"}
- nostrand.core {:source "nostrand-lib/nostrand/core.clj", :sha256 "457214655318fb5f8eede402ffe5828ae4fa8da0214b5fedb2296d271c96b971"}
- nostrand.deps.basis {:source "nostrand-lib/nostrand/deps/basis.clj", :sha256 "5e7181e2ddae6edde623e51aa3fa68d60e17dae7285929448b06a02c7eedccd8"}
- nostrand.deps.git {:source "nostrand-lib/nostrand/deps/git.clj", :sha256 "f10234b211298a2c5b79b9e067ecb54227b3a1df11938e7e264a979d5326f5e7"}
- nostrand.deps.nuget {:source "nostrand-lib/nostrand/deps/nuget.clj", :sha256 "589591b8b9fde3af2a7d9e6f0f5e3195a6249833d4f992f80dba90f4507959a0"}
- nostrand.deps.shell {:source "nostrand-lib/nostrand/deps/shell.clj", :sha256 "623bd8876470a09fcbe652d7de51152e6ecf3b89df38b03bbd7c867137212271"}
- nostrand.deps.submodules {:source "nostrand-lib/nostrand/deps/submodules.clj", :sha256 "adf03193ee08b2a44854f19e049fa0892f1cad1fabfb419ad88330c8ce6b7684"}
- nostrand.exec {:source "nostrand-lib/nostrand/exec.clj", :sha256 "3eebcd029c283c6f35b04eec952a02920a03b22aac186a351fc49b2f39dad914"}
+ nostrand.cli {:source "nostrand/nostrand/cli.clj", :sha256 "faf8b7300d0a2653d80aa6069e52c4283f31f788062a9af1ee2dbfc22f730265"}
+ nostrand.core {:source "nostrand/nostrand/core.clj", :sha256 "351f36aaaa102bd1b956c682bc2324d095f2ae594487f4e9df128a19e7792a01"}
+ nostrand.deps.nuget {:source "nostrand/nostrand/deps/nuget.clj", :sha256 "afe04eab156a0df89301d8b5862fffab3fa0e9860529def8e0add9019794ec10"}
+ nostrand.exec {:source "nostrand/nostrand/exec.clj", :sha256 "d002fef7d86e32f964a0311c5d501008aa93197de195a24addff407c4829948d"}
  nostrand.main {:source "nostrand/nostrand/main.clj", :sha256 "f03dd52efdf516a0a87041430174873abb306e2cfef9ab78239aecb565749979"}
- nostrand.repl {:source "nostrand-lib/nostrand/repl.clj", :sha256 "af0a912baf8438f4a1b49a8382781c33a4f04cbc0e982b43427285a50f07db35"}
- nostrand.tasks {:source "nostrand-lib/nostrand/tasks.clj", :sha256 "1082b6001e13caf320af03ab5f7d366761a072b2e8c6990b718700bc0b23ef6c"}}
+ nostrand.repl {:source "nostrand/nostrand/repl.clj", :sha256 "ee88b92b8a4f5cfbdc7b422503f9c2e75e1447fb2a1ed7e840d78ed52b2f81f6"}
+ nostrand.tasks {:source "nostrand/nostrand/tasks.clj", :sha256 "99f7bf1bac5c388f1105b2790bb34cecaf3bc995010f7ced7fc816583a9753bc"}}
