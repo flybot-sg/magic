@@ -50,7 +50,8 @@
   ([root-prefix]
    (if (File/Exists ".gitmodules")
      (pprint/pprint
-      {:paths (submodules/submodule-paths (slurp ".gitmodules")
+      {:paths (submodules/submodule-paths (Directory/GetCurrentDirectory)
+                                          (slurp ".gitmodules")
                                           (when root-prefix (str root-prefix)))})
      (println "No .gitmodules in" (Directory/GetCurrentDirectory)))))
 
