@@ -63,6 +63,7 @@
  magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "3752d85fe5cb0288d7f37309325733492d6546699f228550b2e498d4df10028b"}
  magic.deps.basis {:source "magic-deps/magic/deps/basis.clj", :sha256 "215fc06d8df0fd6234aaa4b9a07e8b29e900d6e9fb535b9f6cebef7c540099f9"}
  magic.deps.git {:source "magic-deps/magic/deps/git.clj", :sha256 "0b10fe9ed89463a1917aaed6586d2bf4995dae8f9ada2fd6666e0639f891d733"}
+ magic.deps.load_path {:source "magic-deps/magic/deps/load_path.clj", :sha256 "5eb47e3736ae8a996c64566c3c64f6dc56365b21bf7dd6e5b4f75eca6e41e8ad"}
  magic.deps.submodules {:source "magic-deps/magic/deps/submodules.clj", :sha256 "6107eebefe85fb1f3e8b9fded6614175998583a8c291cf0893b7d63b761a393b"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
@@ -72,7 +73,7 @@
  magic.spells.lift_vars {:source "magic-compiler/src/magic/spells/lift_vars.clj", :sha256 "1dafcdadb721c083f867e6935b9cb9ea3bdc2e2e7a8f07cd3c0daae9f4293ead"}
  magic.util {:source "magic-compiler/src/magic/util.clj", :sha256 "e5f29bfd6f20a734d43fc3f7ee6f9c5523a9d54ac9ff9f0d3c97a68c738fb05b"}
  nostrand.cli {:source "nostrand/nostrand/cli.clj", :sha256 "faf8b7300d0a2653d80aa6069e52c4283f31f788062a9af1ee2dbfc22f730265"}
- nostrand.core {:source "nostrand/nostrand/core.clj", :sha256 "351f36aaaa102bd1b956c682bc2324d095f2ae594487f4e9df128a19e7792a01"}
+ nostrand.core {:source "nostrand/nostrand/core.clj", :sha256 "e0336d3f4a78052d503bc148b2df3f25c81a50584c5b3d23aa42ea31589f3268"}
  nostrand.deps.nuget {:source "nostrand/nostrand/deps/nuget.clj", :sha256 "afe04eab156a0df89301d8b5862fffab3fa0e9860529def8e0add9019794ec10"}
  nostrand.exec {:source "nostrand/nostrand/exec.clj", :sha256 "d002fef7d86e32f964a0311c5d501008aa93197de195a24addff407c4829948d"}
  nostrand.main {:source "nostrand/nostrand/main.clj", :sha256 "f03dd52efdf516a0a87041430174873abb306e2cfef9ab78239aecb565749979"}
