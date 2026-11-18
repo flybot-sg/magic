@@ -33,6 +33,14 @@ namespace Magic.Unity
             RT.Initialize();
 #if UNITY_EDITOR // MAGIC Editor: Editor/Compiler ships magic.api
             RT.UseMagicCompiler();
+            try
+            {
+                DepsRootInstaller.Install(); // before RT.Init, which loads user.clj
+            }
+            catch (Exception ex)
+            {
+                Debug.LogException(ex);
+            }
             RT.Init();
 #endif
 #endif
@@ -47,9 +55,9 @@ namespace Magic.Unity
         }
 
         /// <summary>
-        /// The absolute source roots from reload.edn that the runtime loads
-        /// namespaces from, e.g. to watch with ClojureReloader. Empty in a MAGIC
-        /// Editor and in a player.
+        /// The absolute source roots the Editor loads namespaces from, e.g. to watch
+        /// with ClojureReloader: from reload.edn in a ClojureCLR Editor, from
+        /// the project's deps file in a MAGIC Editor. Empty in a player.
         /// </summary>
         public static IReadOnlyList<string> SourceRoots
         {
@@ -57,6 +65,8 @@ namespace Magic.Unity
             {
 #if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR
                 return SourceRootInstaller.Installed;
+#elif UNITY_EDITOR
+                return DepsRootInstaller.Installed;
 #else
                 return Array.Empty<string>();
 #endif
