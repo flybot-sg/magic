@@ -3,25 +3,15 @@
    :doc "Core nostrand API containing load path, assemblies, and dependency functions."}
  nostrand.core
   (:require [clojure.string :as string]
-            [magic.deps.basis :as basis])
+            [magic.deps.basis :as basis]
+            [magic.deps.load-path :as lp])
   (:import [System.IO Directory Path File]))
-
-(defn- absolute-path
-  "Resolve the absolute path against the current cwd, in case the cwd changes later."
-  [path]
-  (when (string/blank? (str path))
-    (throw (ex-info "Load path entry is blank" {:path path})))
-  (let [full (Path/GetFullPath (str path))]
-    (if (and (> (count full) 1)
-             (string/ends-with? full (str Path/DirectorySeparatorChar))) ; remove trailing separator
-      (subs full 0 (dec (count full)))
-      full)))
 
 (defn- path-list
   "Absolute entries of a PathSeparator-joined list. Blank entries are dropped
   rather than rejected: they come from a stray separator, not a named path."
   [s]
-  (into [] (comp (remove string/blank?) (map absolute-path))
+  (into [] (comp (remove string/blank?) (map lp/absolute-path))
         (string/split (or s "") (re-pattern (str Path/PathSeparator)))))
 
 ;; No cwd default: the cwd here is the host's; establish-project seeds the root.
@@ -75,23 +65,22 @@
      "CLOJURE_LOAD_PATH"
      (when (seq roots) (string/join Path/PathSeparator roots)))
     (alter-var-root #'*load-paths*
-                    (constantly
-                     (into roots (remove (set roots)) -base-load-paths)))))
+                    (constantly (lp/prepend-load-paths roots -base-load-paths)))))
 
 (defn set-load-path [val]
-  (reset! -load-path (mapv absolute-path val))
+  (reset! -load-path (mapv lp/absolute-path val))
   (update-load-path))
 
 (defn add-load-path [path]
-  (swap! -load-path conj (absolute-path path))
+  (swap! -load-path conj (lp/absolute-path path))
   (update-load-path))
 
 (defn add-assembly-path [path]
-  (swap! -assembly-path conj (absolute-path path)))
+  (swap! -assembly-path conj (lp/absolute-path path)))
 
 (defn set-assembly-path
   [val]
-  (reset! -assembly-path (mapv absolute-path val)))
+  (reset! -assembly-path (mapv lp/absolute-path val)))
 
 (defn load-path [& paths]
   (doseq [p paths]
@@ -155,7 +144,7 @@
   assembly search. Returns the basis, or nil when root has no deps file."
   ([root] (establish-project root nil))
   ([root extra-roots]
-   (let [root (absolute-path root)]
+   (let [root (lp/absolute-path root)]
      (when-not (Directory/Exists root)
        (throw (ex-info (str "Project root is not a directory: " root) {:root root})))
      (reset! -project-root root)
