@@ -22,7 +22,7 @@ Add to `Packages/manifest.json`, pinned to a tag from the [releases page](https:
 - `clojure.lang.Var Var(string ns, string name)` - look up a Clojure var. Dereference with `deref` or invoke with `invoke`.
 - `T Deref<T>(string ns, string name)` - deref the var once and cast its value, e.g. to a `Magic.Function` type to invoke a type-hinted fn without boxing.
 - `void Boot()` - initialize the Clojure runtime. Called automatically by the other methods; needed only before using `clojure.lang` directly.
-- `IReadOnlyList<string> SourceRoots` - the absolute source roots the ClojureCLR Editor loads namespaces from (see [Source roots](#source-roots)). Empty in a MAGIC Editor and in a player.
+- `IReadOnlyList<string> SourceRoots` - the absolute source roots the Editor loads namespaces from (see [Source roots](#source-roots)). Empty in a player.
 
 ## Source roots
 
@@ -33,6 +33,8 @@ The ClojureCLR Editor compiles your Clojure from source, so it has to find your 
 ```
 
 At boot, `Magic.Unity.Clojure` appends the roots that exist to `CLOJURE_LOAD_PATH`, after any entries already there, so `user.clj` in a root loads too. Each root's layout must match the namespaces (`foo.bar` → `<root>/foo/bar.cljc`) and hold no compiled `.clj.dll`, which ClojureCLR loads in place of a source that is not newer. Without the file nothing is added; a malformed file, or one in several top-level directories, logs an error and boots without roots.
+
+A MAGIC Editor ignores `reload.edn` and takes the source paths of the project's `deps.edn` (or `deps-clr.edn`), resolved as `nos` resolves them, `:nos/aliases` and `:nos/submodule-paths` included. At boot, `Magic.Unity.Clojure` puts the ones that exist ahead of `*load-paths*`; a deps file that fails to resolve logs an error and boots without roots. A namespace whose compiled `.clj.dll` the Editor has loaded still loads from that DLL, since its init type is found before any file.
 
 ## Editor API
 
