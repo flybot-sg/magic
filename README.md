@@ -134,7 +134,7 @@ This repo mixes C# (runtimes + host) and Clojure (compiler + stdlib), and the tw
 
 MAGIC is self-hosting, so compiling the compiler needs a working compiler. Pre-built binaries are tracked in git to break that circle:
 
-- `nostrand/references/*.clj.dll`: 83 DLLs, the compiler, the stdlib and nostrand's own namespaces that Nostrand loads at startup. They are what compiles the next compiler.
+- `nostrand/references/*.clj.dll`: the compiler, the stdlib and nostrand's own namespaces that Nostrand loads at startup. They are what compiles the next compiler.
 - `magic-unity/Runtime/magic/`: the two runtime DLLs plus 37 stdlib `.clj.dll`, what Unity loads at play time
 - `magic-unity/Editor/Compiler/`: the compiler and `magic.deps` `.clj.dll` (39), loaded only by a Unity Editor running MAGIC
 

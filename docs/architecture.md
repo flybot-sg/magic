@@ -197,7 +197,7 @@ The C# half is `nostrand/Program.cs`. Its `Main` loads every `.clj.dll` sitting 
 
 The Clojure half is under `nostrand/nostrand/`, except what another host can share, the `magic.deps.*` namespaces under `magic-deps/`: reading `deps-clr.edn`/`deps.edn` and fetching git dependencies. The rest puts source paths on the load path, finds a task by name, defines the tasks and serves the socket REPLs. None of it could have run a moment earlier. [CLR dependency resolution](./clr-dependency-files.md) and [the nos CLI](./nos-cli.md) cover what it does.
 
-The output directory makes this concrete. `nostrand/bin/Release/net471/` holds `NostrandMain.exe`, `Clojure.dll`, `Magic.Runtime.dll` and 83 compiled `.clj.dll`. No Clojure source at all: nostrand's own (`core.clj`, `tasks.clj`, `repl.clj`, `cli.clj`, the deps code and the rest) ships as the ten DLLs compiled from it, seven `nostrand.*.clj.dll` and three `magic.deps.*.clj.dll`.
+The output directory makes this concrete. `nostrand/bin/Release/net471/` holds `NostrandMain.exe`, `Clojure.dll`, `Magic.Runtime.dll` and the compiled `.clj.dll`. No Clojure source at all: nostrand's own (`core.clj`, `tasks.clj`, `repl.clj`, `cli.clj`, the deps code and the rest) ships as the DLLs compiled from it, `nostrand.*.clj.dll` and `magic.deps.*.clj.dll`.
 
 They differ because three separate compilations happen, at three different times.
 
