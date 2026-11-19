@@ -39,7 +39,9 @@
    :compiler    {:dir          (str default-pkg "/Editor/Compiler")
                  :constraints  [magic-symbol]}})
 
-(def ^:private magic-entry (first (get-in plugin-sets [:magic :constraints])))
+(def consumer-entry
+  "What CljPluginConstraints stamps on a consumer's DLLs under Assets/."
+  "!UNITY_EDITOR")
 
 (def ^:private bare-symbol
   "An entry YAML reads plainly. Unity quotes the rest; a leading `!` is a tag."
@@ -50,7 +52,7 @@
     entry
     (str "'" entry "'")))
 
-(defn- define-constraints
+(defn define-constraints
   "The entries a plugin meta declares, unquoted. Absent and empty both read none."
   [meta-yaml]
   (->> (str/split-lines meta-yaml)
@@ -79,10 +81,10 @@
 (def ^:private constrainer-path (str default-pkg "/Editor/CljPluginConstraints.cs"))
 
 (defn- constrainer-agrees?
-  "Whether the import-time constrainer's C# constant is the MAGIC entry."
+  "Whether the import-time constrainer's C# constant is the consumer entry."
   []
   (str/includes? (slurp constrainer-path)
-                 (str "\"" magic-entry "\"")))
+                 (str "\"" consumer-entry "\"")))
 
 ;;; The Clojure-output extension lists
 
@@ -202,8 +204,8 @@
     (when-not (constrainer-agrees?)
       (log/fail! "define constraints are wrong"
                  ""
-                 (str "  " constrainer-path " does not constrain with the MAGIC entry")
-                 (str "  " (pr-str magic-entry) " onto consumer *.clj.dll.")))
+                 (str "  " constrainer-path " does not stamp the consumer entry")
+                 (str "  " (pr-str consumer-entry) " onto consumer *.clj.dll.")))
     (when-let [mismatched (seq (extension-mismatches))]
       (apply log/fail! "the Clojure-output extension lists disagree"
              (concat ["" "These copies of the extension list have drifted apart" ""]

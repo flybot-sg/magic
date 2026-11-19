@@ -36,9 +36,11 @@
         :when (not= v (get fields k))]
     (str (name k) "=" (pr-str (get fields k)) " (expected " (pr-str v) ")")))
 
+(defn- stdlib-clj-count []
+  (count (unity/clj-dlls (unity/plugin-dir :magic))))
+
 (defn- shipped-clj-count []
-  (+ (count (unity/clj-dlls (unity/plugin-dir :magic)))
-     (count (unity/clj-dlls consumer-dir))))
+  (+ (stdlib-clj-count) (count (unity/clj-dlls consumer-dir))))
 
 (def ^:private csharp-fields
   "The C# assembly carries no define constraint, so both states report it alike."
@@ -50,6 +52,7 @@
    with the probe fields that must hold."
   (delay
     (let [n (str (shipped-clj-count))
+          s (str (stdlib-clj-count))
           c (str (count (unity/clj-dlls (unity/plugin-dir :compiler))))]
       {:clojure-clr {:symbol? false
                      :probe   (merge csharp-fields
@@ -63,10 +66,10 @@
        :magic       {:symbol? true
                      :probe   (merge csharp-fields
                                      {:symbol            "set"
-                                      :preloaded-clj     n
+                                      :preloaded-clj     s
                                       :core-clj-loadable "true"
                                       :clojure-versions  "[1.0.0.0]"
-                                      :editor-clj-refs   n
+                                      :editor-clj-refs   s
                                       :player-clj-refs   n
                                       :compiler-in-domain c})}})))
 
@@ -271,16 +274,19 @@
                            "Editor/CljPluginConstraints.cs.meta"]))
 
 (defn- consumer-metas
-  "Each fixture consumer DLL's meta state: :constrained, :unconstrained, or :no-meta."
+  "Each fixture consumer DLL's meta state."
   []
   (into (sorted-map)
         (for [dll (unity/clj-dlls consumer-dir)
-              :let [meta-file (str dll ".meta")]]
+              :let [meta-file (str dll ".meta")
+                    entries   (when (fs/exists? meta-file)
+                                (unity/define-constraints (slurp meta-file)))]]
           [(str (fs/file-name dll))
            (cond
-             (not (fs/exists? meta-file))                         :no-meta
-             (str/includes? (slurp meta-file) unity/magic-symbol) :constrained
-             :else                                                :unconstrained)])))
+             (not (fs/exists? meta-file))          :no-meta
+             (= [unity/consumer-entry] entries)    :player-only
+             (empty? entries)                      :unconstrained
+             :else                                 :other)])))
 
 (def ^:private constrainer-tag "[Magic.Unity/CljPluginConstraints]")
 
@@ -289,10 +295,10 @@
   [log-text]
   (let [lines (filter #(str/includes? % constrainer-tag) (str/split-lines log-text))]
     {:brought (some->> lines
-                       (keep #(second (re-find #"brought (\d+) already-imported" %)))
+                       (keep #(second (re-find #"made (\d+) already-imported" %)))
                        first
                        parse-long)
-     :refused (first (filter #(str/includes? % "would not take the constraint") lines))
+     :refused (first (filter #(str/includes? % "would not take the player-only constraint") lines))
      :lines   (count lines)}))
 
 (defn- upgrade-verdict
@@ -303,12 +309,12 @@
    nobody notices. Its own log line is what pins which entry point ran."
   [before after fields reconcile broken]
   (let [not-baseline (remove #(= :unconstrained (val %)) before)
-        not-constrained (remove #(= :constrained (val %)) after)
+        not-constrained (remove #(= :player-only (val %)) after)
         brought      (:brought reconcile)
         ;; Exact: Consumer/ holds the fixture's only clj assemblies under Assets/.
         mechanism    (cond
                        (nil? brought)
-                       (str "no \"" constrainer-tag " brought N already-imported\" line on the "
+                       (str "no \"" constrainer-tag " made N already-imported\" line on the "
                             "upgrade launch. Either it did not run, or the import callback got "
                             "there first -- in which case Unity now dirties Assets/ on a package "
                             "install and Reconcile is dead code")

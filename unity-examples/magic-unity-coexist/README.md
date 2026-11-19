@@ -17,14 +17,15 @@ and they assert opposite things:
 | state | symbol | Editor loads | `preloaded-clj` | `core-clj-loadable` | `clojure-versions` |
 |---|---|---|---|---|---|
 | `clojure-clr` (default) | unset | ClojureCLR 1.11.0 | 0 | false | `[1.11.0.0]` |
-| `magic` | set | the MAGIC fork | 39 | true | `[1.0.0.0]` |
+| `magic` | set | the MAGIC fork | 37 | true | `[1.0.0.0]` |
 
 Both must be silent: **0** `Assembly is incompatible with the editor` lines,
 **0** `Duplicate assembly 'Clojure.dll'` lines, and **0** `Unloading broken
 assembly` lines. `player-clj-refs` must not move between them.
 `core-clj-loadable=false` in the default state is #25 held by construction:
 the fork `*.clj.dll` are not in the editor domain, so ClojureCLR's namespace
-resolution can never reach them.
+resolution can never reach them. `preloaded-clj=37` in the `magic` state is
+the stdlib alone: the consumer DLLs are player-only, so no Editor loads them.
 
 After the states, three more checks:
 

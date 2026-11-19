@@ -213,7 +213,7 @@ The compiler is a DLL out of necessity: it cannot compile itself into existence,
 
 Unity never compiles Clojure.
 
-You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic/`, and Unity loads them as ordinary .NET assemblies. So players get a runtime and no compiler. A MAGIC Editor also loads the compiler from `Editor/Compiler/` and makes it the runtime's compiler, so `eval` and loading a `.clj` work there.
+You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic/`, and Unity loads them into players as ordinary .NET assemblies. So players get a runtime and no compiler. A MAGIC Editor also loads the compiler from `Editor/Compiler/` and makes it the runtime's compiler, so `eval` and loading a `.clj` work there. It compiles your namespaces from source rather than loading what `nos` wrote, which only players load.
 
 ```mermaid
 flowchart TD
@@ -224,7 +224,7 @@ flowchart TD
         pkg["the package's runtime:<br/>Clojure.dll, Magic.Runtime.dll,<br/>37 stdlib .clj.dll"]
     end
 
-    asm -->|"Play mode in the editor"| play["loaded as they are,<br/>the Cecil rewrite never fires"]
+    pkg -->|"Play mode in a MAGIC editor"| play["loaded as they are,<br/>the Cecil rewrite never fires"]
     asm -->|"editor, when ClojureCLR<br/>is in the project"| coex["every fork .clj.dll imported with<br/>editor loading off"]
     asm -->|"any player build"| pre["Editor/ rewrites every .clj.dll<br/>in place, with Mono.Cecil"]
     pre -->|"Mono backend"| mono["workarounds removed,<br/>packaged as IL"]

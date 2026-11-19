@@ -7,29 +7,22 @@ using UnityEngine;
 
 namespace Magic.Unity
 {
-    // A consumer's .clj.dll imports with no define constraint, so it needs the
-    // same one the package's own MAGIC DLLs carry.
+    // A consumer's .clj.dll under Assets/ is release output, which only players
+    // load; a MAGIC Editor compiles those namespaces from source.
     //
     // Two entry points: OnPreprocessAsset for DLLs as they import, Reconcile for
     // DLLs already imported when this package version arrived -- a package
     // install does not dirty the project, so the callback never re-runs for those.
     internal sealed class CljPluginConstraints : AssetPostprocessor
     {
-        // Synced with the :magic block in bb/magic/unity.clj
-        const string MagicConstraint = "!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR";
+        // Synced with consumer-entry in bb/magic/unity.clj
+        const string PlayerOnly = "!UNITY_EDITOR";
 
-        static readonly string[] Or = { "||" };
-
-        // MagicConstraint's terms, each false in the ClojureCLR Editor.
-        static readonly string[] CljClrEditorFalseTerms = MagicConstraint
-            .Split(Or, StringSplitOptions.None)
-            .Select(t => t.Trim())
-            .ToArray();
+        // What earlier versions stamped.
+        const string MagicEditorEntry = "!UNITY_EDITOR || MAGIC_RUNTIME_IN_EDITOR";
 
         const string Tag = "[Magic.Unity/CljPluginConstraints]";
         const int NamedInSummary = 5;
-
-        const string ImmutableReportedKey = "Magic.Unity.CljPluginConstraints.immutableReported";
 
         // Constrained on import, not yet reported. Import callbacks are main-thread.
         static readonly List<string> _pendingReport = new List<string>();
@@ -38,15 +31,15 @@ namespace Magic.Unity
 
         void OnPreprocessAsset()
         {
-            if (assetImporter is not PluginImporter importer || !ShouldConstrain(importer))
+            if (assetImporter is not PluginImporter importer || !NeedsStamp(importer))
             {
                 return;
             }
-            if (!importer.importSettingsMissing)
+            if (!importer.importSettingsMissing && InDomain(importer.DefineConstraints))
             {
                 _staleStamped++;
             }
-            importer.DefineConstraints = Constrain(importer.DefineConstraints);
+            importer.DefineConstraints = new[] { PlayerOnly };
             _pendingReport.Add(assetPath);
         }
 
@@ -94,30 +87,14 @@ namespace Magic.Unity
 
         static void Reconcile()
         {
-            var immutable = new List<string>();
-            var work = new List<PluginImporter>();
-            foreach (var importer in PluginImporter.GetAllImporters())
-            {
-                if (!Unconstrained(importer))
-                {
-                    continue;
-                }
-                if (!IsWritableLocation(importer.assetPath))
-                {
-                    immutable.Add(importer.assetPath);
-                    continue;
-                }
-                work.Add(importer);
-            }
-
-            ReportImmutable(immutable);
+            var work = PluginImporter.GetAllImporters().Where(NeedsStamp).ToList();
             if (work.Count == 0)
             {
                 return;
             }
 
             var refused = new List<string>();
-            var written = new List<PluginImporter>();
+            var written = new List<(PluginImporter importer, bool inDomain)>();
             AssetDatabase.StartAssetEditing();
             try
             {
@@ -125,11 +102,12 @@ namespace Magic.Unity
                 {
                     try
                     {
+                        var inDomain = InDomain(importer.DefineConstraints);
                         // Constrained before the reimport, so OnPreprocessAsset
                         // does not duplicate the reporting of the stamp
-                        importer.DefineConstraints = Constrain(importer.DefineConstraints);
+                        importer.DefineConstraints = new[] { PlayerOnly };
                         importer.SaveAndReimport();
-                        written.Add(importer);
+                        written.Add((importer, inDomain));
                     }
                     catch (Exception e)
                     {
@@ -146,7 +124,8 @@ namespace Magic.Unity
             // this returns, so flush the meta explicitly. Then check the file,
             // because a declined write does not throw.
             var constrained = 0;
-            foreach (var importer in written)
+            var stale = 0;
+            foreach (var (importer, inDomain) in written)
             {
                 try
                 {
@@ -160,6 +139,10 @@ namespace Magic.Unity
                 if (complaint == null)
                 {
                     constrained++;
+                    if (inDomain)
+                    {
+                        stale++;
+                    }
                 }
                 else
                 {
@@ -170,23 +153,23 @@ namespace Magic.Unity
             if (constrained > 0)
             {
                 Debug.Log(
-                    $"{Tag} brought {constrained} already-imported "
-                        + $"{Assemblies(constrained)} under {EditorRuntime.Symbol}."
+                    $"{Tag} made {constrained} already-imported "
+                        + $"{Assemblies(constrained)} player-only."
                 );
             }
             if (refused.Count > 0)
             {
                 Debug.LogWarning(
                     $"{Tag} {refused.Count} {Assemblies(refused.Count)} would not take the "
-                        + "constraint and stay visible to the Editor. Usually a read-only "
-                        + $".meta: {Named(refused)}"
+                        + "player-only constraint and may still load in the Editor. Usually a"
+                        + $" read-only .meta: {Named(refused)}"
                 );
             }
-            RequestReloadForStaleDomain(constrained);
+            RequestReloadForStaleDomain(stale);
         }
 
-        // Writing the meta settles which runtime the assembly follows, but the
-        // running domain was built before that
+        // Writing the meta settles where the assembly loads, but the running
+        // domain was built before that
         static void RequestReloadForStaleDomain(int stale)
         {
             // Batch runs are one launch anyway, and a reload queued under -quit
@@ -197,83 +180,54 @@ namespace Magic.Unity
             }
             Debug.Log(
                 $"{Tag} reloading scripts: {stale} {Assemblies(stale)} "
-                    + "loaded before the Editor's runtime selection was applied."
+                    + "loaded before they were made player-only."
             );
             // Both callers can be inside an import; reload on the next tick instead.
             EditorApplication.delayCall += EditorUtility.RequestScriptReload;
         }
 
-        static bool Unconstrained(PluginImporter importer)
+        // Package DLLs keep their authored constraints.
+        static bool NeedsStamp(PluginImporter importer)
         {
             return importer != null
                 && importer.assetPath != null
+                && importer.assetPath.StartsWith("Assets/", StringComparison.Ordinal)
                 && PlayerCljAssemblies.IsCljAssembly(importer.assetPath)
                 && NeedsConstraint(importer.DefineConstraints);
         }
 
-        static bool ShouldConstrain(PluginImporter importer)
-        {
-            return Unconstrained(importer) && IsWritableLocation(importer.assetPath);
-        }
-
-        // A PackageCache is immutable. A file: dependency is `Local` only when
-        // it points at a directory, a tarball is an immutable `LocalTarball`.
-        static bool IsWritableLocation(string assetPath)
-        {
-            if (assetPath.StartsWith("Assets/", StringComparison.Ordinal))
-            {
-                return true;
-            }
-            if (!assetPath.StartsWith("Packages/", StringComparison.Ordinal))
-            {
-                return false;
-            }
-            var package = UnityEditor.PackageManager.PackageInfo.FindForAssetPath(assetPath);
-            return package != null
-                && (
-                    package.source == UnityEditor.PackageManager.PackageSource.Embedded
-                    || package.source == UnityEditor.PackageManager.PackageSource.Local
-                );
-        }
-
-        // Unity ANDs entries, so one entry whose terms are all false gates the plugin.
         static bool NeedsConstraint(string[] constraints)
         {
             return constraints == null
-                || !constraints.Any(entry =>
-                    entry != null
-                    && entry.Split(Or, StringSplitOptions.None)
-                        .All(term => CljClrEditorFalseTerms.Contains(term.Trim())));
+                || constraints.Length != 1
+                || constraints[0]?.Trim() != PlayerOnly;
         }
 
-        static string[] Constrain(string[] constraints)
+        // Whether the running domain loaded the assembly under these constraints.
+        static bool InDomain(string[] constraints)
         {
-            return (constraints ?? Array.Empty<string>())
-                .Concat(new[] { MagicConstraint })
-                .ToArray();
+            var entries = (constraints ?? Array.Empty<string>()).Select(e => e?.Trim());
+#if MAGIC_RUNTIME_IN_EDITOR
+            return entries.All(e => e == MagicEditorEntry);
+#else
+            return !entries.Any();
+#endif
         }
 
-        // Null when the meta on disk carries the constraint.
+        // Null when the meta on disk carries exactly the constraint.
         static string DiskComplaint(string assetPath)
         {
-            string meta;
-            try
-            {
-                meta = MetaPath(assetPath);
-            }
-            catch (Exception e)
-            {
-                return $"meta path unresolvable ({e.GetType().Name})";
-            }
+            // against the project root, not the working directory
+            var meta = Path.Combine(Path.GetDirectoryName(Application.dataPath), assetPath + ".meta");
             try
             {
                 if (!File.Exists(meta))
                 {
                     return $"no .meta at {meta}";
                 }
-                return File.ReadAllText(meta).Contains(MagicConstraint)
-                    ? null
-                    : "meta on disk still lacks the constraint";
+                return NeedsConstraint(MetaConstraints(File.ReadAllLines(meta)))
+                    ? "meta on disk is not player-only"
+                    : null;
             }
             catch (Exception e)
             {
@@ -281,15 +235,16 @@ namespace Magic.Unity
             }
         }
 
-        // A Packages/ path is virtual and a local package can resolve outside
-        // the project.
-        static string MetaPath(string assetPath)
+        // The defineConstraints entries of a plugin meta, unquoted; `[]` reads none.
+        static string[] MetaConstraints(string[] lines)
         {
-            var physical = PackageRuntimePath.PhysicalPath(assetPath) + ".meta";
-            return Path.IsPathRooted(physical)
-                ? physical
-                // against the project root, not the working directory
-                : Path.Combine(Path.GetDirectoryName(Application.dataPath), physical);
+            return lines
+                .SkipWhile(line => !line.Trim().StartsWith("defineConstraints:", StringComparison.Ordinal))
+                .Skip(1)
+                .Select(line => line.Trim())
+                .TakeWhile(line => line.StartsWith("- ", StringComparison.Ordinal))
+                .Select(line => line.Substring(2).Trim().Trim('\''))
+                .ToArray();
         }
 
         static void FlushReport()
@@ -299,36 +254,13 @@ namespace Magic.Unity
                 return;
             }
             Debug.Log(
-                $"{Tag} constrained {_pendingReport.Count} imported "
-                    + $"{Assemblies(_pendingReport.Count)} to {EditorRuntime.Symbol}: "
+                $"{Tag} made {_pendingReport.Count} imported "
+                    + $"{Assemblies(_pendingReport.Count)} player-only: "
                     + Named(_pendingReport)
             );
             RequestReloadForStaleDomain(_staleStamped);
             _staleStamped = 0;
             _pendingReport.Clear();
-        }
-
-        static void ReportImmutable(IReadOnlyList<string> assetPaths)
-        {
-            var sorted = assetPaths.OrderBy(p => p, StringComparer.Ordinal).ToList();
-            var current = string.Join("\n", sorted);
-            // An unchanged set was already logged on an earlier domain reload.
-            if (current == SessionState.GetString(ImmutableReportedKey, ""))
-            {
-                return;
-            }
-            SessionState.SetString(ImmutableReportedKey, current);
-            if (sorted.Count == 0)
-            {
-                return;
-            }
-            Debug.LogWarning(
-                $"{Tag} {sorted.Count} {Assemblies(sorted.Count)} in an immutable package are"
-                    + $" not under {EditorRuntime.Symbol} and stay visible to the Editor:"
-                    + $" {Named(sorted)}. Unity discards a .meta write under"
-                    + " Library/PackageCache, so the constraint has to ship with the package --"
-                    + " ask its author, or consume the package embedded."
-            );
         }
 
         static string Named(IReadOnlyList<string> assetPaths)
