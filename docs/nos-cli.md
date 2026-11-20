@@ -48,8 +48,9 @@ env clojure.main.report=stderr nos dotnet/build
 Two of the tasks that ship with the host do the work a project needs, which is why most projects need no task file at all.
 
 ```bash
-nos build    # compile the project's namespaces into ./build, with the C# assemblies its deps ship
-nos test     # run its clojure.test suites, exit 1 on any failure or error
+nos build       # compile the project's namespaces into ./build, with the C# assemblies its deps ship
+nos build :dev  # the same namespaces, redefinable, into ./build-dev
+nos test        # run its clojure.test suites, exit 1 on any failure or error
 ```
 
 Both derive the set of namespaces they work on rather than being told. They resolve the deps file, collect the source paths it contributes (the base `:paths`, plus the `:extra-paths` of each activated alias), and scan those directories recursively for `.clj`, `.cljc` and `.cljr` files, taking the namespace each one declares.
@@ -60,7 +61,7 @@ Neither task takes an alias flag. What they work on comes from a file.
 
 `magic.edn` is a convenience file to configure the build and test tasks as pure EDN at the project root.
 
-It is a map with a `:build` and a `:test` sub-map. Every key has a default, so state only what differs, and omit the file entirely when nothing does.
+It is a map with `:build`, `:dev` and `:test` sub-maps. Every key has a default, so state only what differs, and omit the file entirely when nothing does.
 
 ```clojure
 ;; magic.edn
@@ -88,6 +89,7 @@ Note the following:
 - **`:re`** is matched with `re-matches`, so it has to match a namespace name whole. Write it as a string, since EDN has no regex literal: `"my\\.lib\\..*"`.
 - **`:exclude-vars`** takes fully-qualified `deftest` symbols. After `require`, the run clears the `:test` metadata on each, so `clojure.test` skips exactly those vars and the rest of their namespace still runs. It is for a handful of platform-specific failures scattered through otherwise-passing namespaces, where excluding the namespace would throw away good tests. A symbol that does not resolve warns rather than failing.
 - **`:csharp-out`** separates the copies from the compiled Clojure. `nos build` copies the C# assemblies a library ships ([a library's C# assembly](./native-assemblies.md)) into `:out`, and `:clean?` deletes `:out` before every compile, so Unity imports the plugin fresh and mints it a new GUID each time. A Unity project points this at a directory of its own to hold the GUID still ([the two plugin folders](./unity-integration.md#the-two-plugin-folders)). `:clean?` never touches that directory, so a copy whose library left the deps stays until you delete it; the build names it rather than deleting it.
+- **`:dev`** is `:build` with its own `:out` (default `"build-dev"`), always wiped first, and with `*direct-linking*` and `*strongly-typed-invokes*` off ([compiler flags](#compiler-flags)); `:out` is its only key, and any other fails the check.
 - **`:namespaces`** is the escape hatch for what the derivation cannot see: a single compile root, or a namespace bundled in the repo that no `require` reaches.
 
 ## Compiler flags
@@ -114,7 +116,9 @@ These five are what the built-ins set. The full surface, spells included, is [`m
 
 The consequence is worth stating plainly. A green `nos test` says nothing about whether your library compiles and runs under the flags `nos build` uses. [Writing cross-platform Clojure](./writing-cross-platform-clojure.md) covers the code patterns that break only under those flags.
 
-`:flags` merges over whichever base applies, so name the vars you change as fully-qualified symbols.
+`nos build :dev` turns the same two off, after `:build`'s `:flags`: it is the release build made redefinable, for a host that reloads code, such as a MAGIC Editor.
+
+`:flags` merges over whichever base applies, so name the vars you change as fully-qualified symbols. `:test`'s can turn the two back on; `:dev` has none, so they stay off there.
 
 ```clojure
 {:build {:flags {magic.flags/*elide-meta* true}}}

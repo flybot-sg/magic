@@ -11,7 +11,6 @@
             [magic.deps.basis :as basis]
             [magic.deps.magic-edn :as magic-edn]
             [magic.deps.submodules :as submodules]
-            [clojure.edn :as edn]
             [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clojure.pprint :as pprint]
@@ -252,29 +251,33 @@
 (s/def ::exclude-vars (s/coll-of qualified-symbol? :kind vector?))
 
 (s/def ::build (s/keys :opt-un [::aliases ::namespaces ::exclude ::out ::csharp-out ::clean? ::flags]))
+(s/def ::dev   (s/map-of #{:out} ::out))
 (s/def ::test  (s/keys :opt-un [::aliases ::namespaces ::exclude ::re ::flags ::exclude-vars]))
-(s/def ::magic-edn (s/keys :opt-un [::build ::test]))
+(s/def ::magic-edn (s/keys :opt-un [::build ::dev ::test]))
 
-(defn- read-magic-edn
-  "The project's magic.edn as a map, or nil when the file is absent. Throws a
-  spec explanation when the file is present but does not conform."
+(defn- validated-magic-edn
   []
-  (when (File/Exists "magic.edn")
-    (let [config (edn/read-string (slurp "magic.edn"))]
-      (when-not (s/valid? ::magic-edn config)
-        (throw (ex-info (str "Invalid magic.edn:\n" (s/explain-str ::magic-edn config))
-                        {:config config})))
-      config)))
+  (when-let [config (magic-edn/read-config (nos/project-root))]
+    (when-not (s/valid? ::magic-edn config)
+      (throw (ex-info (str "Invalid magic.edn:\n" (s/explain-str ::magic-edn config))
+                      {:config config})))
+    config))
 
 (defn build
-  "Compile the project under MAGIC, per magic.edn :build. Run as `nos build`."
-  []
-  (apply compile-project (mapcat identity (magic-edn/options (read-magic-edn) :build))))
+  "Compile the project under MAGIC, per magic.edn. `nos build` builds :build;
+  `nos build :dev` builds the same namespaces, redefinable, into :dev's :out."
+  ([] (build :build))
+  ([profile]
+   (when-not (#{:build :dev} profile)
+     (throw (ex-info (str "Unknown build profile " (pr-str profile)
+                          ", expected :build or :dev")
+                     {:profile profile})))
+   (apply compile-project (mapcat identity (magic-edn/options (validated-magic-edn) profile)))))
 
 (defn test
   "Run the project's clojure.test suites under MAGIC, per magic.edn :test.
   Run as `nos test`."
   []
   (apply run-clojure-tests
-         (mapcat identity (update (magic-edn/options (read-magic-edn) :test)
+         (mapcat identity (update (magic-edn/options (validated-magic-edn) :test)
                                   :re #(some-> % re-pattern)))))
