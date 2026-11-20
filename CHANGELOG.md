@@ -27,6 +27,7 @@
 - **Breaking:** `nos` runs its command line through `clojure.main`, as `clj -X` does: a failed task exits 1, tasks run in `user`, a bare task name no longer falls back to `clojure.core` (`nos println hi` exits 1), and `nos script.clj` no longer calls `-main` (`nos -m my.ns` does) - [#192](https://github.com/flybot-sg/magic/issues/192).
 - **Breaking:** `nostrand.deps.basis`, `git` and `submodules` are renamed `magic.deps.*`, and `nostrand.deps.shell` is deleted - [#218](https://github.com/flybot-sg/magic/issues/218), [#221](https://github.com/flybot-sg/magic/issues/221).
 - **Breaking:** `nos cli-repl` is removed; `nos repl` runs the same REPL after printing the version - [#218](https://github.com/flybot-sg/magic/issues/218).
+- **Breaking:** `nostrand.tasks/production-flags` moves to `magic.deps.magic-edn` and `test-flags` is removed. Flags are keyed by symbol, not var, there and in the tasks' `:flags` - [#227](https://github.com/flybot-sg/magic/issues/227).
 - A task in a dashed namespace runs, so `nos dotnet-tasks/build` finds `dotnet_tasks.clj` - [nasser/nostrand#33](https://github.com/nasser/nostrand/issues/33).
 
 ### Unity

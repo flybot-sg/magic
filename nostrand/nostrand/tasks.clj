@@ -9,8 +9,8 @@
   (:require [nostrand.core :as nos]
             [nostrand.deps.nuget :as nuget]
             [magic.deps.basis :as basis]
+            [magic.deps.magic-edn :as magic-edn]
             [magic.deps.submodules :as submodules]
-            [magic.flags :as mflags]
             [clojure.edn :as edn]
             [clojure.spec.alpha :as s]
             [clojure.string :as string]
@@ -65,25 +65,6 @@
     (nuget/pack-and-push-nuget git-host-type
                                :with-build? with-build?
                                :configuration configuration)))
-
-(def production-flags
-  "The compilation flags shipped MAGIC projects build under, as a var->value
-  map ready for `clojure.core/with-bindings` or the `:flags` option of
-  `compile-project` / `run-clojure-tests`. A plain map, so a task that needs
-  to deviate assoc's onto it or passes its own (see `test-flags`). Shared so
-  consumer dotnet.clj tasks do not each restate the set."
-  {#'*unchecked-math*                false
-   #'*warn-on-reflection*            true
-   #'mflags/*strongly-typed-invokes* true
-   #'mflags/*direct-linking*         true
-   #'mflags/*elide-meta*             false})
-
-(def test-flags
-  "production-flags with direct-linking and strongly-typed-invokes off, so
-  with-redefs can rebind calls in tests."
-  (assoc production-flags
-         #'mflags/*direct-linking*         false
-         #'mflags/*strongly-typed-invokes* false))
 
 (defn- file-namespace
   "The namespace a Clojure source file declares, or nil if its first form is
@@ -196,14 +177,15 @@
                  you delete it; the build names it rather than deleting it
     :clean?      wipe :out first (default false; for Unity dirs that must not
                  carry stale DLLs)
-    :flags       var->value binding map (default `production-flags`)
+    :flags       fully-qualified symbol -> value, as in magic.edn (default
+                 `magic-edn/production-flags`)
   Drop-in for a consumer's `nos dotnet/build`:
       (defn build [] (tasks/compile-project :aliases [:clr]))"
   [& {:keys [namespaces exclude aliases out csharp-out clean? flags]
-      :or   {out "build" clean? false flags production-flags}}]
+      :or   {out "build" clean? false flags magic-edn/production-flags}}]
   (let [basis (when (seq aliases) (nos/establish-deps-edn (nos/project-deps-file) aliases))
         nses  (task-namespaces namespaces aliases exclude basis)]
-    (with-bindings (assoc flags #'*compile-path* out)
+    (with-bindings (assoc (magic-edn/resolve-flags flags) #'*compile-path* out)
       (println "Compiling into DLL dir:" *compile-path*)
       (when (and clean? (System.IO.Directory/Exists *compile-path*))
         (System.IO.Directory/Delete *compile-path* true))
@@ -233,17 +215,18 @@
                  where a namespace-level `:exclude` would drop good tests too.
     :aliases     deps.edn aliases to activate, e.g. [:clr :test] (so the test
                  source paths land on the load path before `require`)
-    :flags       var->value binding map (default `production-flags`)
+    :flags       fully-qualified symbol -> value, as in magic.edn (default
+                 `magic-edn/production-flags`)
     :exit?       `Environment/Exit 1` on any failure/error so CI can chain
                  (default true)
   Returns the clojure.test summary map.
   Drop-in for a consumer's `nos dotnet/run-tests`:
       (defn run-tests [] (tasks/run-clojure-tests :aliases [:clr :test]))"
   [& {:keys [namespaces exclude re aliases flags exit? exclude-vars]
-      :or   {flags production-flags exit? true}}]
+      :or   {flags magic-edn/production-flags exit? true}}]
   (let [basis (when (seq aliases) (nos/establish-deps-edn (nos/project-deps-file) aliases))
         nses  (task-namespaces namespaces aliases exclude basis)]
-    (with-bindings flags
+    (with-bindings (magic-edn/resolve-flags flags)
       (doseq [ns nses]
         (require ns))
       (doseq [v exclude-vars]
@@ -283,40 +266,15 @@
                         {:config config})))
       config)))
 
-(defn- resolve-flags
-  "Fold a {fully-qualified-symbol value} flag map over `base`, resolving each
-  symbol to its var (its namespace is required first)."
-  [base flags]
-  (reduce-kv (fn [m sym v]
-               (require (symbol (namespace sym)))
-               (assoc m (resolve sym) v))
-             base
-             flags))
-
 (defn build
   "Compile the project under MAGIC, per magic.edn :build. Run as `nos build`."
   []
-  (let [{:keys [aliases namespaces exclude out csharp-out clean? flags]
-         :or   {out "build" clean? true}}
-        (:build (read-magic-edn))]
-    (compile-project :aliases    (vec aliases)
-                     :namespaces namespaces
-                     :exclude    exclude
-                     :out        out
-                     :csharp-out csharp-out
-                     :clean?     clean?
-                     :flags      (resolve-flags production-flags flags))))
+  (apply compile-project (mapcat identity (magic-edn/options (read-magic-edn) :build))))
 
 (defn test
   "Run the project's clojure.test suites under MAGIC, per magic.edn :test.
   Run as `nos test`."
   []
-  (let [{:keys [aliases namespaces exclude re flags exclude-vars]
-         :or   {aliases [:test]}}
-        (:test (read-magic-edn))]
-    (run-clojure-tests :aliases      (vec aliases)
-                       :namespaces   namespaces
-                       :exclude      exclude
-                       :re           (some-> re re-pattern)
-                       :exclude-vars exclude-vars
-                       :flags        (resolve-flags test-flags flags))))
+  (apply run-clojure-tests
+         (mapcat identity (update (magic-edn/options (read-magic-edn) :test)
+                                  :re #(some-> % re-pattern)))))

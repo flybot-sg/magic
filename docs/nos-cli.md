@@ -95,11 +95,11 @@ Note the following:
 `nos build` compiles under the flags a shipped MAGIC project runs on:
 
 ```clojure
-{#'*unchecked-math*                false
- #'*warn-on-reflection*            true
- #'magic.flags/*strongly-typed-invokes* true
- #'magic.flags/*direct-linking*         true
- #'magic.flags/*elide-meta*             false}
+{clojure.core/*unchecked-math*        false
+ clojure.core/*warn-on-reflection*    true
+ magic.flags/*strongly-typed-invokes* true
+ magic.flags/*direct-linking*         true
+ magic.flags/*elide-meta*             false}
 ```
 
 - `*unchecked-math*`: Clojure's default. Arithmetic and narrowing casts keep their overflow checks. Set it per namespace where wrapping is wanted.
@@ -132,7 +132,7 @@ A task file is a namespace with public functions. It exists for work the built-i
 (defn nuget [] ...)
 ```
 
-`nostrand.tasks` holds the pieces the built-ins are made of, so a custom task composes them instead of restating them. `compile-project` and `run-clojure-tests` take the same options as the `magic.edn` keys above, `production-flags` and `test-flags` are the two flag maps, and `project-namespaces` returns the derived set without touching the load path.
+`nostrand.tasks` holds the pieces the built-ins are made of, so a custom task composes them instead of restating them. `compile-project` and `run-clojure-tests` take the same options as the `magic.edn` keys above, and `project-namespaces` returns the derived set without touching the load path. The flag maps live in `magic.deps.magic-edn`: `options` returns a profile's options with its full `:flags`, and `resolve-flags` turns a flag map into the var map `with-bindings` takes.
 
 A task file can load an assembly before its `ns` form, so the `ns` can import from it:
 
