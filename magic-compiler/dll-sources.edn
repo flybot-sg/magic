@@ -64,6 +64,7 @@
  magic.deps.basis {:source "magic-deps/magic/deps/basis.clj", :sha256 "215fc06d8df0fd6234aaa4b9a07e8b29e900d6e9fb535b9f6cebef7c540099f9"}
  magic.deps.git {:source "magic-deps/magic/deps/git.clj", :sha256 "0b10fe9ed89463a1917aaed6586d2bf4995dae8f9ada2fd6666e0639f891d733"}
  magic.deps.load_path {:source "magic-deps/magic/deps/load_path.clj", :sha256 "5eb47e3736ae8a996c64566c3c64f6dc56365b21bf7dd6e5b4f75eca6e41e8ad"}
+ magic.deps.magic_edn {:source "magic-deps/magic/deps/magic_edn.clj", :sha256 "439a683ba0cc8e72b22ce4c2718c4599cdc957469591fe3f7cc9aea70148ae32"}
  magic.deps.submodules {:source "magic-deps/magic/deps/submodules.clj", :sha256 "6107eebefe85fb1f3e8b9fded6614175998583a8c291cf0893b7d63b761a393b"}
  magic.emission {:source "magic-compiler/src/magic/emission.clj", :sha256 "6ad018708a5ef365ced1f762ae1c18bc38ef909e73b24751d599e48a72418bfb"}
  magic.flags {:source "magic-compiler/src/magic/flags.clj", :sha256 "2557a7162fac069670e7084705608e56780da249be6d95ce80fff985b71c2263"}
@@ -78,4 +79,4 @@
  nostrand.exec {:source "nostrand/nostrand/exec.clj", :sha256 "d002fef7d86e32f964a0311c5d501008aa93197de195a24addff407c4829948d"}
  nostrand.main {:source "nostrand/nostrand/main.clj", :sha256 "f03dd52efdf516a0a87041430174873abb306e2cfef9ab78239aecb565749979"}
  nostrand.repl {:source "nostrand/nostrand/repl.clj", :sha256 "ee88b92b8a4f5cfbdc7b422503f9c2e75e1447fb2a1ed7e840d78ed52b2f81f6"}
- nostrand.tasks {:source "nostrand/nostrand/tasks.clj", :sha256 "f43ead1a34a60bddab708ef7632babb183bdb261555c13d10b7677e234923d57"}}
+ nostrand.tasks {:source "nostrand/nostrand/tasks.clj", :sha256 "f9e422fe402a7b8fc645f1de4f37ff718c01dbd714bd5484e520d37d96fcea01"}}
