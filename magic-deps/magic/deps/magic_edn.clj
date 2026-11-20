@@ -1,5 +1,7 @@
 (ns magic.deps.magic-edn
-  "A project's magic.edn: the options and compiler flags of its profiles.")
+  "A project's magic.edn: the options and compiler flags of its profiles."
+  (:import [System.IO File Path])
+  (:require [clojure.edn :as edn]))
 
 (def production-flags
   "Symbol -> value map, as in magic.edn's :flags."
@@ -18,13 +20,20 @@
   "Returns a profile's options from config, defaults applied, and :flags
   merged over the base flags."
   [config profile]
-  (let [build     (merge {:out "build" :clean? true} (:build config))
-        test-opts (merge {:aliases [:test]} (:test config))]
+  (let [build (-> (merge {:out "build" :clean? true} (:build config))
+                  (update :flags #(merge production-flags %)))]
     (case profile
-      :build (assoc build :flags (merge production-flags (:flags build)))
-      :test  (assoc test-opts :flags (merge production-flags redef-flags (:flags test-opts)))
+      :build build
+      ;; :dev is the same as :build, but uses different :out and redef-flags
+      :dev   (assoc build
+                    :out    (get-in config [:dev :out] "build-dev")
+                    ;; a compile never overwrites an existing DLL
+                    :clean? true
+                    :flags  (merge (:flags build) redef-flags))
+      :test  (-> (merge {:aliases [:test]} (:test config))
+                 (update :flags #(merge production-flags redef-flags %)))
       (throw (ex-info (str "Unknown magic.edn profile " (pr-str profile)
-                           ", expected :build or :test")
+                           ", expected :build, :dev or :test")
                       {:profile profile})))))
 
 (defn resolve-flags
@@ -35,3 +44,9 @@
                (assoc m (resolve sym) v))
              {}
              flags))
+
+(defn read-config
+  [root]
+  (let [file (Path/Combine (str root) "magic.edn")]
+    (when (File/Exists file)
+      (edn/read-string (slurp file)))))

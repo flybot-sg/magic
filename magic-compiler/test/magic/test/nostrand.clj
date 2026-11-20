@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.string :as string]
             [magic.test.common :refer [nos temp-dir]]
+            [magic.deps.magic-edn :as magic-edn]
             [nostrand.exec :as exec]))
 
 (deftest main-returns-the-task-value
@@ -26,3 +27,10 @@
         (is (= 0 exit))
         (is (= ["user"] (string/split-lines out))))
       (finally (System.IO.Directory/Delete dir true)))))
+
+(deftest dev-overrides-build-clean-and-direct-linking
+  (let [opts (magic-edn/options '{:build {:clean? false
+                                          :flags  {magic.flags/*direct-linking* true}}}
+                                :dev)]
+    (is (true? (:clean? opts)))
+    (is (false? (get-in opts [:flags 'magic.flags/*direct-linking*])))))
