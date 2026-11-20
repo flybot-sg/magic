@@ -180,6 +180,7 @@
     magic.deps.submodules
     magic.deps.basis
     magic.deps.load-path
+    magic.deps.magic-edn
     nostrand.core
     nostrand.repl
     nostrand.cli
