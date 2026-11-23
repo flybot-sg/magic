@@ -20,15 +20,8 @@ namespace Magic.Unity
             }
             RT.Init();
 #else
-#if UNITY_EDITOR // MAGIC Editor
-            RuntimeBootstrapFlag.CodeLoadOrder = new[] {
-                RuntimeBootstrapFlag.CodeSource.InitType,
-                RuntimeBootstrapFlag.CodeSource.FileSystem
-            };
-#elif ENABLE_IL2CPP // MAGIC IL2CPP Player
-            RuntimeBootstrapFlag.CodeLoadOrder = new[] {
-                RuntimeBootstrapFlag.CodeSource.InitType
-            };
+#if !UNITY_EDITOR && ENABLE_IL2CPP // MAGIC IL2CPP Player
+            RuntimeBootstrapFlag.DisableFileLoad = true;
 #endif
             RT.Initialize();
 #if UNITY_EDITOR // MAGIC Editor: Editor/Compiler ships magic.api

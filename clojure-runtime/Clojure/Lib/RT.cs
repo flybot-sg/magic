@@ -4345,26 +4345,5 @@ namespace clojure.lang
         /// <remarks>Prevent the load method from searching the file system for .clj and .clj.dll files.
         /// Used in production systems when all namespaces are to be found in loaded assemblies.</remarks>
         public static bool DisableFileLoad = false;
-
-        // a configurable load order mechanism
-        // code in clojure can come from one of three source:
-        // - the file system (.clj, .cljc, .clj.dll files, picking the latest)
-        // - an init type (when the namespace is already loaded in memory)
-        // - an embedded resource
-        // this enum and the static LoadOrder array are used to control the order
-        // in which these sources are searched.
-        public enum CodeSource
-        {
-            FileSystem,
-            InitType,
-            EmbeddedResource
-        }
-
-        public static CodeSource[] CodeLoadOrder = new[] 
-        {
-            CodeSource.FileSystem,
-            CodeSource.InitType,
-            CodeSource.EmbeddedResource
-        };
     }
 }
