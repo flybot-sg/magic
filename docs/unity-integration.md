@@ -24,7 +24,8 @@ This is the consumer-side guide. For the package's C# API and install reference,
    ;; magic.edn
    {:build {:namespaces [my.game.core]
             :out        "Assets/Plugins/Magic"
-            :csharp-out "Assets/Plugins/CSharp"}}
+            :csharp-out "Assets/Plugins/CSharp"}
+    :dev   {:out "Library/sg.flybot.magic.unity/dev"}}
    ```
 
    The two output folders are [explained below](#the-two-plugin-folders). A project with custom build/test steps can hand-write a `dotnet.clj` instead; see [the porting guide](./porting-libraries-to-magic.md).
@@ -75,9 +76,11 @@ One folder works: `:csharp-out` defaults to `:out`, MAGIC loads the DLLs the sam
 
 A library ships only the DLL. Everything else in that table is produced inside your project.
 
+`:dev :out` is outside `Assets/`, so Unity never imports it. `nos build :dev` fills it with redefinable builds of the same namespaces, which a MAGIC Editor loads at boot instead of compiling them from source. A namespace whose source is newer than its DLL compiles from source instead, but each DLL is checked only against its own source: re-run `nos build :dev` after changing a macro, protocol or type, since the cached DLLs of the namespaces that use it keep the old one.
+
 The "wiped every build" row is the reason. `:clean?` deletes `:out` before every compile, so an assembly sitting there is imported fresh each time and Unity mints it a new GUID. Anything that referenced the old one, a component on a scene object, another importer's settings, points at nothing. A `:csharp-out` of its own is never emptied, so the GUID holds.
 
-Whether you commit that folder is a second, separate choice, and it comes down to who runs `nos build`. Commit it, `.meta` files included, and a teammate who only opens the Editor (which compiles your Clojure from source) has the C# plugin without building anything. Gitignore it, like `:out`, if everyone runs `nos build` before opening Unity anyway.
+Whether you commit that folder is a second, separate choice, and it comes down to who runs `nos build`. Commit it, `.meta` files included, and a teammate who only opens the Editor (which, without a `nos build :dev`, compiles your Clojure from source) has the C# plugin without building anything. Gitignore it, like `:out`, if everyone runs `nos build` before opening Unity anyway.
 
 [A library's C# assembly](./native-assemblies.md) covers the copy step and the loader namespace a library needs for its C# to resolve at compile time.
 

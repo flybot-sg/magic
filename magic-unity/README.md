@@ -34,7 +34,7 @@ The ClojureCLR Editor compiles your Clojure from source, so it has to find your 
 
 At boot, `Magic.Unity.Clojure` appends the roots that exist to `CLOJURE_LOAD_PATH`, after any entries already there, so `user.clj` in a root loads too. Each root's layout must match the namespaces (`foo.bar` → `<root>/foo/bar.cljc`) and hold no compiled `.clj.dll`, which ClojureCLR loads in place of a source that is not newer. Without the file nothing is added; a malformed file, or one in several top-level directories, logs an error and boots without roots.
 
-A MAGIC Editor ignores `reload.edn` and takes the source paths of the project's `deps.edn` (or `deps-clr.edn`), resolved as `nos` resolves them, `:nos/aliases` and `:nos/submodule-paths` included. At boot, `Magic.Unity.Clojure` puts the ones that exist ahead of `*load-paths*`; a deps file that fails to resolve logs an error and boots without roots. The Editor loads none of the `.clj.dll` that `nos build` wrote, which are for players only, so your namespaces compile from these paths.
+A MAGIC Editor ignores `reload.edn` and takes the source paths of the project's `deps.edn` (or `deps-clr.edn`), resolved as `nos` resolves them, `:nos/aliases` and `:nos/submodule-paths` included. At boot, `Magic.Unity.Clojure` puts the ones that exist ahead of `*load-paths*`; a deps file that fails to resolve logs an error and boots without roots. The Editor loads none of the `.clj.dll` that `nos build` wrote, which are for players only. It loads `nos build :dev`'s output instead, from `magic.edn`'s `:dev :out`, taking each namespace's DLL unless its source is newer, and compiles the rest from these paths with the dev build's flags. Without that folder every namespace compiles from source.
 
 ## Editor API
 
