@@ -36,14 +36,31 @@
                            ", expected :build, :dev or :test")
                       {:profile profile})))))
 
+(defn- flag-var
+  [sym]
+  (when-let [ns-name (namespace sym)]
+    (try
+      (require (symbol ns-name))
+      (catch System.IO.FileNotFoundException _))
+    (let [v (resolve sym)]
+      (when (and (var? v) (.isDynamic ^clojure.lang.Var v))
+        v))))
+
 (defn resolve-flags
-  "`flags` keyed by var instead of symbol, for `with-bindings`."
+  "`flags` keyed by var instead of symbol."
   [flags]
-  (reduce-kv (fn [m sym v]
-               (require (symbol (namespace sym)))
-               (assoc m (resolve sym) v))
-             {}
-             flags))
+  (let [vars    (into {} (map (juxt identity flag-var)) (keys flags))
+        unknown (filterv (comp nil? vars) (keys flags))]
+    (when (seq unknown)
+      (throw (ex-info (str "Unknown or non-dynamic magic.edn flags " unknown)
+                      {:unknown unknown})))
+    (reduce-kv (fn [m sym v] (assoc m (vars sym) v)) {} flags)))
+
+(defn set-flag-roots!
+  "Set as roots, not bound, so compiles on every thread see them."
+  [flags]
+  (doseq [[v value] (resolve-flags flags)]
+    (alter-var-root v (constantly value))))
 
 (defn read-config
   [root]
