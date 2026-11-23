@@ -4339,6 +4339,13 @@ namespace clojure.lang
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Naming", "CA1726:UsePreferredTerms", MessageId = "Flag")]
     public static class RuntimeBootstrapFlag
     {
+        /// <summary>
+        /// Disable file loading
+        /// </summary>
+        /// <remarks>Prevent the load method from searching the file system for .clj and .clj.dll files.
+        /// Used in production systems when all namespaces are to be found in loaded assemblies.</remarks>
+        public static bool DisableFileLoad = false;
+
         // a configurable load order mechanism
         // code in clojure can come from one of three source:
         // - the file system (.clj, .cljc, .clj.dll files, picking the latest)
