@@ -135,9 +135,9 @@ Compiling a Clojure file means evaluating its top-level forms as you go, because
 
 ```clojure
 (def ^:dynamic *load-paths*
-  (if load-code-from-filesystem?
-    [(System.IO.Path/GetDirectoryName (.Location (.Assembly clojure.lang.RT)))]
-    []))
+  (if clojure.lang.RuntimeBootstrapFlag/DisableFileLoad
+    []
+    [(System.IO.Path/GetDirectoryName (.Location (.Assembly clojure.lang.RT)))]))
 ```
 
 One entry: the directory `Clojure.dll` sits in. Nostrand then pushes the project's source directories onto that vector at startup, and that is the only reason the compiler can find `magic-compiler/src/stdlib/clojure/pprint.clj` at all.

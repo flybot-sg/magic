@@ -5885,15 +5885,12 @@ Note that read can execute code (controlled by *read-eval*),
 ;; -load, and RT.FindFile calls find-file
 ;; contributed by Ramsey Nasser
 
-(def load-code-from-filesystem?
-  (some #(= % clojure.lang.RuntimeBootstrapFlag+CodeSource/FileSystem)
-        clojure.lang.RuntimeBootstrapFlag/CodeLoadOrder))
-
+;; gated because IL2CPP's Assembly.Location is "", which Path/GetDirectoryName rejects
 (def ^:dynamic
   ^{:doc "The vector of paths to use as roots when loading namespaces."}
-  *load-paths* (if load-code-from-filesystem?
-                  [(System.IO.Path/GetDirectoryName (.Location (.Assembly clojure.lang.RT)))]
-                  []))
+  *load-paths* (if clojure.lang.RuntimeBootstrapFlag/DisableFileLoad
+                  []
+                  [(System.IO.Path/GetDirectoryName (.Location (.Assembly clojure.lang.RT)))]))
 
 (defn find-file
   "port of clojure.lang.RT.FindFile, but uses *load-paths* "
@@ -5911,97 +5908,65 @@ Note that read can execute code (controlled by *read-eval*),
      (when (System.IO.File/Exists probe-path)
        (System.IO.FileInfo. probe-path)))))
 
-(defn -try-load-init-type [relative-path]
-  (binding [*ns* *ns*
-            *warn-on-reflection* *warn-on-reflection*
-            *unchecked-math* *unchecked-math*]
-    (clojure.lang.Compiler/TryLoadInitType relative-path)))
-
-(defn -load-assembly [full-path relative-path]
-  (binding [*ns* *ns*
-            *warn-on-reflection* *warn-on-reflection*
-            *unchecked-math* *unchecked-math*]
-    (let [assy (System.Reflection.Assembly/LoadFrom full-path)]
-      (clojure.lang.Compiler/InitAssembly assy relative-path))))
-
 (def ^:private source-extensions
   "Source file extensions a namespace can resolve to, in precedence order."
   [".cljr" ".cljc" ".clj"])
+
+;; MAGIC_DEBUG_LOAD=1 traces which file -load picks; Console/Error since print isn't wired yet
+(defn- debug-load [relative-path action ^System.IO.FileInfo clj-info ^System.IO.FileInfo assy-info]
+  (when (= "1" (Environment/GetEnvironmentVariable "MAGIC_DEBUG_LOAD"))
+    (.WriteLine System.Console/Error
+                (str "[MAGIC_DEBUG_LOAD] " relative-path " -> " action " "
+                     (.FullName (if (= action "dll") assy-info clj-info))
+                     (when (and clj-info assy-info)
+                       (str "  (clj-mtime=" (.LastWriteTime clj-info)
+                            " dll-mtime=" (.LastWriteTime assy-info) ")"))))))
 
 ;; port of clojure.lang.RT.load
 (defn -load
   ([^String relative-path] (-load relative-path true))
   ([^String relative-path fail-of-not-found]
-   (let [dll-base (.Replace relative-path "/" ".")
+   (let [file-load? (not clojure.lang.RuntimeBootstrapFlag/DisableFileLoad)
+         dll-base (.Replace relative-path "/" ".")
          dll-name #(str dll-base % ".dll")
          source-names (map #(str relative-path %) source-extensions)
          dll-names (map dll-name source-extensions)
-         ^System.IO.FileInfo clj-info (some find-file source-names)
-         ^System.IO.FileInfo assy-info (if clj-info
-                                         (find-file (dll-name (.Extension clj-info)))
-                                         (some find-file dll-names))]
-     (loop [code-source (first clojure.lang.RuntimeBootstrapFlag/CodeLoadOrder)
-            code-sources (rest clojure.lang.RuntimeBootstrapFlag/CodeLoadOrder)]
-       (cond
-          ;; fail if all sources have failed
-          (nil? code-source)
-          (when fail-of-not-found
-                (throw (System.IO.FileNotFoundException.
-                        (str "Could not locate any of "
-                             (vec (concat source-names dll-names))
-                             (str " on load path " *load-paths*)
-                             (when (.Contains relative-path "_")
-                               (str " Please check that namespaces with dashes "
-                                    "use underscores in the Clojure file name."))))))
+         ^System.IO.FileInfo clj-info (when file-load? (some find-file source-names))
+         ^System.IO.FileInfo assy-info (when file-load?
+                                         (if clj-info
+                                           (find-file (dll-name (.Extension clj-info)))
+                                           (some find-file dll-names)))]
+     (cond
+       (and assy-info
+            (or (not clj-info)
+                (>= (.. assy-info LastWriteTime Ticks)
+                    (.. clj-info LastWriteTime Ticks))))
+       (do
+         (debug-load relative-path "dll" clj-info assy-info)
+         (clojure.lang.RT/LoadAssembly (.FullName assy-info) relative-path))
 
-          ;; load from file system
-          (= code-source clojure.lang.RuntimeBootstrapFlag+CodeSource/FileSystem)
-          (cond
-            (and assy-info
-                  (or (not clj-info)
-                      (>= (.. assy-info LastWriteTime Ticks)
-                          (.. clj-info LastWriteTime Ticks))))
-            (do
-              (when (= "1" (Environment/GetEnvironmentVariable "MAGIC_DEBUG_LOAD"))
-                (.WriteLine System.Console/Error (str "[MAGIC_DEBUG_LOAD] " relative-path
-                              " -> dll  " (.FullName assy-info)
-                              (when clj-info
-                                (str "  (dll-mtime=" (.LastWriteTime assy-info)
-                                     " clj-mtime=" (.LastWriteTime clj-info) ")")))))
-              (-load-assembly (.FullName assy-info) relative-path))
+       (and clj-info *compile-files*)
+       (do
+         (debug-load relative-path "compile" clj-info assy-info)
+         (clojure.lang.RT/Compile clj-info relative-path))
 
-            (and clj-info *compile-files*)
-            (do
-              (when (= "1" (Environment/GetEnvironmentVariable "MAGIC_DEBUG_LOAD"))
-                (.WriteLine System.Console/Error (str "[MAGIC_DEBUG_LOAD] " relative-path
-                              " -> compile " (.FullName clj-info)
-                              (when assy-info
-                                (str "  (clj-mtime=" (.LastWriteTime clj-info)
-                                     " dll-mtime=" (.LastWriteTime assy-info) ")")))))
-              (clojure.lang.RT/Compile clj-info relative-path))
+       clj-info
+       (do
+         (debug-load relative-path "clj" clj-info assy-info)
+         (clojure.lang.RT/LoadScript clj-info relative-path))
 
-            clj-info
-            (do
-              (when (= "1" (Environment/GetEnvironmentVariable "MAGIC_DEBUG_LOAD"))
-                (.WriteLine System.Console/Error (str "[MAGIC_DEBUG_LOAD] " relative-path
-                              " -> clj  " (.FullName clj-info)
-                              (when assy-info
-                                (str "  (clj-mtime=" (.LastWriteTime clj-info)
-                                     " dll-mtime=" (.LastWriteTime assy-info) ")")))))
-              (clojure.lang.RT/LoadScript clj-info relative-path))
+       ;; the test does the load
+       (clojure.lang.RT/TryLoadInitType relative-path)
+       nil
 
-            :else
-            (recur (first code-sources) (rest code-sources)))
-
-            ;; load from init type
-            (= code-source clojure.lang.RuntimeBootstrapFlag+CodeSource/InitType)
-            (or (-try-load-init-type relative-path)
-                (recur (first code-sources) (rest code-sources)))
-            
-            ;; load from embedded resource: unsupported, fall through so the
-            ;; not-found branch reports what was actually searched
-            (= code-source clojure.lang.RuntimeBootstrapFlag+CodeSource/EmbeddedResource)
-            (recur (first code-sources) (rest code-sources)))))))
+       fail-of-not-found
+       (throw (System.IO.FileNotFoundException.
+               (str "Could not locate any of "
+                    (vec (concat source-names dll-names))
+                    (str " on load path " *load-paths*)
+                    (when (.Contains relative-path "_")
+                      (str " Please check that namespaces with dashes "
+                           "use underscores in the Clojure file name.")))))))))
 
 ;;;;;; end bootstrap loading machinery
 
