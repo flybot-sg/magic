@@ -179,8 +179,8 @@
     magic.deps.git
     magic.deps.submodules
     magic.deps.basis
-    magic.deps.load-path
     magic.deps.magic-edn
+    magic.deps.load-path
     nostrand.core
     nostrand.repl
     nostrand.cli
