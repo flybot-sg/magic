@@ -12,9 +12,7 @@
         "Clojure.dll"
     ],
     "autoReferenced": true,
-    "defineConstraints": [
-        "!MAGIC_RUNTIME_IN_EDITOR"
-    ],
+    "defineConstraints": [],
     "versionDefines": [],
     "noEngineReferences": true
 }

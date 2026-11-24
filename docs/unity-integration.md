@@ -86,7 +86,7 @@ Whether you commit that folder is a second, separate choice, and it comes down t
 
 ## Choosing the Editor runtime
 
-The package ships both MAGIC (the default for the player build) and ClojureCLR (the default for the Unity editor); set the Editor runtime via `Project Settings > MAGIC`, or from a script through `Magic.Unity.EditorRuntime` ([package README](../magic-unity/README.md#editor-api)). ClojureCLR is the default because it hot-reloads from source; MAGIC-in-Editor runs MAGIC's runtime and compiler, to reproduce a divergence before a build.
+The Editor runs one of two Clojure runtimes, MAGIC or ClojureCLR; players always run MAGIC. Set the Editor runtime via `Project Settings > MAGIC`, or from a script through `Magic.Unity.EditorRuntime` ([package README](../magic-unity/README.md#editor-api)). Both hot-reload saved sources.
 
 The `MAGIC_RUNTIME_IN_EDITOR` scripting define symbol leaves exactly one runtime present in every state:
 

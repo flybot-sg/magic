@@ -241,7 +241,7 @@ Three passes do the work. `EliminateUnreachableInstructions` strips dead IL the 
 
 That rewrite happens in place. `IL2CPPWorkarounds` writes a temporary file, deletes the original and moves the new bytes over it, so after any player build the DLLs in `magic/` are Cecil output rather than compiler output. This is unconditional, and it happens on Mono builds too: reading and writing an assembly with Cecil rebuilds its metadata tables and layout, so the bytes differ even when no instruction changed. Deterministic compilation says nothing about it, because the mutation happens downstream of the compiler. Committing that directory after a build, without restoring it first, ships the wrong bytes. [The bootstrap](./bootstrap.md) covers getting back to a clean state.
 
-A project can also keep ClojureCLR in the editor for hot reload and run MAGIC only in players, which is the default. The package ships both runtimes, MAGIC's fork under `Runtime/magic/` and ClojureCLR under `Runtime/clojure-clr/`, and a define constraint on every shipped DLL decides which set the editor is allowed to load. `Editor/Reload/` holds the hot-reload file watcher, which reloads only when a consumer calls `Poll`. Consumer setup is [Unity integration](./unity-integration.md#choosing-the-editor-runtime).
+The editor runs either MAGIC or ClojureCLR; players always run MAGIC. The package ships both runtimes, MAGIC's fork under `Runtime/magic/` and ClojureCLR under `Runtime/clojure-clr/`, and a define constraint on every shipped DLL decides which set the editor is allowed to load. `Editor/Reload/` holds the hot-reload file watcher, present in both editor runtimes, which reloads only when a consumer calls `Poll`. Consumer setup is [Unity integration](./unity-integration.md#choosing-the-editor-runtime).
 
 ## The example Unity projects
 
@@ -253,7 +253,7 @@ The point is the comparison. `nos dotnet/run-tests` runs the suites under Mono i
 
 [`magic-unity-coexist`](../unity-examples/magic-unity-coexist) shows how to run both compilers in one Unity project, which is what a shipping game actually wants.
 
-The reason is hot reload. MAGIC compiles ahead of time, so changing a function means recompiling and reloading the domain. ClojureCLR loads `.clj` from disk and can redefine a var the moment you save. ClojureCLR in turn cannot ship to iOS, which is the whole reason MAGIC exists. So each runs where it is strong: ClojureCLR drives the editor, MAGIC compiles what players run. The package ships ClojureCLR and its dependencies, the DLR included, so that arrangement is exercised here instead of only inside a consumer project, and it runs headless from a `bb` task.
+Players always run MAGIC, so a project with ClojureCLR in the editor holds both runtimes. The package ships ClojureCLR and its dependencies, the DLR included, so that arrangement is exercised here instead of only inside a consumer project, and it runs headless from a `bb` task.
 
 Making the two share a project also took fixes on the ClojureCLR side, carried by [`flybot-sg/clojure-clr`](https://github.com/flybot-sg/clojure-clr), the maintained 1.11 fork the Unity package embeds.
 
