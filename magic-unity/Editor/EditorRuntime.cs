@@ -205,8 +205,7 @@ namespace Magic.Unity
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Editor Runtime", EditorStyles.boldLabel);
             EditorGUILayout.LabelField(
-                "ClojureCLR hot-reloads, so develop in it. Player builds always run MAGIC; "
-                    + "switch to it to reproduce one.",
+                "Player builds always run MAGIC. Both Editor runtimes hot-reload saved sources.",
                 EditorStyles.wordWrappedLabel
             );
             EditorGUILayout.Space();

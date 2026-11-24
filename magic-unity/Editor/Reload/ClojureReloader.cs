@@ -7,9 +7,6 @@ using System.Linq;
 namespace Magic.Unity
 {
     /// <summary>
-    /// Effective only with a runtime that loads the code from the source
-    /// (ClojureCLR).
-    ///
     /// A file event marks a path as dirty on the background watcher thread. One
     /// single thread calls <see cref="Poll"/>, which reads the file, evaluates it,
     /// and retries a read that fails.

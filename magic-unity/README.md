@@ -43,7 +43,7 @@ A MAGIC Editor ignores `reload.edn` and takes the source paths of the project's 
 - `bool IsMagicEnabled()` - whether the Editor's Clojure runtime is MAGIC.
 - `void UseMagic()` / `void UseClojureCLR()` - set it, on the active build target. It triggers a recompilation, so the switch takes effect on the next Unity invocation.
 
-`Magic.Unity.ClojureReloader` class, in the Editor-only assembly `Magic.Unity.Editor.Reload`, which exists only while the Editor runs ClojureCLR (`MAGIC_RUNTIME_IN_EDITOR` unset). Wrap code that uses it in `#if UNITY_EDITOR && !MAGIC_RUNTIME_IN_EDITOR`.
+`Magic.Unity.ClojureReloader` class, in the Editor-only assembly `Magic.Unity.Editor.Reload`, which exists in both Editor runtimes. Wrap code that uses it in `#if UNITY_EDITOR`.
 
 - `ClojureReloader(IEnumerable<string> roots, Action<string> logger, Action<string> onChanged = null)` - watch the given directories recursively for `.clj`/`.cljc`/`.cljr` saves; typically `Clojure.SourceRoots`.
 - `void Poll()` - call it on each tick of one thread, normally the main thread. It evaluates each source file that has settled.

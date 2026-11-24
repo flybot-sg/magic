@@ -40,6 +40,7 @@
 - A MAGIC Editor puts the source paths of the project's deps file on `*load-paths*`, resolved as `nos` resolves them, and exposes them as `Magic.Unity.Clojure.SourceRoots` - [#217](https://github.com/flybot-sg/magic/issues/217).
 - **Breaking:** A MAGIC Editor compiles a consumer's namespaces from the deps file's source paths instead of loading the DLLs `nos build` wrote under `Assets/`, which now load only in players - [#228](https://github.com/flybot-sg/magic/issues/228).
 - A MAGIC Editor loads the project's namespaces from `nos build :dev`'s output, compiling from source only those whose source is newer, and compiles with the dev build's flags - [#232](https://github.com/flybot-sg/magic/issues/232).
+- `ClojureReloader` hot-reloads in a MAGIC Editor too - [#236](https://github.com/flybot-sg/magic/issues/236).
 - **Breaking:** `Magic.Unity.Clojure.GetVar` is renamed `Var`, and `GetVar<T>` is renamed `Deref<T>`, since it returns the var's value - [#213](https://github.com/flybot-sg/magic/issues/213).
 
 ### Tooling
