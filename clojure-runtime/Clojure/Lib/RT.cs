@@ -4238,7 +4238,8 @@ namespace clojure.lang
 
         public static void LoadScript(FileInfo cljInfo, string relativePath)
         {
-            Compiler.RequiredBackend("load", cljInfo.FullName).LoadFile(cljInfo, relativePath);
+            using (TextReader rdr = cljInfo.OpenText())
+                Compiler.load(rdr, cljInfo.FullName, cljInfo.Name, relativePath);
         }
 
         public static void Compile(FileInfo cljInfo, string relativePath)

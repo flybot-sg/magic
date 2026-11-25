@@ -1914,6 +1914,13 @@ namespace clojure.lang
             {
                 throw;
             }
+            // MAGIC runs each form through reflection, which wraps a nested load's
+            // CompilerException; rethrow it, as upstream's does unwrapped
+            catch (TargetInvocationException e) when (e.InnerException is CompilerException)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(e.InnerException).Throw();
+                throw;
+            }
             catch (Exception e)
             {
                 throw new CompilerException(sourcePath, lineBefore, columnBefore, null, CompilerException.PhaseExecutionKeyword, e);

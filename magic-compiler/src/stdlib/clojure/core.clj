@@ -5953,7 +5953,7 @@ Note that read can execute code (controlled by *read-eval*),
        clj-info
        (do
          (debug-load relative-path "clj" clj-info assy-info)
-         (clojure.lang.RT/LoadScript clj-info relative-path))
+         (clojure.lang.RT/LoadScript clj-info (str relative-path (.Extension clj-info))))
 
        ;; the test does the load
        (clojure.lang.RT/TryLoadInitType relative-path)

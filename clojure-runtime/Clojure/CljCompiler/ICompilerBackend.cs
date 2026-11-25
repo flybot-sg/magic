@@ -15,7 +15,6 @@ namespace clojure.lang
     {
         object Eval(object form);
         object Macroexpand1(object form);
-        object LoadFile(FileInfo file, string relativePath);
         object CompileFile(FileInfo file, string relativePath);
     }
 }
