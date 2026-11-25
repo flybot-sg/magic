@@ -200,7 +200,9 @@ namespace clojure.lang
 //         internal static readonly Var CompileStubOrigClassVar = Var.create(null).setDynamic();
 //         internal static readonly Var CompilingDefTypeVar = Var.create(null).setDynamic();
 
-//         internal static readonly Var CompilerContextVar = Var.create(null).setDynamic();
+        // The backend's eval compiles a load's forms into one module it keeps here.
+        // Upstream's load binds it to one process-wide GenContext, EvalContext, instead.
+        public static readonly Var CompilerContextVar = Var.create(null).setDynamic();
 //         internal static readonly Var CompilerActiveVar = Var.create(false).setDynamic();
         
 //         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2211:NonConstantFieldsShouldNotBeVisible")]  
@@ -1886,7 +1888,8 @@ namespace clojure.lang
                 RT.CurrentNSVar, RT.CurrentNSVar.deref(),
                 RT.UncheckedMathVar, RT.UncheckedMathVar.deref(),
                 RT.WarnOnReflectionVar, RT.WarnOnReflectionVar.deref(),
-                RT.DataReadersVar, RT.DataReadersVar.deref()
+                RT.DataReadersVar, RT.DataReadersVar.deref(),
+                CompilerContextVar, new Volatile(null)
                 ));
 
             Object readerOpts = ReaderOpts(sourceName);
