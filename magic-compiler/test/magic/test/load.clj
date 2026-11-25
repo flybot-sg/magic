@@ -216,6 +216,15 @@
       (load-string "(in-ns 'magic.test.tmp.load-string)")
       (is (= before *ns*)))))
 
+(defn- dynamic-assemblies []
+  (count (filter #(.IsDynamic ^System.Reflection.Assembly %)
+                 (.GetAssemblies AppDomain/CurrentDomain))))
+
+(deftest load-string-compiles-into-one-assembly
+  (let [before (dynamic-assemblies)]
+    (load-string "(def magic-test-one-a 1) (defn magic-test-one-f [] magic-test-one-a) (magic-test-one-f)")
+    (is (= 1 (- (dynamic-assemblies) before)))))
+
 (deftest load-file-binds-file-to-the-path-as-given
   (let [dir  (temp-dir)
         path (str dir "/./loaded.clj")]
@@ -283,4 +292,24 @@
           (api/compile-namespace reader-sym {:write-files true :suppress-print-forms true}))
         (is (= [false readers] @(ns-resolve (find-ns reader-sym) 'seen)))
         (is (= [false readers] [*unchecked-math* *data-readers*]))
+        (finally (Directory/Delete dir true))))))
+
+(defn compile-units!
+  [dir syms]
+  (binding [*load-paths* [dir] *compile-path* dir *compile-files* true]
+    (doseq [sym syms]
+      (api/compile-namespace sym {:write-files true :suppress-print-forms true}))))
+
+(deftest units-of-one-namespace-eval-within-one-load
+  (testing "as core_print and core_proxy, compiled by one build script"
+    (let [dir (temp-dir)
+          ns-sym (symbol (str "magic.test.tmp.evalns" (gensym)))
+          part-syms (repeatedly 2 #(symbol (str "magic.test.tmp.evalpart" (gensym))))]
+      (try
+        (write-ns! dir ns-sym ".clj" (str "(ns " ns-sym ")"))
+        (doseq [[part-sym v] (map vector part-syms '[x y])]
+          (write-ns! dir part-sym ".clj"
+                     (str "(in-ns '" ns-sym ")(def " v " (eval '(+ 1 2)))")))
+        (load-string (pr-str `(compile-units! ~dir (quote ~(cons ns-sym part-syms)))))
+        (is (= [3 3] [@(ns-resolve ns-sym 'x) @(ns-resolve ns-sym 'y)]))
         (finally (Directory/Delete dir true))))))
