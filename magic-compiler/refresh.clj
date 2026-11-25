@@ -95,7 +95,7 @@
                   (doseq [[sym ^clojure.lang.Var v] (ns-refers n)
                           :when (not= (the-ns 'clojure.core) (.Namespace v))]
                     (ns-unmap n sym)))
-                (api/compile-namespace ns {:write-files true :suppress-print-forms true})
+                (api/compile-namespace ns {:suppress-print-forms true})
                 (println "ok")
                 failed
                 (catch Exception e
