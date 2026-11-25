@@ -9,7 +9,7 @@
 - A source file's `set!` of `*unchecked-math*`, `*warn-on-reflection*` or `*data-readers*` ends with that file instead of leaking into every file loaded or compiled after it - [#238](https://github.com/flybot-sg/magic/issues/238).
 
 ### Runtime
-- `CompilerException` carries its phase and location in `ex-data`, so `ex-triage` reports a syntax error there instead of an execution error, and its message no longer embeds the cause's stack trace - [#197](https://github.com/flybot-sg/magic/issues/197).
+- `CompilerException` carries its phase and location in `ex-data`, so `ex-triage` reports a syntax error, and an error in a file that `require` loads throws one too - [#197](https://github.com/flybot-sg/magic/issues/197), [#239](https://github.com/flybot-sg/magic/issues/239).
 - `load-file`, `load-string`, `load-reader` and `clojure.main` scripts now run - [#192](https://github.com/flybot-sg/magic/issues/192).
 - `*file*` in a loaded file holds its path instead of `#eval#` - [#192](https://github.com/flybot-sg/magic/issues/192).
 - `clojure.main` reports an uncaught error and exits 1, instead of crashing Mono - [#192](https://github.com/flybot-sg/magic/issues/192).
