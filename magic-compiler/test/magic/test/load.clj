@@ -265,3 +265,22 @@
                 :clojure.error/line 2 :clojure.error/column 7}
                (ex-data e))))
       (finally (Directory/Delete dir true)))))
+
+(deftest a-source-file-set!s-unchecked-math-for-itself
+  (testing "compiled, as the bootstrap compiles one unit after another"
+    (let [dir (temp-dir)
+          root-sym (symbol (str "magic.test.tmp.rootmath" (gensym)))
+          reader-sym (symbol (str "magic.test.tmp.readmath" (gensym)))
+          readers *data-readers*]
+      (try
+        (write-ns! dir root-sym ".clj"
+                   (str "(ns " root-sym ")(set! *unchecked-math* true)"
+                        "(set! *data-readers* {'magic.test/tag identity})"))
+        (write-ns! dir reader-sym ".clj"
+                   (str "(ns " reader-sym ")(def seen [*unchecked-math* *data-readers*])"))
+        (binding [*load-paths* [dir] *compile-path* dir *compile-files* true]
+          (api/compile-namespace root-sym {:write-files true :suppress-print-forms true})
+          (api/compile-namespace reader-sym {:write-files true :suppress-print-forms true}))
+        (is (= [false readers] @(ns-resolve (find-ns reader-sym) 'seen)))
+        (is (= [false readers] [*unchecked-math* *data-readers*]))
+        (finally (Directory/Delete dir true))))))

@@ -6,6 +6,7 @@
 - A `loop` whose `recur` widens a binding whose init contains `fn`, `for` or `lazy-seq` now compiles to a DLL - [#179](https://github.com/flybot-sg/magic/issues/179).
 - `eval` of a form that can only throw, such as `(throw ...)`, throws its exception instead of failing with `DefineMethod` - [#195](https://github.com/flybot-sg/magic/issues/195).
 - A top-level macro that expands to `do` compiles and runs each form in turn, as on JVM Clojure - [#194](https://github.com/flybot-sg/magic/issues/194).
+- A source file's `set!` of `*unchecked-math*`, `*warn-on-reflection*` or `*data-readers*` ends with that file instead of leaking into every file loaded or compiled after it - [#238](https://github.com/flybot-sg/magic/issues/238).
 
 ### Runtime
 - `CompilerException` carries its phase and location in `ex-data`, so `ex-triage` reports a syntax error there instead of an execution error, and its message no longer embeds the cause's stack trace - [#197](https://github.com/flybot-sg/magic/issues/197).
