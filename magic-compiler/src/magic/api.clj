@@ -205,8 +205,7 @@
          ;; checkout directory into the emitted bytes via :file var metadata
          source-path (str (string/replace (str module) "." "/")
                           extension)]
-     (binding [*print-meta*            false
-               *ns*                    *ns*
+     (binding [*ns*                    *ns*
                *file*                  source-path
                *unchecked-math*        *unchecked-math*
                *warn-on-reflection*    *warn-on-reflection*
