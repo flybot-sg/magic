@@ -288,8 +288,8 @@
         (write-ns! dir reader-sym ".clj"
                    (str "(ns " reader-sym ")(def seen [*unchecked-math* *data-readers*])"))
         (binding [*load-paths* [dir] *compile-path* dir *compile-files* true]
-          (api/compile-namespace root-sym {:write-files true :suppress-print-forms true})
-          (api/compile-namespace reader-sym {:write-files true :suppress-print-forms true}))
+          (api/compile-namespace root-sym {:suppress-print-forms true})
+          (api/compile-namespace reader-sym {:suppress-print-forms true}))
         (is (= [false readers] @(ns-resolve (find-ns reader-sym) 'seen)))
         (is (= [false readers] [*unchecked-math* *data-readers*]))
         (finally (Directory/Delete dir true))))))
@@ -298,7 +298,7 @@
   [dir syms]
   (binding [*load-paths* [dir] *compile-path* dir *compile-files* true]
     (doseq [sym syms]
-      (api/compile-namespace sym {:write-files true :suppress-print-forms true}))))
+      (api/compile-namespace sym {:suppress-print-forms true}))))
 
 (deftest units-of-one-namespace-eval-within-one-load
   (testing "as core_print and core_proxy, compiled by one build script"

@@ -179,8 +179,8 @@
 
 (defn- reset-global-gensym-counter!
   "Emitted auto-gensym names must depend on the compilation unit alone, not
-   on what the process consumed before it. File-writing compiles only:
-   resetting mid-process weakens gensym uniqueness for the host."
+   on what the process consumed before it. Resetting mid-process weakens
+   gensym uniqueness for the host."
   []
   (.SetValue rt-id-field nil (int 10000)))
 
@@ -215,7 +215,7 @@
                ;; a fresh type-name counter per unit, not a reset of the shared
                ;; one: a require in the ns form compiles a dependency mid-unit,
                ;; and a reset would restart this unit's names
-               u/*gensym-map*          (if (:write-files opts) (atom {}) u/*gensym-map*)]
+               u/*gensym-map*          (atom {})]
        (let [type-name        (clojure-clr-init-class-name module)
              ns-type          (.DefineType magic.emission/*module* type-name abstract-sealed)
              init-method      (.DefineMethod ns-type "Initialize" public-static)
@@ -226,9 +226,8 @@
                                ::il/ilg            init-ilg}
              file             (System.IO.File/OpenText path)
              module-file-name (str module-name ".dll")]
-         (when (:write-files opts)
-           (reset-global-gensym-counter!)
-           (type-lookup-cache-clear!))
+         (reset-global-gensym-counter!)
+         (type-lookup-cache-clear!)
          ;; evals get a module of the unit's own: the counters reset above
          ;; would repeat type names already in the enclosing load's module
          (with-bindings {clojure.lang.Compiler/CompilerContextVar (volatile! nil)}
@@ -248,23 +247,24 @@
                (.Close file))))
          (il/emit! ctx (il/ret))
          (.CreateType ns-type)
-         (when (:write-files opts)
-           (let [compile-path (or *compile-path* ".")
-                 file-name    module-file-name
-                 final-path   (Path/Combine compile-path file-name)]
-             (Directory/CreateDirectory compile-path)
-             (if-not (File/Exists final-path)
-               (let [assembly (.Assembly magic.emission/*module*)]
-                 (Magic.Emission/EmitAssembly assembly file-name)
-                 (normalize-assembly! file-name)
-                 (when-not (= compile-path ".")
-                   (File/Move file-name final-path)))
-               (println "[compile-file] file already exists" final-path))
-             (when-not (:suppress-print-forms opts)
-               (println "[compile-file] end" path "->" final-path)))))))))
+         (let [compile-path (or *compile-path* ".")
+               file-name    module-file-name
+               final-path   (Path/Combine compile-path file-name)]
+           (Directory/CreateDirectory compile-path)
+           (if-not (File/Exists final-path)
+             (let [assembly (.Assembly magic.emission/*module*)]
+               (Magic.Emission/EmitAssembly assembly file-name)
+               (normalize-assembly! file-name)
+               (when-not (= compile-path ".")
+                 (File/Move file-name final-path)))
+             (println "[compile-file] file already exists" final-path))
+           (when-not (:suppress-print-forms opts)
+             (println "[compile-file] end" path "->" final-path))))))))
 
 (defn compile-namespace
-  "Keys in opts:
+  "Writes namespace's DLL to *compile-path*, or the current directory.
+
+  Keys in opts:
   :suppress-print-forms - if logical true, suppresses printing each compiled form"
   ([namespace]
    (compile-namespace namespace nil))
@@ -312,7 +312,6 @@
         (compile-expression-top-level
          expr ctx
          {:compiled-for-eval true
-          :write-files false
           :suppress-print-forms true})))
     (catch clojure.lang.ExceptionInfo e
       (present-error e))))
@@ -321,7 +320,7 @@
   (try
     (let [full-path (.FullName file)]
       (compile-file full-path (compiler-munge (str path))
-                    {:write-files true :suppress-print-forms true}))
+                    {:suppress-print-forms true}))
     (catch clojure.lang.ExceptionInfo e
       (present-error e))))
 
