@@ -49,7 +49,7 @@ This is the consumer-side guide. For the package's C# API and install reference,
    }
    ```
 
-   In the Editor these calls drive whichever runtime it runs (see below), and that runtime compiles your namespaces from source.
+   In the Editor these calls drive whichever runtime it runs (see below). ClojureCLR compiles your namespaces from source; MAGIC loads them from the `nos build :dev` cache, or from source where the cache has no up-to-date DLL.
 
 6. **Build a player to exercise the IL2CPP / AOT path.** Editor Play runs under Mono and can't surface IL2CPP-only regressions. The smoke example wires this to a one-click menu; see the [smoke README](../unity-examples/magic-unity-smoke/README.md#run). For CI without Unity, `nos test` runs the Mono-side tests headless but doesn't exercise IL2CPP.
 
@@ -100,7 +100,7 @@ Note that:
 
 - **API Compatibility Level must be `.NET Framework`** (`Project Settings > Player`) for ClojureCLR, as it needs assemblies the .NET Standard profile lacks.
 - In the default state, `Clojure.Require`/`Var` drive ClojureCLR, not MAGIC: the same C# calls, executed by whichever runtime the Editor loaded. ClojureCLR compiles from source, so Editor `Require` needs your Clojure sources on its load path: list their roots in `reload.edn` ([package README](../magic-unity/README.md#source-roots)).
-- The DLLs that `nos build` wrote are for players only and stay out of the Editor in both states. A MAGIC Editor compiles your namespaces from your deps file's source paths instead, without the production flags `nos build` uses.
+- The DLLs that `nos build` wrote are for players only and stay out of the Editor in both states. A MAGIC Editor loads your namespaces from the `nos build :dev` cache, or from your deps file's source paths, without the production flags `nos build` uses.
 - **Hot reload is yours to wire up.** A saved Clojure source can be re-evaluated into the running Editor, but nothing in the package does it: construct a [`Magic.Unity.ClojureReloader`](../magic-unity/README.md#editor-api) over `Clojure.SourceRoots` and poll it from your main-thread loop.
 
 ## Shipping your own compiled DLLs
