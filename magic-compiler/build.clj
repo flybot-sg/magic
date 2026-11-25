@@ -93,4 +93,4 @@
           (println (str "building " lib))
           ;; Magic.csproj deploys bootstrap/stdlib to players, bootstrap/compiler to the Editor
           (binding [*compile-path* (if (stdlib-ns? lib) "bootstrap/stdlib" "bootstrap/compiler")]
-            (compile-namespace lib {:write-files true :suppress-print-forms true})))))))
+            (compile-namespace lib {:suppress-print-forms true})))))))
