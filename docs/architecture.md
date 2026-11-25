@@ -213,7 +213,7 @@ The compiler is a DLL out of necessity: it cannot compile itself into existence,
 
 Unity never compiles Clojure.
 
-You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic/`, and Unity loads them into players as ordinary .NET assemblies. So players get a runtime and no compiler. A MAGIC Editor also loads the compiler from `Editor/Compiler/` and makes it the runtime's compiler, so `eval` and loading a `.clj` work there. It compiles your namespaces from source rather than loading what `nos` wrote, which only players load.
+You compile first with `nos`, which writes `.clj.dll` into `Assets/Plugins/Magic/`, and Unity loads them into players as ordinary .NET assemblies. So players get a runtime and no compiler. A MAGIC Editor also loads the compiler from `Editor/Compiler/` and makes it the runtime's compiler, so `eval` and loading a `.clj` work there. It loads your namespaces from the `nos build :dev` cache, or from source where the cache has no up-to-date DLL, and never loads what `nos build` wrote, which only players load.
 
 ```mermaid
 flowchart TD
