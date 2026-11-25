@@ -208,6 +208,9 @@
      (binding [*print-meta*            false
                *ns*                    *ns*
                *file*                  source-path
+               *unchecked-math*        *unchecked-math*
+               *warn-on-reflection*    *warn-on-reflection*
+               *data-readers*          *data-readers*
                magic.emission/*module* (magic.emission/fresh-module module-name)
                ;; a fresh type-name counter per unit, not a reset of the shared
                ;; one: a require in the ns form compiles a dependency mid-unit,
