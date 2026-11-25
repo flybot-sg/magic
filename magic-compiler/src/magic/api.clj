@@ -317,14 +317,6 @@
     (catch clojure.lang.ExceptionInfo e
       (present-error e))))
 
-(defn runtime-load-file [file path]
-  (try
-    (let [full-path (.FullName file)]
-      (compile-file full-path (compiler-munge (str path))
-                    {:write-files false :suppress-print-forms true}))
-    (catch clojure.lang.ExceptionInfo e
-      (present-error e))))
-
 (defn runtime-compile-file [file path]
   (try
     (let [full-path (.FullName file)]
@@ -341,7 +333,6 @@
   (reify clojure.lang.ICompilerBackend
     (Eval [_ form] (eval form))
     (Macroexpand1 [_ form] (runtime-macroexpand-1 form))
-    (LoadFile [_ file path] (runtime-load-file file path))
     (CompileFile [_ file path] (runtime-compile-file file path))))
 
 (def version "0.0-alpha")
