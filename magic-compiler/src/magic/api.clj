@@ -229,20 +229,23 @@
          (when (:write-files opts)
            (reset-global-gensym-counter!)
            (type-lookup-cache-clear!))
-         (try
-           (let [rdr    (LineNumberingTextReader. file)
-                 ;; an :eof sentinel keeps a genuine reader failure from looking
-                 ;; like end of input, which would truncate the unit silently
-                 read-opts (cond-> (assoc read-options :eof ::eof)
-                             (not (.EndsWith (str path) ".cljc")) (dissoc :read-cond))
-                 read-1 (fn [] (read read-opts rdr))]
-             (loop [expr (read-1) i 0]
-               (when-not (= ::eof expr)
-                 (compile-expression-top-level expr ctx (assoc opts ::unit (str module)))
-                 (recur (read-1) (inc i))))
-             (.Close rdr))
-           (finally
-             (.Close file)))
+         ;; evals get a module of the unit's own: the counters reset above
+         ;; would repeat type names already in the enclosing load's module
+         (with-bindings {clojure.lang.Compiler/CompilerContextVar (volatile! nil)}
+           (try
+             (let [rdr    (LineNumberingTextReader. file)
+                   ;; an :eof sentinel keeps a genuine reader failure from looking
+                   ;; like end of input, which would truncate the unit silently
+                   read-opts (cond-> (assoc read-options :eof ::eof)
+                               (not (.EndsWith (str path) ".cljc")) (dissoc :read-cond))
+                   read-1 (fn [] (read read-opts rdr))]
+               (loop [expr (read-1) i 0]
+                 (when-not (= ::eof expr)
+                   (compile-expression-top-level expr ctx (assoc opts ::unit (str module)))
+                   (recur (read-1) (inc i))))
+               (.Close rdr))
+             (finally
+               (.Close file))))
          (il/emit! ctx (il/ret))
          (.CreateType ns-type)
          (when (:write-files opts)
@@ -286,9 +289,25 @@
       (throw (clojure.lang.ClojureException.
               (str message (:name data) " (compiling " file ":" (:start-line source-span) ":" (:start-column source-span) ")"))))))
 
+(defn- eval-module
+  "The enclosing `load`'s module, made on first use; a fresh one outside a load."
+  []
+  (if-let [^clojure.lang.Volatile unit (.deref clojure.lang.Compiler/CompilerContextVar)]
+    (let [thread         System.Threading.Thread/CurrentThread
+          ;; only the thread that made the module gets it: emitting into one module
+          ;; from two threads fails
+          [owner module] (locking unit
+                           (or @unit
+                               (do (type-lookup-cache-clear!) ; should clear, otherwise it grows
+                                   (vreset! unit [thread (fresh-module "load")]))))]
+      (if (identical? owner thread)
+        module
+        (fresh-module "eval")))
+    (fresh-module "eval")))
+
 (defn eval [expr]
   (try
-    (binding [*module* (fresh-module "eval")]
+    (binding [*module* (eval-module)]
       (let [ctx {::il/module-builder *module*}]
         (compile-expression-top-level
          expr ctx
