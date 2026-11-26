@@ -242,6 +242,7 @@
                           extension)]
      (binding [*ns*                    *ns*
                *file*                  source-path
+               *read-eval*             true
                *unchecked-math*        *unchecked-math*
                *warn-on-reflection*    *warn-on-reflection*
                *data-readers*          *data-readers*
