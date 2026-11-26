@@ -8,6 +8,7 @@
 - A top-level macro that expands to `do` compiles and runs each form in turn, as on JVM Clojure - [#194](https://github.com/flybot-sg/magic/issues/194).
 - **Breaking:** `magic.api/compile-namespace` and `compile-file` always write a DLL, and the `:write-files` option is gone - [#239](https://github.com/flybot-sg/magic/issues/239).
 - A source file's `set!` of `*unchecked-math*`, `*warn-on-reflection*` or `*data-readers*` ends with that file instead of leaking into every file loaded or compiled after it - [#238](https://github.com/flybot-sg/magic/issues/238).
+- `compile` and `nos build` report the file and line of an error, as `require` does - [#241](https://github.com/flybot-sg/magic/issues/241).
 
 ### Runtime
 - `CompilerException` carries its phase and location in `ex-data`, so `ex-triage` reports a syntax error, and an error in a file that `require` loads throws one too - [#197](https://github.com/flybot-sg/magic/issues/197), [#239](https://github.com/flybot-sg/magic/issues/239).
