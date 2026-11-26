@@ -10,6 +10,7 @@
 - A source file's `set!` of `*unchecked-math*`, `*warn-on-reflection*` or `*data-readers*` ends with that file instead of leaking into every file loaded or compiled after it - [#238](https://github.com/flybot-sg/magic/issues/238).
 - `compile` and `nos build` report the file and line of an error, as `require` does - [#241](https://github.com/flybot-sg/magic/issues/241).
 - `compile` reads `#=` under `*read-eval*` false, as `require` does - [#241](https://github.com/flybot-sg/magic/issues/241).
+- `(load "part-one")` compiles to the DLL `load` looks for, so the part loads without its source - [#241](https://github.com/flybot-sg/magic/issues/241).
 
 ### Runtime
 - `CompilerException` carries its phase and location in `ex-data`, so `ex-triage` reports a syntax error, and an error in a file that `require` loads throws one too - [#197](https://github.com/flybot-sg/magic/issues/197), [#239](https://github.com/flybot-sg/magic/issues/239).

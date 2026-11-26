@@ -234,11 +234,14 @@
   ([path module opts]
    (when-not (:suppress-print-forms opts)
      (println "[compile-file] start" path))
-   (let [extension   (Path/GetExtension path)
+   (let [;; the unit's source path from the load root, as -load names its DLL and
+         ;; init type; -load separates it with slashes, compile-namespace with dots
+         module      (string/replace (str module) "/" ".")
+         extension   (Path/GetExtension path)
          module-name (assembly-name module extension)
          ;; *file* is load-relative like the JVM: an absolute path bakes the
          ;; checkout directory into the emitted bytes via :file var metadata
-         source-path (str (string/replace (str module) "." "/")
+         source-path (str (string/replace module "." "/")
                           extension)]
      (binding [*ns*                    *ns*
                *file*                  source-path
@@ -326,9 +329,6 @@
        (compile-file (.FullName file) (munge (str namespace)) opts)
        (throw (Exception. (str "could not find source file for namespace " namespace)))))))
 
-(defn compiler-munge [s]
-  (-> s (.Replace "/" ".") (.Replace "-" "_")))
-
 (defn present-error [e]
   (throw (analysis-error e)))
 
@@ -360,8 +360,7 @@
       (present-error e))))
 
 (defn runtime-compile-file [file path]
-  (compile-file (.FullName file) (compiler-munge (str path))
-                {:suppress-print-forms true}))
+  (compile-file (.FullName file) path {:suppress-print-forms true}))
 
 (defn runtime-macroexpand-1 [form]
   (ana/macroexpand-1 form))
