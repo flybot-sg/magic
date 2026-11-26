@@ -193,6 +193,41 @@
       (string/replace "/" ".")
       (str extension)))
 
+(defn- analysis-error
+  "A ClojureException naming the innermost analyzer error, and caused by it."
+  [e]
+  (loop [e e
+         data (ex-data e)
+         source-span (-> data :meta :source-span)
+         file (:file data)]
+    (if-let [e' (:exception data)]
+      (recur e' (ex-data e') (or (-> (ex-data e') :meta :source-span) source-span) (or (:file (ex-data e') file)))
+      (clojure.lang.ClojureException.
+       (str (.Message e) (:name data) " (compiling " file ":" (:start-line source-span) ":" (:start-column source-span) ")")
+       e))))
+
+(defn- unit-error
+  "e, thrown by the form at line and column of the unit at path."
+  [path line column e]
+  (cond
+    ;; already located, e.g. by a unit this one requires
+    (instance? clojure.lang.Compiler+CompilerException e)
+    e
+
+    (and (instance? System.Reflection.TargetInvocationException e)
+         (instance? clojure.lang.Compiler+CompilerException (.InnerException e)))
+    (.InnerException e)
+
+    :else
+    (clojure.lang.Compiler+CompilerException.
+     path (int line) (int column) nil
+     ;; a form runs through MethodInfo.Invoke, which wraps what it throws, so
+     ;; anything unwrapped failed before running
+     (if (instance? System.Reflection.TargetInvocationException e)
+       clojure.lang.Compiler+CompilerException/PhaseExecutionKeyword
+       clojure.lang.Compiler+CompilerException/PhaseCompileSyntaxCheckKeyword)
+     (if (instance? clojure.lang.ExceptionInfo e) (analysis-error e) e))))
+
 (defn compile-file
   ([path module]
    (compile-file path module nil))
@@ -236,11 +271,26 @@
                    ;; like end of input, which would truncate the unit silently
                    read-opts (cond-> (assoc read-options :eof ::eof)
                                (not (.EndsWith (str path) ".cljc")) (dissoc :read-cond))
-                   read-1 (fn [] (read read-opts rdr))]
-               (loop [expr (read-1) i 0]
-                 (when-not (= ::eof expr)
-                   (compile-expression-top-level expr ctx (assoc opts ::unit (str module)))
-                   (recur (read-1) (inc i))))
+                   read-1 (fn []
+                            (try
+                              (read read-opts rdr)
+                              (catch clojure.lang.LispReader+ReaderException e
+                                (throw (clojure.lang.Compiler+CompilerException.
+                                        path (.Line e) (.Column e) nil
+                                        clojure.lang.Compiler+CompilerException/PhaseReadKeyword
+                                        (.InnerException e))))))]
+               (loop []
+                 (let [line   (.LineNumber rdr)
+                       column (.ColumnNumber rdr)
+                       expr   (read-1)]
+                   (when-not (= ::eof expr)
+                     (try
+                       (compile-expression-top-level expr ctx (assoc opts ::unit (str module)))
+                       (catch Exception e
+                         ;; the form's position, as upstream's Compile1 takes it
+                         (let [{:keys [line column] :or {line line column column}} (meta expr)]
+                           (throw (unit-error path line column e)))))
+                     (recur))))
                (.Close rdr))
              (finally
                (.Close file))))
@@ -279,14 +329,7 @@
   (-> s (.Replace "/" ".") (.Replace "-" "_")))
 
 (defn present-error [e]
-  (loop [message (.Message e)
-         data (ex-data e)
-         source-span (-> data :meta :source-span)
-         file (:file data)]
-    (if-let [e' (:exception data)]
-      (recur (.Message e') (ex-data e') (or (-> (ex-data e') :meta :source-span) source-span) (or (:file (ex-data e') file)))
-      (throw (clojure.lang.ClojureException.
-              (str message (:name data) " (compiling " file ":" (:start-line source-span) ":" (:start-column source-span) ")"))))))
+  (throw (analysis-error e)))
 
 (defn- eval-module
   "The enclosing `load`'s module, made on first use; a fresh one outside a load."
@@ -316,12 +359,8 @@
       (present-error e))))
 
 (defn runtime-compile-file [file path]
-  (try
-    (let [full-path (.FullName file)]
-      (compile-file full-path (compiler-munge (str path))
-                    {:suppress-print-forms true}))
-    (catch clojure.lang.ExceptionInfo e
-      (present-error e))))
+  (compile-file (.FullName file) (compiler-munge (str path))
+                {:suppress-print-forms true}))
 
 (defn runtime-macroexpand-1 [form]
   (ana/macroexpand-1 form))

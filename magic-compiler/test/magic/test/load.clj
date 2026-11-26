@@ -313,3 +313,43 @@
         (load-string (pr-str `(compile-units! ~dir (quote ~(cons ns-sym part-syms)))))
         (is (= [3 3] [@(ns-resolve ns-sym 'x) @(ns-resolve ns-sym 'y)]))
         (finally (Directory/Delete dir true))))))
+
+(defn- compile-error
+  "Compile a unit of source after its ns form: [path ex-data] of the
+   CompilerException it throws."
+  [source]
+  (let [dir  (temp-dir)
+        sym  (symbol (str "magic.test.tmp.unit" (gensym)))
+        path (write-ns! dir sym ".clj" (str "(ns " sym ")\n" source))]
+    (try
+      (binding [*load-paths* [dir] *compile-path* dir *compile-files* true]
+        (api/compile-namespace sym {:suppress-print-forms true}))
+      nil
+      (catch clojure.lang.Compiler+CompilerException e [path (ex-data e)])
+      (finally (Directory/Delete dir true)))))
+
+(deftest compile-file-reports-where-a-unit-failed
+  (let [[path data] (compile-error "(def a 1)\n(throw (Exception. \"boom\"))")]
+    (is (= {:clojure.error/phase :execution :clojure.error/source path
+            :clojure.error/line 3 :clojure.error/column 2}
+           data)))
+  (let [[path data] (compile-error "(def a 1)\n(defn f [] (undefined-sym 1))")]
+    (is (= {:clojure.error/phase :compile-syntax-check :clojure.error/source path
+            :clojure.error/line 3 :clojure.error/column 2}
+           data))))
+
+(deftest compile-file-reports-where-a-required-unit-failed
+  (let [dir      (temp-dir)
+        root-sym (symbol (str "magic.test.tmp.requiring" (gensym)))
+        dep-sym  (symbol (str "magic.test.tmp.failing" (gensym)))
+        dep-path (write-ns! dir dep-sym ".clj" (str "(ns " dep-sym ")\n(undefined-sym 1)"))]
+    (try
+      (write-ns! dir root-sym ".clj" (str "(ns " root-sym " (:require " dep-sym "))"))
+      (let [e (try (binding [*load-paths* [dir] *compile-path* dir]
+                     (compile root-sym))
+                   nil
+                   (catch clojure.lang.Compiler+CompilerException e e))]
+        (is (= {:clojure.error/phase :compile-syntax-check :clojure.error/source dep-path
+                :clojure.error/line 2 :clojure.error/column 2}
+               (ex-data e))))
+      (finally (Directory/Delete dir true)))))
