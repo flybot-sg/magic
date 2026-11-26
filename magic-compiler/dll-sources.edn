@@ -59,7 +59,7 @@
  magic.analyzer.uniquify {:source "magic-compiler/src/magic/analyzer/uniquify.clj", :sha256 "8efe465c85094d3c1a788403231f5f84dde5c6a169ec66ca897da93bb4794d7a"}
  magic.analyzer.untyped_passes {:source "magic-compiler/src/magic/analyzer/untyped_passes.clj", :sha256 "19e7f4f2a357f2c265e373dcb1175f336baaf09b5d380744433a4d25f87c4a94"}
  magic.analyzer.util {:source "magic-compiler/src/magic/analyzer/util.clj", :sha256 "696020a2e8ae86c432ea83d2b783bc1a51fcc999972840889d76564b9a60e385"}
- magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "4f0fb1f6d28a6c9ec6f9009f35a657cba1bddc71f1552b8ea2857e7aa5b5f31c"}
+ magic.api {:source "magic-compiler/src/magic/api.clj", :sha256 "e2041768833e9df8b3cb5058a81bb52736c42857ba8703ff5bdda90ae01fde6e"}
  magic.core {:source "magic-compiler/src/magic/core.clj", :sha256 "3752d85fe5cb0288d7f37309325733492d6546699f228550b2e498d4df10028b"}
  magic.deps.basis {:source "magic-deps/magic/deps/basis.clj", :sha256 "215fc06d8df0fd6234aaa4b9a07e8b29e900d6e9fb535b9f6cebef7c540099f9"}
  magic.deps.git {:source "magic-deps/magic/deps/git.clj", :sha256 "0b10fe9ed89463a1917aaed6586d2bf4995dae8f9ada2fd6666e0639f891d733"}
